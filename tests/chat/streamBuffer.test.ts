@@ -152,3 +152,10 @@ describe('StreamBuffer 流式节流', () => {
     expect(events).toHaveLength(0);
   });
 });
+
+describe('StreamBuffer 默认值护栏', () => {
+  it('默认合帧间隔锁定为 40ms（防回归被悄悄改回）', async () => {
+    const { DEFAULT_FLUSH_MS } = await import('../../src/chat/streamBuffer.js');
+    expect(DEFAULT_FLUSH_MS).toBe(40);
+  });
+});

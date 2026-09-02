@@ -52,7 +52,15 @@
 
 ## [Unreleased]
 
-## [0.1.2] - 2026-08-07
+### Added
+
+- **超长工具结果的语义预处理（bash / read_file）**：输出超过 50k 字符时按结构保留头尾——bash 保头 50 行 + 尾 20 行、read_file 保头 10 段 + 尾 5 段，中间以带省略计数的标记替换，并给出收窄重跑的指引；其余工具不做处理。在字符兜底上限（400K）之前执行，双层保护减少 Flash 的注意力稀释。
+
+### Changed
+
+- **工具报错补充可操作的下一步**：`read_file` / `edit_file` 的「文件不存在」提示改为指路 `list_dir` / `glob` 定位；`read_file` 的二进制文件拒绝提示给出 `bash` + `strings`/`head`/`xxd` 的提取路径；`bash` 前台超时提示说明 `run_in_background=true` 与输出重定向两条出路。
+
+## [0.1.3] - 2026-09-02
 
 ### Added
 

@@ -72,8 +72,8 @@ function continuationStopMessage(
   }
 }
 
-/** 压缩时保留的最近消息条数。 */
-const KEEP_RECENT = 6;
+/** 压缩时保留的最近消息条数。导出供回归护栏测试锁定默认值。 */
+export const KEEP_RECENT = 6;
 /** 单次 runAgent 内因溢出触发强制压缩重试的上限，防死循环。 */
 const MAX_OVERFLOW_RETRIES = 3;
 export interface RunAgentOptions {

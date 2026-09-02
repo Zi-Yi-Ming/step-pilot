@@ -141,7 +141,7 @@ export const readFileTool: ToolDef<z.infer<typeof schema>> = {
     try {
       st = statSync(abs);
     } catch {
-      return fail(`文件不存在：${input.path}`);
+      return fail(`文件不存在：${input.path}。请确认路径相对当前工作目录拼写正确；可用 list_dir 查看目录内容或 glob 按模式定位文件。`);
     }
     if (st.isDirectory()) {
       return fail(`这是一个目录，不是文件：${input.path}。请用 list_dir。`);
@@ -171,7 +171,7 @@ export const readFileTool: ToolDef<z.infer<typeof schema>> = {
         return fail(`这是图片文件，请用 read_media 读取（path=${input.path}）。`);
       }
       if (containsNul(head)) {
-        return fail(`这是二进制文件，无法用 read_file 读取：${input.path}`);
+        return fail(`这是二进制文件，无法用 read_file 读取：${input.path}。如需其中的文本信息，可用 bash 搭配 strings、head、xxd 等命令提取。`);
       }
     }
 

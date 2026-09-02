@@ -241,7 +241,7 @@ function runForeground(
       if (taskId === undefined || ctx.background === undefined) {
         // 配置关闭或上下文不支持后台：保持旧行为，超时即杀返回错误
         terminateProcTree(proc);
-        finish(fail(`命令超时（${timeoutSec}s）后被终止。`));
+        finish(fail(`命令超时（${timeoutSec}s）后被终止。长命令请在调用时设置 run_in_background=true，或让命令自行把输出重定向到文件后再查看，避免前台阻塞。`));
         return;
       }
       // 前台超时 = 自动转后台，由 waitForegroundRelease 路径统一结算；

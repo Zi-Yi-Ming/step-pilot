@@ -48,6 +48,9 @@ export interface StreamBufferOptions {
   now?: () => number;
 }
 
+/** 默认合帧间隔（毫秒）。导出供回归护栏测试锁定默认值。 */
+export const DEFAULT_FLUSH_MS = 40;
+
 export class StreamBuffer {
   private readonly flushMs: number;
   private readonly apply: (ev: AgentEvent) => void;
@@ -61,7 +64,7 @@ export class StreamBuffer {
 
   constructor(apply: (ev: AgentEvent) => void, opts: StreamBufferOptions = {}) {
     this.apply = apply;
-    this.flushMs = opts.flushMs ?? 40;
+    this.flushMs = opts.flushMs ?? DEFAULT_FLUSH_MS;
     this.now = opts.now ?? (() => Date.now());
   }
 

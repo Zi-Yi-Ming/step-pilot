@@ -471,3 +471,10 @@ describe('runAgent', () => {
     expect(events.at(-1)!.type).toBe('turn_done');
   });
 });
+
+describe('默认值回归护栏', () => {
+  it('KEEP_RECENT 锁定为 6（压缩保留的最近消息条数，防回归被悄悄改回）', async () => {
+    const { KEEP_RECENT } = await import('../../src/agent/loop.js');
+    expect(KEEP_RECENT).toBe(6);
+  });
+});

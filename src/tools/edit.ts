@@ -67,7 +67,7 @@ export const editFileTool: ToolDef<z.infer<typeof schema>> = {
     try {
       text = readFileSync(abs, 'utf8');
     } catch {
-      return fail(`文件不存在或无法读取：${input.path}`);
+      return fail(`文件不存在或无法读取：${input.path}。请确认路径相对当前工作目录拼写正确；可用 list_dir 查看目录内容或 glob 按模式定位文件。`);
     }
 
     if (input.old_string === input.new_string) {
