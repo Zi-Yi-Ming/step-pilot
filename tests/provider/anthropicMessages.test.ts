@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AnthropicMessagesProvider } from '../../src/provider/anthropicMessages.js';
 
-/** 捕获 messages.stream 收到的请求体（vi.mock 工厂内引用，需 vi.hoisted）。 */
-const captured = vi.hoisted(() => ({ bodies: [] as Record<string, unknown>[] }));
+/** 捕获 messages.stream 收到的请求体与构造时的 baseURL（vi.mock 工厂内引用，需 vi.hoisted）。 */
+const captured = vi.hoisted(() => ({
+  bodies: [] as Record<string, unknown>[],
+  baseUrls: [] as string[],
+}));
 
 vi.mock('@anthropic-ai/sdk', () => {
   class FakeAnthropic {
@@ -16,6 +19,9 @@ vi.mock('@anthropic-ai/sdk', () => {
         };
       },
     };
+    constructor(opts: { baseURL?: string }) {
+      captured.baseUrls.push(opts.baseURL ?? '');
+    }
   }
   return { default: FakeAnthropic };
 });
@@ -115,5 +121,40 @@ describe('AnthropicMessagesProvider thinking 调用级覆盖（三态）', () =>
   it('覆盖不越过 sendThinking 闸门：sendThinking=false 时对象覆盖也不发', () => {
     const body = makeProvider({ sendThinking: false, streamThinking: { budgetTokens: 4096 } });
     expect('thinking' in body).toBe(false);
+  });
+});
+
+describe('baseURL 的 /v1 尾缀归一化', () => {
+  it('带 /v1 的 base_url 被剥掉（SDK 自拼 /v1/messages，双 /v1 会 404）', () => {
+    captured.baseUrls.length = 0;
+    new AnthropicMessagesProvider({
+      apiKey: 'k',
+      baseUrl: 'https://api.stepfun.com/v1',
+      model: 'm',
+      maxTokens: 1024,
+    });
+    expect(captured.baseUrls[0]).toBe('https://api.stepfun.com');
+  });
+
+  it('step_plan/v1 后缀剥成 /step_plan（官方文档：Anthropic SDK 下 base_url 不带 /v1）', () => {
+    captured.baseUrls.length = 0;
+    new AnthropicMessagesProvider({
+      apiKey: 'k',
+      baseUrl: 'https://api.stepfun.com/step_plan/v1',
+      model: 'm',
+      maxTokens: 1024,
+    });
+    expect(captured.baseUrls[0]).toBe('https://api.stepfun.com/step_plan');
+  });
+
+  it('不带 /v1 的 base_url 原样保留', () => {
+    captured.baseUrls.length = 0;
+    new AnthropicMessagesProvider({
+      apiKey: 'k',
+      baseUrl: 'https://api.anthropic.com',
+      model: 'm',
+      maxTokens: 1024,
+    });
+    expect(captured.baseUrls[0]).toBe('https://api.anthropic.com');
   });
 });

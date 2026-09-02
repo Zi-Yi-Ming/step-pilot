@@ -71,7 +71,10 @@ export class StepMessagesProvider implements ChatProvider {
   private readonly sendCacheControl: boolean;
 
   constructor(options: StepMessagesProviderOptions) {
-    this.client = new Anthropic({ apiKey: options.apiKey, baseURL: options.baseUrl });
+    // Anthropic SDK 在 baseURL 上自拼 /v1/messages。用户手写的 base_url 若已带 /v1
+    // （含 step_plan/v1 端点——向导预设与官方文档都这么写），会拼成 /v1/v1/messages → 404。
+    // 防配置书写习惯差异导致 404（AGENTS.md「对用户手写 base_url 的归一化属前向健壮性」）。
+    this.client = new Anthropic({ apiKey: options.apiKey, baseURL: stripTrailingV1(options.baseUrl) });
     this.model = options.model;
     this.maxTokens = options.maxTokens;
     this.sendThinking = options.sendThinking ?? false;
@@ -117,5 +120,23 @@ export class StepMessagesProvider implements ChatProvider {
       body,
       params.signal !== undefined ? { signal: params.signal } : undefined,
     );
+  }
+}
+
+/**
+ * 剥掉 baseURL 尾部的 /v1（Anthropic SDK 会自拼 /v1/messages，双 /v1 会 404）。
+ * /step_plan/v1 → /step_plan（官方文档口径）；/v1 → 根；其余不动。
+ */
+function stripTrailingV1(baseUrl: string): string {
+  try {
+    const url = new URL(baseUrl);
+    let pathname = url.pathname.replace(/\/+$/, '');
+    if (pathname.endsWith('/v1')) {
+      pathname = pathname.slice(0, -'/v1'.length);
+    }
+    url.pathname = pathname;
+    return url.toString().replace(/\/+$/, '');
+  } catch {
+    return baseUrl.replace(/\/+$/, '');
   }
 }

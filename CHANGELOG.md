@@ -8,6 +8,8 @@
 
 ### Fixed
 
+- **向导写入的渠道配置缺 `type` 字段，别名展开失败导致「缺少 API key」**：`resolveProviders` 对无 `type` 的渠道整条丢弃 → `[models.<别名>]` 判为指向未声明渠道、不展开 → 配置回落默认 `provider=stepfun`，而 key 明明写在渠道段里。修复：向导 key 步骤同时写入 `type = "anthropic"`（两条预设路径均为阶跃官方端点）；集成测试补 `type` 落盘断言。已有受损配置手工补一行 `type = "anthropic"` 即可修复。
+- **anthropic 协议通道 base_url 带 `/v1` 尾缀时全部请求 404**：Anthropic SDK 在 baseURL 上自拼 `/v1/messages`，`https://api.stepfun.com/step_plan/v1` 会拼成 `.../v1/v1/messages`。现在两条 anthropic 路径（Step 专用与通用）构造 provider 时只剥尾部 `/v1`——`/step_plan/v1 → /step_plan`（官方文档口径：Step Plan 通道配 Anthropic SDK 时 base_url 不带 `/v1`）、`/v1 → 根`，其余不动。
 - **首次运行向导卡死在模型选择：确认后选择器原地重开**：向导循环里模型步骤缺 step 守卫，选完模型后 `continue` 跳回循环开头、把 confirm 段甩成永远不可达的死代码——用户按 Enter「没用」、选中下面却「跳回上面」（选择器重开、高亮重置），永远无法完成向导。修复后确认屏可达、配置正常落盘；新增进程级集成测试驱动完整向导流程守卫（配置未落盘即红）。
 - **API key 输入以明文回显**：key 步骤改为掩码输入（等长圆点，支持整段粘贴与退格），真实字符不落屏；confirm 屏仍只显示首尾各 4 位的掩码摘要。
 - **窄终端下向导直接崩溃**：key 步骤的长提示行按显示宽度超出终端列数时，pi-tui 对超宽渲染行直接 throw。Banner 组件渲染出口补逐行截断，向导所有提示行不再触发该崩溃。

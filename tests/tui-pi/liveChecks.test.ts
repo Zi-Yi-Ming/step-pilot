@@ -301,6 +301,9 @@ timeout = 20
     expect(cfg).toContain('[models.router]');
     expect(cfg).toContain('provider = "stepfun-plan"');
     expect(cfg).toMatch(/model = "router"/);
+    // 渠道段必须带 type：resolveProviders 对无 type 渠道整条丢弃，别名展开随之失败，
+    // 启动时报「缺少 API key（provider=stepfun）」而 key 明明在渠道段里。
+    expect(cfg).toMatch(/\[providers\.stepfun-plan\][\s\S]*?type = "anthropic"/);
     // 掩码：完整明文 key 不得出现在任何渲染帧
     expect(raw, 'API key 以明文出现在了界面上').not.toContain('sk-test-key-123456');
   });

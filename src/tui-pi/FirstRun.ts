@@ -150,7 +150,11 @@ async function wizard(tui: TUI, banner: Banner): Promise<FirstRunResult> {
       }
       if (key.trim() === '') continue;
       apiKey = key.trim();
-      // 渠道段先落盘：模型别名在下一步写
+      // 渠道段先落盘：模型别名在下一步写。
+      // type 必写：resolveProviders 对无 type 的渠道整条丢弃，别名展开会因此失败，
+      // 启动时报「缺少 API key（provider=stepfun）」——key 明明写在渠道段里。
+      // 两条预设路径都是阶跃官方端点，走 anthropic 协议；自定义渠道在 baseUrl 步骤后同参写入。
+      saveProviderKey(chosen!.name, 'type', 'anthropic');
       saveProviderKey(chosen!.name, 'base_url', chosen!.baseUrl);
       saveProviderKey(chosen!.name, 'api_key', apiKey);
       step = 'model';
