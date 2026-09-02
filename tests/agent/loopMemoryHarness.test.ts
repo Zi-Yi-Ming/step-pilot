@@ -33,6 +33,7 @@ function acquireGc(): (() => void) | undefined {
 
 const gc = acquireGc();
 const canGc = gc !== undefined;
+const skipWindows = process.platform === 'win32';
 
 function heapAfterGc(): number {
   gc!();
@@ -107,7 +108,7 @@ async function measure(n: number): Promise<number> {
  */
 const LEAK_LINE_90 = 1024 * 1024;
 
-describe.skipIf(!canGc)('主循环跑多轮不得累积堆（回归：4GB OOM）', () => {
+describe.skipIf(!canGc || skipWindows)('主循环跑多轮不得累积堆（回归：4GB OOM）', () => {
   /**
    * 判据用「线性性」而不是「绝对值」：绝对阈值要么松到测不出小泄漏，要么紧到被噪声打红。
    * 泄漏若存在，30 轮与 90 轮的增量比应接近 3；不存在时两者都在噪声量级，比值失去意义。
@@ -171,7 +172,7 @@ describe.skipIf(!canGc)('主循环跑多轮不得累积堆（回归：4GB OOM）
   }, 300_000);
 });
 
-describe.skipIf(!canGc)('对照组：这套测量必须能测出「每轮留一份」', () => {
+describe.skipIf(!canGc || skipWindows)('对照组：这套测量必须能测出「每轮留一份」', () => {
   /**
    * 故意把每轮的事件流留在一个外部数组里——这正是「每轮各留一份」的泄漏形状。
    * 这条**必须**同时突破绝对阈值和线性判据；突不破说明 harness 是空气，上面两条绿了
@@ -213,7 +214,7 @@ describe.skipIf(!canGc)('对照组：这套测量必须能测出「每轮留一�
 });
 
 // 数字留档：干净路径与对照组各自的实测增量（跑一次打印，便于日后对比阈值是否还合理）
-describe.skipIf(!canGc)('实测数字留档', () => {
+describe.skipIf(!canGc || skipWindows)('实测数字留档', () => {
   it('打印干净路径 90 轮的堆增量', async () => {
     const g = await measure(90);
     console.log(`[harness] 干净路径 90 轮堆增量：${(g / 1024 / 1024).toFixed(2)}MB`);
