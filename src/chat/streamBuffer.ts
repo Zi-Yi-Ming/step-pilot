@@ -29,7 +29,7 @@ import type { AgentEvent } from '../agent/events.js';
  * 不再依赖下游守卫。usage 仍单独 pending 并排在最后——它是状态数字不是内容流，无序可言。
  *
  * 与 React 的关系：React 18 自动批处理让 flush() 回调里的多次 setState 合并为一次重绘，
- * 因此一个 setTimeout 回调内统一 setState 即达成「50ms 一帧」，无需 unstable_batchedUpdates。
+ * 因此一个 setTimeout 回调内统一 setState 即达成「40ms 一帧」，无需 unstable_batchedUpdates。
  */
 
 /** 高频、可合帧的追加型事件类型。 */

@@ -50,19 +50,21 @@
 
 - **安装链路收敛为永久链接，`dist-npm` 预构建分支退役**：Release 资产新增不带版本号的 `step-pilot.tgz` 固定名副本，安装命令改为 `npm i -g https://github.com/<仓库>/releases/latest/download/step-pilot.tgz`——`releases/latest/download/` 始终解析到最新 Release，发新版不再需要改文档里的版本号；三端单文件可执行同样走该永久链接。原 `dist-npm` 预构建分支（每次发版由 CI 强推覆盖的分发快照）已删除，CI 里负责刷新它的 `dist-branch` job 与 `scripts/make-dist-branch.mjs` 同步移除；要锁定版本时改用 `releases/download/<tag>/step-pilot-<版本>.tgz` 带版本号资产。安装文档（中英）、快速上手（中英）、README（中英）与 `step-pilot-install` skill 已全部对齐到四种安装方式。
 
-## [Unreleased]
+## [0.1.4] - 2026-09-03
 
 ### Added
 
 - **超长工具结果的语义预处理（bash / read_file）**：输出超过 50k 字符时按结构保留头尾——bash 保头 50 行 + 尾 20 行、read_file 保头 10 段 + 尾 5 段，中间以带省略计数的标记替换，并给出收窄重跑的指引；其余工具不做处理。在字符兜底上限（400K）之前执行，双层保护减少 Flash 的注意力稀释。
 
+### Changed
+
+- **`edit_file` 工具描述补「默认要求唯一匹配」**：明确 replace_all=false 时的唯一性要求，减少模型漏设 replace_all 的歧义。
+- **工具报错补充可操作的下一步**：`read_file` / `edit_file` 的「文件不存在」提示改为指路 `list_dir` / `glob` 定位；`read_file` 的二进制文件拒绝提示给出 `bash` + `strings`/`head`/`xxd` 的提取路径；`bash` 前台超时提示说明 `run_in_background=true` 与输出重定向两条出路。
+- **压缩与合帧默认值调整**：压缩保留最近消息从 4 条提升到 6 条（手动 `/compact` 与自动压缩同步），用户原话保真预算从 10K 提升到 20K，工具结果兜底上限从 200K 提升到 400K，流式合帧间隔从 50ms 收紧到 40ms。
+
 ### Fixed
 
 - **手动 `/compact` 与自动压缩的保留条数不一致**：`KEEP_RECENT` 提升到 6 时漏改了 TUI 侧同值常量，手动压缩仍按旧值 4 条保留——现在两处同值（6），手动与自动压缩行为一致。
-
-### Changed
-
-- **工具报错补充可操作的下一步**：`read_file` / `edit_file` 的「文件不存在」提示改为指路 `list_dir` / `glob` 定位；`read_file` 的二进制文件拒绝提示给出 `bash` + `strings`/`head`/`xxd` 的提取路径；`bash` 前台超时提示说明 `run_in_background=true` 与输出重定向两条出路。
 
 ## [0.1.3] - 2026-09-02
 

@@ -58,7 +58,7 @@ const schema = z.object({
 export const editFileTool: ToolDef<z.infer<typeof schema>> = {
   name: 'edit_file',
   description:
-    '对已有文件做精确字符串替换。old_string 必须与文件内容逐字符匹配；replace_all=true 时替换所有匹配。适合局部修改；整段重构改用 write_file。',
+    '对已有文件做精确字符串替换。old_string 必须与文件内容逐字符匹配，默认要求唯一匹配，replace_all=true 时替换所有匹配。适合局部修改；整段重构改用 write_file。',
   schema,
   access: (input, ctx) => ({ kind: 'write', path: resolvePath(ctx.cwd, input.path) }),
   async execute(input, ctx) {
