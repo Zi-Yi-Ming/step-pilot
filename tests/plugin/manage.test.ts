@@ -26,8 +26,8 @@ afterEach(() => {
 });
 
 function makePlugin(root: string, manifest: object, files: Record<string, string> = {}): void {
-  mkdirSync(join(root, '.step-code-plugin'), { recursive: true });
-  writeFileSync(join(root, '.step-code-plugin', 'plugin.json'), JSON.stringify(manifest));
+  mkdirSync(join(root, '.step-pi-plugin'), { recursive: true });
+  writeFileSync(join(root, '.step-pi-plugin', 'plugin.json'), JSON.stringify(manifest));
   for (const [rel, content] of Object.entries(files)) {
     const p = join(root, rel);
     mkdirSync(join(p, '..'), { recursive: true });
@@ -45,7 +45,7 @@ describe('installPlugin', () => {
     expect(installed).not.toBeNull();
     expect(installed!.skillDirs).toHaveLength(1);
     // 源目录不被改动
-    expect(existsSync(join(src, '.step-code-plugin', 'plugin.json'))).toBe(true);
+    expect(existsSync(join(src, '.step-pi-plugin', 'plugin.json'))).toBe(true);
   });
 
   it('重装同 id = 覆盖更新：新文件生效，旧多余文件被清掉', () => {

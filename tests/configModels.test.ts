@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// loadConfig 读 ~/.step-code/config.toml：把 homedir 指到临时目录，避免碰真实配置。
+// loadConfig 读 ~/.step-pi/config.toml：把 homedir 指到临时目录，避免碰真实配置。
 let fakeHome = '';
 vi.mock('node:os', async (importOriginal) => {
   const orig = await importOriginal<typeof import('node:os')>();
@@ -14,10 +14,10 @@ import { loadConfig } from '../src/config/config.js';
 
 const ENV_KEYS = [
   'STEPFUN_API_KEY',
-  'STEP_CODE_API_KEY',
-  'STEP_CODE_PROVIDER',
-  'STEP_CODE_BASE_URL',
-  'STEP_CODE_MODEL',
+  'STEP_PI_API_KEY',
+  'STEP_PI_PROVIDER',
+  'STEP_PI_BASE_URL',
+  'STEP_PI_MODEL',
   'ANTHROPIC_API_KEY',
   'ENTRY_ENV_KEY',
 ];
@@ -44,14 +44,14 @@ afterEach(() => {
 });
 
 function writeToml(text: string): void {
-  const cfgDir = join(dir, '.step-code');
+  const cfgDir = join(dir, '.step-pi');
   mkdirSync(cfgDir, { recursive: true });
   writeFileSync(join(cfgDir, 'config.toml'), text, 'utf8');
 }
 
 describe('loadConfig [models.<别名>] 集成', () => {
   it('顶层 model 写别名 → 展开为真实 id，entry 字段覆盖顶层', () => {
-    process.env['STEP_CODE_API_KEY'] = 'k-top';
+    process.env['STEP_PI_API_KEY'] = 'k-top';
     writeToml(
       [
         'model = "big"',
@@ -75,14 +75,14 @@ describe('loadConfig [models.<别名>] 集成', () => {
   });
 
   it('别名缺省 model 字段 → 真实 id = 别名本身', () => {
-    process.env['STEP_CODE_API_KEY'] = 'k';
+    process.env['STEP_PI_API_KEY'] = 'k';
     writeToml(['model = "step-3.5-flash"', '', '[models.step-3.5-flash]', ''].join('\n'));
     const cfg = loadConfig(dir);
     expect(cfg.model).toBe('step-3.5-flash');
   });
 
   it('--model 别名（overrides）同样展开', () => {
-    process.env['STEP_CODE_API_KEY'] = 'k';
+    process.env['STEP_PI_API_KEY'] = 'k';
     writeToml(
       ['', '[models.fast]', 'model = "step-3.7-flash"', 'max_tokens = 8192', ''].join('\n'),
     );
@@ -92,21 +92,21 @@ describe('loadConfig [models.<别名>] 集成', () => {
   });
 
   it('model 未命中别名 → 原样保留，不受影响', () => {
-    process.env['STEP_CODE_API_KEY'] = 'k';
+    process.env['STEP_PI_API_KEY'] = 'k';
     writeToml(['model = "plain-model"', '', '[models.fast]', 'model = "test-model-x"', ''].join('\n'));
     const cfg = loadConfig(dir);
     expect(cfg.model).toBe('plain-model');
   });
 
   it('[models] 全部无效 → models 键不进结果对象', () => {
-    process.env['STEP_CODE_API_KEY'] = 'k';
+    process.env['STEP_PI_API_KEY'] = 'k';
     writeToml(['', '[models]', ''].join('\n'));
     const cfg = loadConfig(dir);
     expect('models' in cfg).toBe(false);
   });
 
   it('capabilities 接受 "-" 前缀取负（-image_in），孤立 "-" 与未知名仍报错', () => {
-    process.env['STEP_CODE_API_KEY'] = 'k';
+    process.env['STEP_PI_API_KEY'] = 'k';
     writeToml(
       [
         'model = "vl"',
@@ -123,7 +123,7 @@ describe('loadConfig [models.<别名>] 集成', () => {
   });
 
   it('别名声明 capabilities → 命中别名时带入结果；未命中别名时不带', () => {
-    process.env['STEP_CODE_API_KEY'] = 'k';
+    process.env['STEP_PI_API_KEY'] = 'k';
     writeToml(
       [
         'model = "vl"',
@@ -179,7 +179,7 @@ describe('loadConfig [models] 的 api_key_env（密钥间接引用）', () => {
   });
 
   it('别名只有 api_key_env 且 env 未设 → 回落惯例 env / 隐式渠道 key（此处落到隐式渠道 key）', () => {
-    process.env['STEP_CODE_API_KEY'] = 'k-top';
+    process.env['STEP_PI_API_KEY'] = 'k-top';
     writeToml(
       [
         'model = "big"',

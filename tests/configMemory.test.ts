@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * 开关会永远不生效。现在 boolean 走 TOML 裸值，本测试验证落盘的就是裸 `true`/`false`。
  *
  * homedir 用模块级 mock 替换（ESM 命名导出不可 spyOn）：saveSectionKey 写真实的
- * ~/.step-code/config.toml，测试必须把它重定向到临时目录。
+ * ~/.step-pi/config.toml，测试必须把它重定向到临时目录。
  */
 
 const mockHome = vi.hoisted(() => ({ value: '' }));
@@ -49,7 +49,7 @@ describe('resolveMemoryConfig', () => {
 describe('saveMemoryEnabled', () => {
   it('写入 TOML 裸布尔值（不是带引号的字符串）', () => {
     saveMemoryEnabled(true);
-    const text = readFileSync(join(mockHome.value, '.step-code', 'config.toml'), 'utf-8');
+    const text = readFileSync(join(mockHome.value, '.step-pi', 'config.toml'), 'utf-8');
     expect(text).toContain('[memory]');
     expect(text).toMatch(/enabled = true\b/);
     expect(text).not.toContain('"true"'); // 带引号会被解析端判为 false，开关永远不生效
@@ -58,7 +58,7 @@ describe('saveMemoryEnabled', () => {
   it('再写 false：同段更新为裸 false', () => {
     saveMemoryEnabled(true);
     saveMemoryEnabled(false);
-    const text = readFileSync(join(mockHome.value, '.step-code', 'config.toml'), 'utf-8');
+    const text = readFileSync(join(mockHome.value, '.step-pi', 'config.toml'), 'utf-8');
     expect(text).toMatch(/enabled = false\b/);
     expect(text).not.toContain('"false"');
     // 段只有一个（幂等更新，不重复追加）

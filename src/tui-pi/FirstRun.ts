@@ -63,7 +63,7 @@ const PROVIDER_OPTIONS: ProviderOption[] = [
 
 const DOCS_VALUE = '__docs__';
 const DOCS_URL =
-  'https://github.com/li-xiu-qi/Step-Realtime-CLI/blob/step-code-explore/docs/zh/quickstart.md#2-%E9%85%8D%E7%BD%AE-api-key';
+  'https://github.com/Zi-Yi-Ming/step-pi/blob/main/docs/zh/quickstart.md#2-%E9%85%8B%E7%BD%AE-api-key';
 /** 自定义渠道的模型别名与默认上下文窗口。 */
 const CUSTOM_ALIAS = 'custom';
 const DEFAULT_MAX_CONTEXT = 262144;

@@ -2,7 +2,7 @@
  * 运行日志（诊断通道）。会话记录走 SessionStore 的 `.wire.jsonl`，与此无关。
  *
  * 设计：
- * - 一条通道，同时写全局文件 `~/.step-pi/logs/step-code.log` 和进程内环形缓冲。
+ * - 一条通道，同时写全局文件 `~/.step-pi/logs/steppi.log` 和进程内环形缓冲。
  * - TUI 交互模式：只进文件 + 缓冲，绝不写 stderr/stdout（Ink 独占终端，写终端会打乱渲染）。
  * - headless（`-p` 一次性执行）模式：才允许写 stderr，默认只 error 级。
  * - 级别沿用 STEP_PI_DEBUG：默认记 info 及以上，=1 时降到 debug。
@@ -36,7 +36,7 @@ const ROTATE_BYTES = 5 * 1024 * 1024;
 let mode: LogMode = 'headless';
 /** 日志目录（默认 ~/.step-pi/logs）。测试可通过 configureLogger 覆盖。 */
 let logDir: string = join(homedir(), '.step-pi', 'logs');
-let logFile: string = join(logDir, 'step-code.log');
+let logFile: string = join(logDir, 'steppi.log');
 
 /** 环形缓冲：定容数组，满了丢最旧。 */
 let buffer: string[] = [];
@@ -51,7 +51,7 @@ export function configureLogger(opts: { mode?: LogMode; dir?: string }): void {
   if (opts.mode !== undefined) mode = opts.mode;
   if (opts.dir !== undefined) {
     logDir = opts.dir;
-    logFile = join(logDir, 'step-code.log');
+    logFile = join(logDir, 'steppi.log');
     fileReady = false; // 新目录需要重新初始化 + 轮转
   }
 }

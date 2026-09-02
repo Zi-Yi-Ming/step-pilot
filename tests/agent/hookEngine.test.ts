@@ -163,7 +163,7 @@ process.stdin.on('end', () => { fs.writeFileSync(process.argv[2], d); process.ex
 describe('HookEngine plugin 条目（cwd/env）', () => {
   it('条目携带 cwd/env：cwd 固定工作目录、env 注入环境变量（plugin hook 语义）', async () => {
     // 脚本用相对路径引用：只有 cwd 生效才找得到；stdout 回显注入的环境变量
-    writeScript('envprobe.js', `process.stdout.write(process.env.STEP_CODE_PLUGIN_ROOT ?? ''); process.exit(0);`);
+    writeScript('envprobe.js', `process.stdout.write(process.env.STEP_PI_PLUGIN_ROOT ?? ''); process.exit(0);`);
     const engine = new HookEngine(
       [
         {
@@ -171,7 +171,7 @@ describe('HookEngine plugin 条目（cwd/env）', () => {
           command: `"${process.execPath}" envprobe.js`,
           timeout: 30,
           cwd: dir,
-          env: { STEP_CODE_PLUGIN_ROOT: dir },
+          env: { STEP_PI_PLUGIN_ROOT: dir },
         },
       ],
       { sessionId: 'sess-1', cwd: join(dir, 'nonexistent-cwd') },

@@ -506,7 +506,7 @@ Only user-level global configuration is supported (`~/.step-pi/config.toml`), wi
 | `STEP_PI_MODEL` | Model name or a `[models]` alias; higher priority than config.toml, lower than `--model` |
 | `STEP_PI_DEBUG` | Set to `1` to relax the runtime log level from info to debug (logs are written to `~/.step-pi/logs/step-code.log`; in non-interactive `-p` mode, debug logs also go to stderr) |
 | `STEP_SHELL_PATH` | Windows only: the absolute path to the interpreter for the `bash` tool, for cases where Git Bash is installed in a non-standard location. Takes priority over auto-detection |
-| `STEP_DEBUG_RENDER` | Set to `1` to enable dynamic frame render budget diagnostics: when a downgrade (`DEGRADED`) or a frame-height threshold hit (`DANGER`) occurs, an entry is appended to `%TEMP%/step-code-render-debug.log`, for debugging rendering and scrolling problems |
+| `STEP_DEBUG_RENDER` | Set to `1` to enable dynamic frame render budget diagnostics: when a downgrade (`DEGRADED`) or a frame-height threshold hit (`DANGER`) occurs, an entry is appended to `%TEMP%/steppi-render-debug.log`, for debugging rendering and scrolling problems |
 
 The variable name referenced by `api_key_env` is yours to choose and is not in this table. An empty string in the key variables above is equivalent to unset.
 

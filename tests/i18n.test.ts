@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// saveLanguage 写 ~/.step-code/config.toml：把 homedir 指到临时目录，避免碰真实配置。
+// saveLanguage 写 ~/.step-pi/config.toml：把 homedir 指到临时目录，避免碰真实配置。
 let fakeHome = '';
 vi.mock('node:os', async (importOriginal) => {
   const orig = await importOriginal<typeof import('node:os')>();
@@ -252,8 +252,8 @@ describe('saveLanguage', () => {
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'stepcode-lang-'));
     fakeHome = dir;
-    tomlPath = join(dir, '.step-code', 'config.toml');
-    mkdirSync(join(dir, '.step-code'), { recursive: true });
+    tomlPath = join(dir, '.step-pi', 'config.toml');
+    mkdirSync(join(dir, '.step-pi'), { recursive: true });
   });
 
   afterEach(() => {
@@ -315,8 +315,8 @@ describe('saveDefaultModel（/model 切换写回默认模型指针）', () => {
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'stepcode-model-'));
     fakeHome = dir;
-    tomlPath = join(dir, '.step-code', 'config.toml');
-    mkdirSync(join(dir, '.step-code'), { recursive: true });
+    tomlPath = join(dir, '.step-pi', 'config.toml');
+    mkdirSync(join(dir, '.step-pi'), { recursive: true });
   });
 
   afterEach(() => {
@@ -380,8 +380,8 @@ describe('saveDefaultThinkingLevel（/think 切换写回 [thinking] default_leve
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'stepcode-think-'));
     fakeHome = dir;
-    tomlPath = join(dir, '.step-code', 'config.toml');
-    mkdirSync(join(dir, '.step-code'), { recursive: true });
+    tomlPath = join(dir, '.step-pi', 'config.toml');
+    mkdirSync(join(dir, '.step-pi'), { recursive: true });
   });
 
   afterEach(() => {
@@ -431,8 +431,8 @@ describe('saveDefaultProvider（/provider 切换写回顶层 provider）', () =>
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'stepcode-provider-'));
     fakeHome = dir;
-    tomlPath = join(dir, '.step-code', 'config.toml');
-    mkdirSync(join(dir, '.step-code'), { recursive: true });
+    tomlPath = join(dir, '.step-pi', 'config.toml');
+    mkdirSync(join(dir, '.step-pi'), { recursive: true });
   });
 
   afterEach(() => {
@@ -695,8 +695,8 @@ it('常驻面板（ChromePanels.ts）：TODO 三态计数 / 折叠提示 / 队�
     expect(cjkIn([formatGoalPanel(goal, now)])).toEqual([]);
 
     // /team status 空 / 有任务
-    expect(cjkIn([formatTeamStatus('main', '.step-code/team', [])])).toEqual([]);
-    expect(cjkIn([formatTeamStatus('main', '.step-code/team', [{ id: 'm1', status: 'doing', title: 't', kind: 'code', scope: ['a', 'b'], deps: ['m0'] }])])).toEqual([]);
+    expect(cjkIn([formatTeamStatus('main', '.step-pi/team', [])])).toEqual([]);
+    expect(cjkIn([formatTeamStatus('main', '.step-pi/team', [{ id: 'm1', status: 'doing', title: 't', kind: 'code', scope: ['a', 'b'], deps: ['m0'] }])])).toEqual([]);
 
     // /loop 空 / 有任务
     expect(cjkIn([formatCronJobs([])])).toEqual([]);

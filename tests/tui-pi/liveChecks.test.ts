@@ -29,7 +29,7 @@ let work = '';
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'pi-home-'));
   work = mkdtempSync(join(tmpdir(), 'pi-work-'));
-  mkdirSync(join(home, '.step-code'), { recursive: true });
+  mkdirSync(join(home, '.step-pi'), { recursive: true });
 });
 
 afterEach(async () => {
@@ -46,7 +46,7 @@ afterEach(async () => {
 });
 
 function writeConfig(toml: string): void {
-  writeFileSync(join(home, '.step-code', 'config.toml'), toml, 'utf8');
+  writeFileSync(join(home, '.step-pi', 'config.toml'), toml, 'utf8');
 }
 
 /**
@@ -79,12 +79,12 @@ async function runProcess(
   delete env['VITEST_WORKER_ID'];
   env['HOME'] = home;
   env['USERPROFILE'] = home;
-  // 变量名必须是 STEP_CODE_API_KEY。2026-08-16 这里曾写成 STEPFUN_API_KEY（渠道名 stepfun
+  // 变量名必须是 STEP_PI_API_KEY。2026-08-16 这里曾写成 STEPFUN_API_KEY（渠道名 stepfun
   // 的想当然拼法），provider 根本不认，于是每个用例的进程都停在首次运行向导：SessionStart
   // 的 hook 执行点没走到（被误判成「功能缺失」），而 /memory 与 /compact-model 却「通过」了
   // ——它们的 stopWhen 命中的是向导文案里的字样，属假绿。故下面加了 assertPastFirstRun。
-  if (opts.noApiKey === true) delete env['STEP_CODE_API_KEY'];
-  else env['STEP_CODE_API_KEY'] = 'sk-test-not-a-real-key';
+  if (opts.noApiKey === true) delete env['STEP_PI_API_KEY'];
+  else env['STEP_PI_API_KEY'] = 'sk-test-not-a-real-key';
 
   const child = spawn(process.execPath, [entry, ...(opts.args ?? [])], {
     cwd: work,
@@ -149,7 +149,7 @@ async function runProcess(
  * 业务内容之前先过这道门。
  */
 function assertPastFirstRun(text: string): void {
-  expect(text, '进程停在首次运行向导，本用例的其余断言全部无效（检查 STEP_CODE_API_KEY 是否生效）').not.toMatch(
+  expect(text, '进程停在首次运行向导，本用例的其余断言全部无效（检查 STEP_PI_API_KEY 是否生效）').not.toMatch(
     /未检测到 API key|No API key detected/,
   );
 }

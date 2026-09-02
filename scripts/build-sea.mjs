@@ -1,7 +1,7 @@
 /**
  * Node SEA 单文件可执行构建：
  *   dist-bundle/step.mjs → sea-config.json → node --experimental-sea-config 生成 blob
- *   → 复制目标平台 node 二进制作载体 → postject 注入 blob → dist-sea/step-code-<target>[.exe]
+ *   → 复制目标平台 node 二进制作载体 → postject 注入 blob → dist-sea/steppi-<target>[.exe]
  * 前置：先跑 npm run build:bundle。产物运行时即载体 node 副本的版本。
  * 参考：Node 官方 Single Executable Applications 流程。
  *
@@ -156,7 +156,7 @@ function codesign(args, label) {
 }
 
 const { name: target, spec } = resolveTarget();
-const exeOut = join(outDir, `step-code-${target}${spec.exeSuffix}`);
+const exeOut = join(outDir, `steppi-${target}${spec.exeSuffix}`);
 const blobOut = join(outDir, `sea-prep-${target}.blob`);
 const seaMain = join(outDir, `sea-main-${target}.mjs`);
 const seaConfigPath = join(outDir, `sea-config-${target}.json`);
@@ -228,7 +228,7 @@ if (spec.platform !== 'win32') chmodSync(exeOut, 0o755);
 // （certutil / shasum / sha256sum），输出格式也不一致，用 node 算一次保证三端格式相同。
 const digest = createHash('sha256').update(readFileSync(exeOut)).digest('hex');
 const shaFile = `${exeOut}.sha256`;
-writeFileSync(shaFile, `${digest}  step-code-${target}${spec.exeSuffix}\n`);
+writeFileSync(shaFile, `${digest}  steppi-${target}${spec.exeSuffix}\n`);
 
 console.log(`SEA 构建完成: ${exeOut}`);
 console.log(`sha256: ${digest}`);

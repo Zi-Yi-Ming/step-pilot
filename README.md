@@ -4,19 +4,17 @@
 </p>
 
 > [!IMPORTANT]
-> **Unofficial — a community-driven exploration.** Step Code Pi is a CLI explored independently by community contributors.
+> **Unofficial — a community-driven exploration.** Step Pi is a terminal coding agent CLI, forked and evolved independently by community contributors.
 
-# Step Code Pi
+# Step Pi
 
-[![CI](https://github.com/stepfun-ai/Step-Realtime-CLI/actions/workflows/test.yml/badge.svg?branch=step-code-pi-explore)](https://github.com/stepfun-ai/Step-Realtime-CLI/actions/workflows/test.yml)
+[![CI](https://github.com/Zi-Yi-Ming/step-pi/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Zi-Yi-Ming/step-pi/actions/workflows/test.yml)
 
 A terminal coding agent CLI, with StepFun's **Step model family** as the primary target and **pi-tui** for the UI. The model layer speaks three protocols—Anthropic Messages, OpenAI Chat Completions, and OpenAI Responses—so any compatible provider works out of the box; Step is the best-tested and default path.
 
-> This repository is the `step-code-explore-pi` exploration branch of [stepfun-ai/Step-Realtime-CLI](https://github.com/stepfun-ai/Step-Realtime-CLI).
-
 ## What it is
 
-Step Code is a terminal coding agent CLI built around an agent loop: the model uses tools to read and write real files and run real commands, results are fed back, and the loop continues until the task is done. It is built with **pi-tui** and targets **StepFun's Step model family** as the primary path, while also supporting any compatible provider through three open protocols (Anthropic Messages, OpenAI Chat Completions, OpenAI Responses).
+Step Pi is a terminal coding agent CLI built around an agent loop: the model uses tools to read and write real files and run real commands, results are fed back, and the loop continues until the task is done. It is built with **pi-tui** and targets **StepFun's Step model family** as the primary path, while also supporting any compatible provider through three open protocols (Anthropic Messages, OpenAI Chat Completions, OpenAI Responses).
 
 Key capabilities:
 - **Permission tiers + plan mode**: enforce "say what you'll change before changing it"
@@ -36,16 +34,16 @@ Key capabilities:
 Requires Node.js >= 22 (not needed if you use the standalone executable).
 
 ```bash
-npm i -g https://github.com/li-xiu-qi/Step-Realtime-CLI/releases/latest/download/step-code.tgz
-export STEP_CODE_API_KEY=<your-key>
-step
+npm i -g steppi
+export STEP_PI_API_KEY=<your-key>
+steppi
 ```
 
-That installs a pre-built package: nothing is compiled locally and no dependencies are fetched, and the link always points to the latest Release. Without Node, grab the standalone executable for your platform (Windows / macOS / Linux) from [Releases](https://github.com/li-xiu-qi/Step-Realtime-CLI/releases/latest); to modify the code, install from source instead.
+That installs a pre-built package: nothing is compiled locally and no dependencies are fetched, and the link always points to the latest Release. Without Node, grab the standalone executable for your platform (Windows / macOS / Linux) from [Releases](https://github.com/Zi-Yi-Ming/step-pi/releases/latest); to modify the code, install from source instead.
 
 See [Quick start](./docs/en/quickstart.md) for installation and configuration details, and [Installation](./docs/en/installation.md) for the trade-offs between the four installation methods.
 
-If you already have another AI agent at hand, [`skills/step-code-install/`](./skills/step-code-install/SKILL.md) is an install-instructions skill: clone the repo, point your agent at it, and it will know how to build, where to put the API key, and what to check when the build fails.
+If you already have another AI agent at hand, [`skills/steppi-install/`](./skills/steppi-install/SKILL.md) is an install-instructions skill: clone the repo, point your agent at it, and it will know how to build, where to put the API key, and what to check when the build fails.
 
 ## Documentation
 

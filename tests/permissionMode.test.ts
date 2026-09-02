@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// loadConfig 读 ~/.step-code/config.toml：把 homedir 指到临时目录（对齐 tests/config.test.ts 的做法），
+// loadConfig 读 ~/.step-pi/config.toml：把 homedir 指到临时目录（对齐 tests/config.test.ts 的做法），
 // 避免开发机上的真实配置污染断言。
 //
 // 容器用 vi.hoisted 而不是裸 `let`：mock 工厂会被 vitest 提升到文件顶部执行，若工厂闭包
@@ -20,7 +20,7 @@ import { runDoctorConfig } from '../src/config/doctor.js';
 import { resolveStartupMode } from '../src/agent/permission/mode.js';
 import { diffConfig } from '../src/chat/reload.js';
 
-const ENV_KEYS = ['STEPFUN_API_KEY', 'STEP_CODE_API_KEY', 'STEP_CODE_PROVIDER', 'STEP_CODE_BASE_URL', 'STEP_CODE_MODEL'];
+const ENV_KEYS = ['STEPFUN_API_KEY', 'STEP_PI_API_KEY', 'STEP_PI_PROVIDER', 'STEP_PI_BASE_URL', 'STEP_PI_MODEL'];
 let saved: Record<string, string | undefined>;
 let dir: string;
 
@@ -49,9 +49,9 @@ function writeToml(content: string): string {
   return p;
 }
 
-/** 写 loadConfig 实际读取的 临时 home 下的 .step-code/config.toml。 */
+/** 写 loadConfig 实际读取的 临时 home 下的 .step-pi/config.toml。 */
 function writeHomeConfig(content: string): void {
-  const cfgDir = join(dir, '.step-code');
+  const cfgDir = join(dir, '.step-pi');
   mkdirSync(cfgDir, { recursive: true });
   writeFileSync(join(cfgDir, 'config.toml'), content, 'utf8');
 }

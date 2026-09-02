@@ -504,7 +504,7 @@ describe('ScriptStore 命名脚本', () => {
       { name: '体检', description: undefined },
     ]);
     // 落点正确
-    expect(ScriptStore.filePathFor(cwd, 'alpha-scan')).toContain(path.join('.step-code', 'workflows'));
+    expect(ScriptStore.filePathFor(cwd, 'alpha-scan')).toContain(path.join('.step-pi', 'workflows'));
   });
 
   it('save_as 覆盖：同名再存即更新', async () => {
@@ -586,7 +586,7 @@ describe('ScriptStore 命名脚本', () => {
     expect(r.isError).toBe(false);
     expect(r.content).toContain('alpha-scan');
     expect(r.content).toContain('体检');
-    expect(r.content).toContain('.step-code');
+    expect(r.content).toContain('.step-pi');
     expect(r.content).toContain('save_as');
   });
 
@@ -729,7 +729,7 @@ describe('dynamic_workflow 工具', () => {
     expect(d).toContain('反模式');
     expect(d).toContain('慢 N 倍');
     expect(d).toContain('.filter(Boolean)');
-    expect(d).toContain('.step-code/workflows');
+    expect(d).toContain('.step-pi/workflows');
     expect(d).toContain('pipeline');
     expect(d).toContain('save_as');
     expect(d).toContain('resume_from_run_id');

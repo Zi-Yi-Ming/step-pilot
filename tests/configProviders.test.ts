@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// loadConfig 读 ~/.step-code/config.toml：把 homedir 指到临时目录，避免碰真实配置。
+// loadConfig 读 ~/.step-pi/config.toml：把 homedir 指到临时目录，避免碰真实配置。
 let fakeHome = '';
 vi.mock('node:os', async (importOriginal) => {
   const orig = await importOriginal<typeof import('node:os')>();
@@ -14,10 +14,10 @@ import { loadConfig } from '../src/config/config.js';
 
 const ENV_KEYS = [
   'STEPFUN_API_KEY',
-  'STEP_CODE_API_KEY',
-  'STEP_CODE_PROVIDER',
-  'STEP_CODE_BASE_URL',
-  'STEP_CODE_MODEL',
+  'STEP_PI_API_KEY',
+  'STEP_PI_PROVIDER',
+  'STEP_PI_BASE_URL',
+  'STEP_PI_MODEL',
   'ANTHROPIC_API_KEY',
   'OPENAI_API_KEY',
   'GW_ENV_KEY',
@@ -45,7 +45,7 @@ afterEach(() => {
 });
 
 function writeToml(text: string): void {
-  const cfgDir = join(dir, '.step-code');
+  const cfgDir = join(dir, '.step-pi');
   mkdirSync(cfgDir, { recursive: true });
   writeFileSync(join(cfgDir, 'config.toml'), text, 'utf8');
 }
@@ -77,7 +77,7 @@ describe('loadConfig [providers.<id>] 集成', () => {
   });
 
   it('渠道缺省 base_url/api_key → 回落 entry → 隐式渠道 key/预设', () => {
-    process.env['STEP_CODE_API_KEY'] = 'k-top';
+    process.env['STEP_PI_API_KEY'] = 'k-top';
     writeToml(
       [
         'model = "fast"',
@@ -160,7 +160,7 @@ describe('loadConfig [providers.<id>] 集成', () => {
   });
 
   it('未配置 [providers] → providers 键不进结果对象（旧配置零迁移）', () => {
-    process.env['STEP_CODE_API_KEY'] = 'k';
+    process.env['STEP_PI_API_KEY'] = 'k';
     writeToml(['model = "step-3.7-flash"', ''].join('\n'));
     const cfg = loadConfig(dir);
     expect('providers' in cfg).toBe(false);
@@ -168,7 +168,7 @@ describe('loadConfig [providers.<id>] 集成', () => {
   });
 
   it('models 条目的 display_name / capabilities 经 TOML 解析透传', () => {
-    process.env['STEP_CODE_API_KEY'] = 'k';
+    process.env['STEP_PI_API_KEY'] = 'k';
     writeToml(
       [
         '',
@@ -254,8 +254,8 @@ describe('loadConfig 多渠道密钥（无顶层 key 场景）', () => {
     expect(cfg.model).toBe('step-3.7-flash');
   });
 
-  it('STEP_CODE_API_KEY 仍是隐式渠道 key 的最高优先来源（渠道有自己的 key 时渠道胜出）', () => {
-    process.env['STEP_CODE_API_KEY'] = 'k-top-env';
+  it('STEP_PI_API_KEY 仍是隐式渠道 key 的最高优先来源（渠道有自己的 key 时渠道胜出）', () => {
+    process.env['STEP_PI_API_KEY'] = 'k-top-env';
     process.env['STEPFUN_API_KEY'] = 'k-legacy';
     writeToml(
       [
@@ -275,8 +275,8 @@ describe('loadConfig 多渠道密钥（无顶层 key 场景）', () => {
     expect(cfg.apiKey).toBe('k-gw');
   });
 
-  it('model 未命中别名时隐式渠道只认 STEP_CODE_API_KEY', () => {
-    process.env['STEP_CODE_API_KEY'] = 'k-top-env';
+  it('model 未命中别名时隐式渠道只认 STEP_PI_API_KEY', () => {
+    process.env['STEP_PI_API_KEY'] = 'k-top-env';
     process.env['STEPFUN_API_KEY'] = 'k-legacy';
     writeToml(['model = "plain-model"', ''].join('\n'));
     expect(loadConfig(dir).apiKey).toBe('k-top-env');
@@ -298,7 +298,7 @@ describe('loadConfig 多渠道密钥（无顶层 key 场景）', () => {
   });
 
   it('零配置（无 [providers]/无 [models]）+ 仅环境变量 → 正常拿到 key', () => {
-    process.env['STEP_CODE_API_KEY'] = 'k-zero-config';
+    process.env['STEP_PI_API_KEY'] = 'k-zero-config';
     const cfg = loadConfig(dir);
     expect(cfg.apiKey).toBe('k-zero-config');
     expect(cfg.provider).toBe('stepfun');

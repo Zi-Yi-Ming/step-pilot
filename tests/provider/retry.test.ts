@@ -169,7 +169,7 @@ describe('isRateLimitError', () => {
 
 describe('errorAdvice', () => {
   it('401/403 → 建议检查 key 配置', () => {
-    expect(errorAdvice(new Anthropic.APIError(401, undefined, 'x', undefined))).toContain('STEP_CODE_API_KEY');
+    expect(errorAdvice(new Anthropic.APIError(401, undefined, 'x', undefined))).toContain('STEP_PI_API_KEY');
     expect(errorAdvice(new Anthropic.APIError(403, undefined, 'x', undefined))).toContain('config.toml');
   });
 

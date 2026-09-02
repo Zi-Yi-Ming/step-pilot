@@ -13,13 +13,13 @@ let fakeHome: string;
 beforeEach(() => {
   workDir = mkdtempSync(join(tmpdir(), 'ckpt-work-'));
   fakeHome = mkdtempSync(join(tmpdir(), 'ckpt-home-'));
-  process.env.STEP_CODE_TEST_HOME = fakeHome;
+  process.env.STEP_PI_TEST_HOME = fakeHome;
 });
 
 afterEach(() => {
   rmSync(workDir, { recursive: true, force: true });
   rmSync(fakeHome, { recursive: true, force: true });
-  delete process.env.STEP_CODE_TEST_HOME;
+  delete process.env.STEP_PI_TEST_HOME;
 });
 
 const ctx = (): ToolContext => ({ cwd: workDir });

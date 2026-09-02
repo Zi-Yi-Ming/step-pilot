@@ -1,5 +1,7 @@
 # Changelog
 
+> **Rebrand notice (2026-09-02)**: This project was originally `step-cli-pi` / `step-code-pi`, and has been rebranded to `steppi`. Historical entries below may reference the old product name and `.step-code/` data directory.
+
 本项目的所有重要变更记录于此。格式沿用 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
 ## [Unreleased]
@@ -378,7 +380,7 @@
 ### Docs
 
 - **三文件文档维护规范登记为 skill**：`AGENTS.md`（对内开发契约）、`CONTRIBUTING.md`（对外贡献指南）、`CHANGELOG.md`（对外用户-facing 变更记录）三文件的更新时机与边界正式纳入 `step-code-docs-maintenance` skill 管辖。核心规则：`docs/` 只放使用文档，设计稿一律进独立产品设计仓库；对外 CHANGELOG 只写用户能感知到的变化，不含内部架构术语；AGENTS.md 是开发契约不是设计文档；README 与 `docs/` 为双语，中文为事实源，改动其中一份必须同步另一份。
-- **`step-code-install` 安装技能**：新增 `skills/step-code-install/`，面向「尚未安装 step-code 的用户」——把仓库 clone 下来后，让手上已有的 AI agent 读这份技能，即可代为完成环境检查、源码构建、配置 API key、验证与故障排查。内容只覆盖安装闭环，不含功能说明。该目录刻意不在各家 CLI 的自动扫描路径内，避免与工具目录冲突，技能顶部说明了两种取用方式。
+- **`step-code-install` 安装技能**：新增 `skills/steppi-install/`，面向「尚未安装 step-code 的用户」——把仓库 clone 下来后，让手上已有的 AI agent 读这份技能，即可代为完成环境检查、源码构建、配置 API key、验证与故障排查。内容只覆盖安装闭环，不含功能说明。该目录刻意不在各家 CLI 的自动扫描路径内，避免与工具目录冲突，技能顶部说明了两种取用方式。
 
 ### Changed
 

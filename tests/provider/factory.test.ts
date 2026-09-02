@@ -144,7 +144,7 @@ describe('createProvider 缺失 API key 守卫', () => {
     } catch (e) {
       message = (e as Error).message;
     }
-    expect(message).toContain('STEP_CODE_API_KEY');
+    expect(message).toContain('STEP_PI_API_KEY');
     expect(message).toContain('[providers]');
     expect(message).toContain('api_key_env');
   });

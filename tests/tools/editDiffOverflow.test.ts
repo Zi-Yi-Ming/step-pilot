@@ -16,13 +16,13 @@ let fakeHome: string;
 beforeEach(() => {
   workDir = mkdtempSync(join(tmpdir(), 'editdiff-work-'));
   fakeHome = mkdtempSync(join(tmpdir(), 'editdiff-home-'));
-  process.env.STEP_CODE_TEST_HOME = fakeHome;
+  process.env.STEP_PI_TEST_HOME = fakeHome;
 });
 
 afterEach(() => {
   rmSync(workDir, { recursive: true, force: true });
   rmSync(fakeHome, { recursive: true, force: true });
-  delete process.env.STEP_CODE_TEST_HOME;
+  delete process.env.STEP_PI_TEST_HOME;
 });
 
 const ctx = (): ToolContext => ({ cwd: workDir });
@@ -66,7 +66,7 @@ describe('edit_file diff 截断：完整 diff 落盘替代 Ctrl+O 假承诺', ()
     expect(res2.isError).toBeFalsy();
     const text = res2.content;
     expect(text).toContain('more changes hidden');
-    expect(text).toContain('完整 diff 已存 .step-code/tool-output/edit-diff-');
+    expect(text).toContain('完整 diff 已存 .step-pi/tool-output/edit-diff-');
     expect(text).not.toContain('Ctrl+O to expand');
   });
 
@@ -79,7 +79,7 @@ describe('edit_file diff 截断：完整 diff 落盘替代 Ctrl+O 假承诺', ()
       { path: f, old_string: oldText, new_string: newText },
       ctx(),
     );
-    const m = res.content.match(/完整 diff 已存 (\.step-code\/tool-output\/\S+)/);
+    const m = res.content.match(/完整 diff 已存 (\.step-pi\/tool-output\/\S+)/);
     expect(m).toBeTruthy();
     const saved = join(workDir, m![1]!);
     expect(existsSync(saved)).toBe(true);
@@ -95,6 +95,6 @@ describe('edit_file diff 截断：完整 diff 落盘替代 Ctrl+O 假承诺', ()
     const res = await editFileTool.execute({ path: f, old_string: 'hello', new_string: 'world' }, ctx());
     expect(res.isError).toBeFalsy();
     expect(res.content).not.toContain('完整 diff 已存');
-    expect(existsSync(join(workDir, '.step-code', 'tool-output'))).toBe(false);
+    expect(existsSync(join(workDir, '.step-pi', 'tool-output'))).toBe(false);
   });
 });

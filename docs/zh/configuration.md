@@ -514,7 +514,7 @@ timeout = 30                                 # 秒，可选，默认 30，硬顶
 | `STEP_PI_MODEL` | 模型名或 `[models]` 别名，优先级高于 config.toml、低于 `--model` |
 | `STEP_PI_DEBUG` | 设为 `1` 把运行日志级别从 info 放宽到 debug（日志写 `~/.step-pi/logs/step-code.log`；`-p` 非交互模式下 debug 日志同时进 stderr） |
 | `STEP_SHELL_PATH` | Windows 专用：`bash` 工具的解释器绝对路径，用于 Git Bash 装在非标准路径的情况，优先于自动探测 |
-| `STEP_DEBUG_RENDER` | 设为 `1` 开启动态帧渲染预算诊断：触发降级（`DEGRADED`）或帧高触线（`DANGER`）时追加写 `%TEMP%/step-code-render-debug.log`，用于排查渲染/滚动问题 |
+| `STEP_DEBUG_RENDER` | 设为 `1` 开启动态帧渲染预算诊断：触发降级（`DEGRADED`）或帧高触线（`DANGER`）时追加写 `%TEMP%/steppi-render-debug.log`，用于排查渲染/滚动问题 |
 
 `api_key_env` 指向的变量名由你自定义，不在此表内。上表中的 key 类变量空串等同未设置。
 

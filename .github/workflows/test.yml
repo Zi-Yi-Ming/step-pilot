@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [step-code-explore]
+    branches: [main]
   pull_request:
 
 # 同一分支/ PR 上新推送时取消旧的运行，节省额度。

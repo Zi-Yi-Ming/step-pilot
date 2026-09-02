@@ -123,8 +123,8 @@ describe('redactPaths', () => {
     expect(redactPaths('the pkm-hub repo')).toContain('VAULT');
   });
 
-  it('替换 .step-code 和 .pi 目录中的用户名', () => {
-    expect(redactPaths('C:\\Users\\ke\\.step-code\\config.toml')).not.toContain('C:\\Users\\ke');
+  it('替换 .step-pi 和 .pi 目录中的用户名', () => {
+    expect(redactPaths('C:\\Users\\ke\\.step-pi\\config.toml')).not.toContain('C:\\Users\\ke');
     expect(redactPaths('C:\\Users\\ke\\.pi\\agent')).not.toContain('C:\\Users\\ke');
   });
 

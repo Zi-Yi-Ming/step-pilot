@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 function writeConfig(content: string): void {
-  const dirPath = join(dir, '.step-code');
+  const dirPath = join(dir, '.step-pi');
   mkdirSync(dirPath, { recursive: true });
   writeFileSync(join(dirPath, 'config.toml'), content, 'utf8');
 }

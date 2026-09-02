@@ -25,7 +25,7 @@ function bigOutputCmd(mb: number): string {
 let cwd: string;
 
 beforeEach(() => {
-  // 用临时目录当 cwd：溢出文件落在 <cwd>/.step-code/tool-output/，不能污染项目仓库
+  // 用临时目录当 cwd：溢出文件落在 <cwd>/.step-pi/tool-output/，不能污染项目仓库
   cwd = mkdtempSync(join(tmpdir(), 'sc-bashcap-'));
 });
 afterEach(() => {
@@ -33,7 +33,7 @@ afterEach(() => {
 });
 
 function overflowFiles(root: string): string[] {
-  const dir = join(root, '.step-code', 'tool-output');
+  const dir = join(root, '.step-pi', 'tool-output');
   if (!existsSync(dir)) return [];
   return readdirSync(dir).filter((n) => n.startsWith('bash-') && n.endsWith('.log'));
 }
@@ -51,7 +51,7 @@ describe('bash 输出收集上限', () => {
     // 文件真的存在，且体积接近命令的真实产出（≈12MB），不是内存里那 9MB
     const files = overflowFiles(cwd);
     expect(files.length).toBe(1);
-    const bytes = statSync(join(cwd, '.step-code', 'tool-output', files[0]!)).size;
+    const bytes = statSync(join(cwd, '.step-pi', 'tool-output', files[0]!)).size;
     expect(bytes).toBeGreaterThan(11 * 1024 * 1024);
   }, 180000);
 
