@@ -142,7 +142,8 @@ async function wizard(tui: TUI, banner: Banner): Promise<FirstRunResult> {
         c.accent(t('firstRun.pasteTitle')),
         c.dim('step-pilot 需要 API key 才能调用模型；key 仅保存在你本机的配置文件中，不会上传到任何地方。'),
       );
-      const key = await askLine(tui, t('firstRun.pasteHint'), undefined, t('firstRun.pasteEscHint'));
+      // mask：API key 不以明文显示（粘贴进来也只见等长圆点）
+      const key = await askLine(tui, t('firstRun.pasteHint'), undefined, t('firstRun.pasteEscHint'), { mask: true });
       if (key === null) {
         step = chosen!.name === 'custom' ? 'baseUrl' : 'select';
         continue;
@@ -156,45 +157,50 @@ async function wizard(tui: TUI, banner: Banner): Promise<FirstRunResult> {
       continue;
     }
 
-    // step === 'model'
-    setBanner(
-      c.dim(`${t('firstRun.confirmProvider', { label: chosen!.name })} · ${t('firstRun.keySaved')}`),
-      c.accent(t('firstRun.customModelTitle')),
-    );
-    if (chosen!.models.length === 0) {
-      const modelId = await askLine(tui, t('firstRun.customModelHint'), undefined, t('firstRun.pasteEscHint'));
-      if (modelId === null) {
+    if (step === 'model') {
+      setBanner(
+        c.dim(`${t('firstRun.confirmProvider', { label: chosen!.name })} · ${t('firstRun.keySaved')}`),
+        c.accent(t('firstRun.customModelTitle')),
+      );
+      if (chosen!.models.length === 0) {
+        const modelId = await askLine(tui, t('firstRun.customModelHint'), undefined, t('firstRun.pasteEscHint'));
+        if (modelId === null) {
+          step = 'key';
+          continue;
+        }
+        if (modelId.trim() === '') continue;
+        saveModelAlias(CUSTOM_ALIAS, {
+          provider: chosen!.name,
+          model: modelId.trim(),
+          max_context_size: DEFAULT_MAX_CONTEXT,
+          display_name: modelId.trim(),
+        });
+        saveDefaultModel(CUSTOM_ALIAS);
+        return { kind: 'configured', apiKey, provider: chosen!.name, model: CUSTOM_ALIAS };
+      }
+      const picked = await showPicker(tui, {
+        title: t('firstRun.modelTitle'),
+        subtitle: t('firstRun.modelHint'),
+        hint: t('firstRun.modelEscHint'),
+        items: chosen!.models.map((m) => ({ value: m.alias, label: m.displayName, description: m.modelId })),
+      });
+      if (picked === null) {
         step = 'key';
         continue;
       }
-      if (modelId.trim() === '') continue;
-      saveModelAlias(CUSTOM_ALIAS, {
-        provider: chosen!.name,
-        model: modelId.trim(),
-        max_context_size: DEFAULT_MAX_CONTEXT,
-        display_name: modelId.trim(),
-      });
-      saveDefaultModel(CUSTOM_ALIAS);
-      return { kind: 'configured', apiKey, provider: chosen!.name, model: CUSTOM_ALIAS };
-    }
-    const picked = await showPicker(tui, {
-      title: t('firstRun.modelTitle'),
-      subtitle: t('firstRun.modelHint'),
-      hint: t('firstRun.modelEscHint'),
-      items: chosen!.models.map((m) => ({ value: m.alias, label: m.displayName, description: m.modelId })),
-    });
-    if (picked === null) {
-      step = 'key';
+      const model = chosen!.models.find((m) => m.alias === picked)!;
+      // 记住选择，不立即落盘——到 confirm 步骤确认后再统一保存
+      selectedModel = { alias: model.alias, modelId: model.modelId, displayName: model.displayName };
+      step = 'confirm';
       continue;
     }
-    const model = chosen!.models.find((m) => m.alias === picked)!;
-    // 记住选择，不立即落盘——到 confirm 步骤确认后再统一保存
-    selectedModel = { alias: model.alias, modelId: model.modelId, displayName: model.displayName };
-    step = 'confirm';
-    continue;
 
-  // confirm 步骤：汇总所有选择让用户最后核对一遍，确认后才落盘
-  if (step === 'confirm') {
+    // confirm 步骤：汇总所有选择让用户最后核对一遍，确认后才落盘。
+    // 注意守卫不可省：循环里每个步骤段都必须有 step 守卫并以 continue 收尾，
+    // 否则下一段会被它无条件执行（曾经 confirm 段落在 model 段的 continue 之后，
+    // 是永远不可达的死代码——选完模型后选择器原地重开、高亮重置回第一项，
+    // 用户表现为「按 Enter 没用 / 选中下面却跳回上面」，且永远无法完成向导）。
+    if (step === 'confirm') {
     const masked = apiKey.slice(0, 4) + '...' + apiKey.slice(-4);
     setBanner(
       c.ok(t('firstRun.confirmTitle')),

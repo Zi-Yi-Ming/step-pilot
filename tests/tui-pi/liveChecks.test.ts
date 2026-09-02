@@ -13,7 +13,7 @@
  * dist/ 未构建时跳过，避免只跑单测时红成噪声。
  */
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -246,5 +246,62 @@ timeout = 20
     });
     expect(exited, '选文档后进程应自行退出').toBe(true);
     expect(err, 'stderr 里没有文档链接，用户选了这一项却什么也没拿到').toMatch(/https?:\/\/\S+quickstart/);
+  });
+
+  /**
+   * ⑤ 完整走通向导：选渠道 → 填 key（掩码）→ 选模型 → 确认 → 配置落盘。
+   *
+   * 这条是向导状态机的死代码守卫：confirm 段曾写在 model 段的 `continue` 之后，
+   * 是永远不可达的死代码——选完模型后选择器原地重开、高亮重置回第一项，用户
+   * 表现为「按 Enter 没用」，且任何组件级单测都发现不了（组件全绿、流程死锁）。
+   * 唯一可靠的证明是进程级：配置文件真的写出来了。
+   *
+   * 掩码断言同理：key 步骤曾以明文回显，掩码后 stdout 渲染帧里不应出现完整明文。
+   */
+  it('⑤ 完整走通向导：配置落盘且 key 不以明文出现在屏幕', { timeout: 40000, retry: 2 }, async () => {
+    const child = spawn(process.execPath, [entry], {
+      cwd: work,
+      env: (() => {
+        const env: Record<string, string> = { ...process.env } as Record<string, string>;
+        delete env['NODE_ENV'];
+        delete env['VITEST'];
+        delete env['VITEST_WORKER_ID'];
+        env['HOME'] = home;
+        env['USERPROFILE'] = home;
+        delete env['STEP_PILOT_API_KEY'];
+        // 管道模式下 stdout.columns 为 undefined，pi-tui 回落 COLUMNS env（缺省 80 列）。
+        // 用宽终端跑，避免把「窄终端渲染」这一变量混进流程断言（窄终端守卫另有单测）。
+        env['COLUMNS'] = '140';
+        env['LINES'] = '40';
+        return env;
+      })(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let raw = '';
+    child.stdout.on('data', (c: Buffer) => {
+      raw += c.toString();
+    });
+    child.stderr.on('data', () => {});
+    const send = async (keys: string, waitMs: number): Promise<void> => {
+      await new Promise((r) => setTimeout(r, waitMs));
+      child.stdin.write(keys);
+    };
+    try {
+      await send('\r', 2000); // 渠道选择：第 1 项 stepfun-plan
+      await send('sk-test-key-123456\r', 1200); // key 步骤（掩码）
+      await send('\r', 1200); // 模型选择：第 1 项 router —— 若 confirm 段不可达，此处选择器重开
+      await send('\r', 1200); // 确认步骤：空输入 = 确认落盘
+      await new Promise((r) => setTimeout(r, 1500));
+    } finally {
+      child.kill();
+    }
+    const cfgPath = join(home, '.step-pilot', 'config.toml');
+    expect(existsSync(cfgPath), '向导走完配置未落盘——confirm 段没被执行（死代码回归）').toBe(true);
+    const cfg = readFileSync(cfgPath, 'utf8');
+    expect(cfg).toContain('[models.router]');
+    expect(cfg).toContain('provider = "stepfun-plan"');
+    expect(cfg).toMatch(/model = "router"/);
+    // 掩码：完整明文 key 不得出现在任何渲染帧
+    expect(raw, 'API key 以明文出现在了界面上').not.toContain('sk-test-key-123456');
   });
 });

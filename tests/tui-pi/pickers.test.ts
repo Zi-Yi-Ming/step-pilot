@@ -580,3 +580,46 @@ describe('Windows Enter 复现：先移动后确认', () => {
   // SS3 Enter 拆包（ 与 OM 分两段）不在此测：pi-tui StdinBuffer 在 stdin 读取层
   // 重组不完整 escape 序列，overlay 只会收到完整片段；孤立的  字节本义就是 Esc。
 });
+
+describe('MaskedEditor（askLine mask 模式）', () => {
+  function mkMasked(): { term: FakeTerminal; tui: TuiMainScreen } {
+    const term = new FakeTerminal();
+    const tui = new TuiMainScreen(term);
+    tui.start();
+    return { term, tui };
+  }
+  const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+  it('输入的明文不落屏，提交拿到真实值', async () => {
+    const { term, tui } = mkMasked();
+    const p = askLine(tui, '粘贴 API key', undefined, undefined, { mask: true });
+    await tick();
+    term.send('sk-abc123');
+    await tick();
+    // 明文不得出现在任何渲染输出里
+    expect(term.allOutput()).not.toContain('sk-abc123');
+    expect(term.allOutput()).toContain('•');
+    term.send(ENTER);
+    await expect(p).resolves.toBe('sk-abc123');
+  });
+
+  it('退格删真实字符；回车全编码提交', async () => {
+    const { term, tui } = mkMasked();
+    const p = askLine(tui, '粘贴 API key', undefined, undefined, { mask: true });
+    await tick();
+    term.send('abcd');
+    term.send('\x7f'); // backspace
+    term.send(ENTER);
+    await expect(p).resolves.toBe('abc');
+  });
+
+  it('整段粘贴（多字符一次到达）也掩码', async () => {
+    const { term, tui } = mkMasked();
+    const p = askLine(tui, '粘贴 API key', undefined, undefined, { mask: true });
+    await tick();
+    term.send('sk-pasted-long-key-1234567890');
+    term.send(ENTER);
+    await expect(p).resolves.toBe('sk-pasted-long-key-1234567890');
+    expect(term.allOutput()).not.toContain('sk-pasted-long-key');
+  });
+});

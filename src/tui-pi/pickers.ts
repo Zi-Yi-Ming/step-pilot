@@ -465,8 +465,10 @@ export class Banner implements Component {
   invalidate(): void {
     // 无缓存：内容极短，每帧重拼比维护脏标记便宜
   }
-  render(): string[] {
-    return this.lines;
+  render(width: number): string[] {
+    // 逐行截断：提示文案（尤其中文长句）按显示宽度极易超终端宽，pi-tui 对
+    // 超宽行直接 throw 崩掉整个 TUI（首次运行向导曾因此死于 key 步骤提示行）。
+    return this.lines.map((l) => truncateToWidth(l, width));
   }
 }
 
@@ -509,7 +511,13 @@ export async function askValidated(
   }
 }
 
-export function askLine(tui: TUI, hint: string, initial?: string, keyHint?: string): Promise<string | null> {
+export function askLine(
+  tui: TUI,
+  hint: string,
+  initial?: string,
+  keyHint?: string,
+  opts?: { mask?: boolean },
+): Promise<string | null> {
   return new Promise<string | null>((resolve) => {
     const host = new Container();
     let settled = false;
@@ -527,7 +535,7 @@ export function askLine(tui: TUI, hint: string, initial?: string, keyHint?: stri
     };
     const hintLine = new Banner();
     hintLine.setLines([c.dim(hint)]);
-    const editor = new EscEditor(tui, editorTheme);
+    const editor = opts?.mask === true ? new MaskedEditor(tui, editorTheme) : new EscEditor(tui, editorTheme);
     editor.onSubmit = (text) => finish(text);
     editor.onEscapeKey = () => {
       finish(null);
@@ -554,5 +562,45 @@ class EscEditor extends Editor {
     // \x1b 单字节即 Esc；带后续字节的是方向键等序列，交给父类
     if (data === '\x1b' && this.onEscapeKey?.() === true) return;
     super.handleInput(data);
+  }
+}
+
+/**
+ * 掩码单行输入：密钥等敏感值不以明文显示。
+ *
+ * 拦截式掩码：真实字符只进 `real` 缓冲，Editor 缓冲里是与字符等长的 `•`——
+ * 不 hook Editor 的私有渲染（layoutText 未入 pi-tui 的 d.ts，运行时替换文本
+ * 会破坏光标状态），而是让 Editor 永远看不到明文。
+ *
+ * 代价：掩码模式不支持光标移动编辑（方向键/词编辑键忽略）——real 与显示缓冲
+ * 会因光标类操作失同步，宁可少能力也不冒「提交的与看到的不一致」的风险。
+ * 支持整段粘贴（key 几乎总是粘贴进来）与逐字退格。
+ */
+class MaskedEditor extends EscEditor {
+  private real = '';
+
+  override handleInput(data: string): void {
+    if (data === '\x1b' && this.onEscapeKey?.() === true) return;
+    // Enter 全编码覆盖：matchesKey 认 \r / SS3 / CSI-u，字节检查兜 CRLF 与拆包 LF
+    if (matchesKey(data, 'enter') || data.includes('\r') || data === '\n') {
+      this.onSubmit?.(this.real);
+      return;
+    }
+    if (matchesKey(data, 'backspace')) {
+      this.real = [...this.real].slice(0, -1).join('');
+      super.handleInput(data);
+      return;
+    }
+    // 不带 escape 前缀、全部可打印的输入（含整段粘贴）进真实缓冲，显示等长掩码
+    if (!data.startsWith('\x1b') && [...data].every((ch) => ch.charCodeAt(0) >= 32)) {
+      this.real += data;
+      super.handleInput('•'.repeat([...data].length));
+      return;
+    }
+    // 其余（方向键、词编辑、ctrl 组合）：忽略，保持 real 与显示缓冲一致
+  }
+
+  override getText(): string {
+    return this.real;
   }
 }
