@@ -7,14 +7,14 @@
 最快的方式（需要 Node.js >= 22）：
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot.tgz
+npm i -g https://github.com/Zi-Yi-Ming/step-pilot/releases/latest/download/step-pilot.tgz
 ```
 
-装的是预编译好的包，不在本机编译、不拉依赖；链接始终指向最新 Release。没有 Node 环境可从 [Releases](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest) 直接下载对应平台的单文件可执行；要参与开发则克隆仓库自行构建：
+装的是预编译好的包，不在本机编译、不拉依赖；链接始终指向最新 Release。没有 Node 环境可从 [Releases](https://github.com/Zi-Yi-Ming/step-pilot/releases/latest) 直接下载对应平台的单文件可执行；要参与开发则克隆仓库自行构建：
 
 ```bash
 git clone https://github.com/Zi-Yi-Ming/step-pilot.git
-cd Step-Realtime-CLI
+cd step-pilot
 pnpm install
 pnpm build
 pnpm link --global   # 之后可直接用 step 命令

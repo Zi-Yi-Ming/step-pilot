@@ -21,13 +21,13 @@
 
 ## 单文件可执行（无需 Node 环境）
 
-从 [Releases](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest) 下载对应平台产物（下列链接始终指向最新 Release）：
+从 [Releases](https://github.com/Zi-Yi-Ming/step-pilot/releases/latest) 下载对应平台产物（下列链接始终指向最新 Release）：
 
 | 平台 | 下载 |
 |------|------|
-| Windows x64 | [step-pilot-win32-x64.exe](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot-win32-x64.exe) |
-| macOS Apple Silicon | [step-pilot-darwin-arm64](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot-darwin-arm64) |
-| Linux x64 | [step-pilot-linux-x64](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot-linux-x64) |
+| Windows x64 | [step-pilot-win32-x64.exe](https://github.com/Zi-Yi-Ming/step-pilot/releases/latest/download/step-pilot-win32-x64.exe) |
+| macOS Apple Silicon | [step-pilot-darwin-arm64](https://github.com/Zi-Yi-Ming/step-pilot/releases/latest/download/step-pilot-darwin-arm64) |
+| Linux x64 | [step-pilot-linux-x64](https://github.com/Zi-Yi-Ming/step-pilot/releases/latest/download/step-pilot-linux-x64) |
 
 每个产物附带同名 `.sha256` 校验文件（同路径加 `.sha256` 后缀）。下载后重命名为 `step`（Windows 为 `step.exe`）放进 PATH 即可。
 
@@ -44,7 +44,7 @@ xattr -d com.apple.quarantine step 2>/dev/null || true
 一条命令装最新版（永久链接，始终解析到最新 Release 的 tarball）：
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot.tgz
+npm i -g https://github.com/Zi-Yi-Ming/step-pilot/releases/latest/download/step-pilot.tgz
 step --version
 ```
 
@@ -53,7 +53,7 @@ tarball 内含预编译的 `dist/`，`npm i -g <url>` 只解包并链接 `bin.st
 要锁定某个版本、可复现安装时，把 URL 换成该 tag 的带版本号资产，例如：
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/download/v0.1.2/step-pilot-0.1.2.tgz
+npm i -g https://github.com/Zi-Yi-Ming/step-pilot/releases/download/v0.1.3/step-pilot-0.1.3.tgz
 ```
 
 ## npm 装源码分支（跟随最新主干）
@@ -61,7 +61,7 @@ npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/download/v0.1.
 直接从开发分支装，拿到的是当下最新代码：
 
 ```bash
-npm i -g github:Zi-Yi-Ming/Step-Realtime-CLI#main
+npm i -g github:Zi-Yi-Ming/step-pilot#main
 step --version
 ```
 
@@ -74,8 +74,8 @@ npm 会先克隆仓库、安装构建依赖，再通过 `prepare` 钩子在本�
 当前分支 `main 仍在快速迭代，Release 不一定追平最新代码。需要最新特性时可以从源码构建：
 
 ```bash
-git clone -b main https://github.com/Zi-Yi-Ming/Step-Realtime-CLI.git
-cd Step-Realtime-CLI
+git clone -b main https://github.com/Zi-Yi-Ming/step-pilot.git
+cd step-pilot
 pnpm install
 pnpm build        # tsc 编译到 dist/
 pnpm test         # vitest 单元测试（可选，验证环境正常）
@@ -112,8 +112,8 @@ pnpm install && pnpm build
 重新执行原来那条安装命令，npm 会重新解析 URL 或 git 引用并覆盖安装：
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot.tgz  # 最新 Release tarball
-npm i -g github:Zi-Yi-Ming/Step-Realtime-CLI#main                                  # 源码分支
+npm i -g https://github.com/Zi-Yi-Ming/step-pilot/releases/latest/download/step-pilot.tgz  # 最新 Release tarball
+npm i -g github:Zi-Yi-Ming/step-pilot#main                                  # 源码分支
 ```
 
 `npm update -g step-pilot` 对这几种形态不生效——它面向 registry 包，而这里的来源是 git 引用或 URL。
@@ -144,7 +144,7 @@ npm uninstall -g step-pilot
 ### 源码安装卸载
 
 ```bash
-cd Step-Realtime-CLI
+cd step-pilot
 pnpm unlink --global   # 移除全局 step 命令
 ```
 

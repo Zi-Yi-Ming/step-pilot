@@ -12,14 +12,14 @@ By the end of this page you will have installed Step Pilot, configured an API ke
 The fastest path (requires Node.js >= 22):
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot.tgz
+npm i -g https://github.com/Zi-Yi-Ming/step-pilot/releases/latest/download/step-pilot.tgz
 ```
 
-This installs a pre-built package: nothing is compiled locally and no dependencies are fetched, and the link always points to the latest Release. Without a Node environment, download the standalone executable for your platform from [Releases](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest). To contribute, clone the repository and build it yourself:
+This installs a pre-built package: nothing is compiled locally and no dependencies are fetched, and the link always points to the latest Release. Without a Node environment, download the standalone executable for your platform from [Releases](https://github.com/Zi-Yi-Ming/step-pilot/releases/latest). To contribute, clone the repository and build it yourself:
 
 ```bash
 git clone https://github.com/Zi-Yi-Ming/step-pilot.git
-cd Step-Realtime-CLI
+cd step-pilot
 pnpm install
 pnpm build
 pnpm link --global   # afterwards you can use the step command directly

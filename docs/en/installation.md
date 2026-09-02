@@ -26,13 +26,13 @@ All artifacts are hosted on GitHub Releases; they do not go through the npm publ
 
 ## Standalone executable (no Node required)
 
-Download the platform-specific artifact from [Releases](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest) (these links always point to the latest Release):
+Download the platform-specific artifact from [Releases](https://github.com/Zi-Yi-Ming/step-pilot/releases/latest) (these links always point to the latest Release):
 
 | Platform | Download |
 |----------|----------|
-| Windows x64 | [step-pilot-win32-x64.exe](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot-win32-x64.exe) |
-| macOS Apple Silicon | [step-pilot-darwin-arm64](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot-darwin-arm64) |
-| Linux x64 | [step-pilot-linux-x64](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot-linux-x64) |
+| Windows x64 | [step-pilot-win32-x64.exe](https://github.com/Zi-Yi-Ming/step-pilot/releases/latest/download/step-pilot-win32-x64.exe) |
+| macOS Apple Silicon | [step-pilot-darwin-arm64](https://github.com/Zi-Yi-Ming/step-pilot/releases/latest/download/step-pilot-darwin-arm64) |
+| Linux x64 | [step-pilot-linux-x64](https://github.com/Zi-Yi-Ming/step-pilot/releases/latest/download/step-pilot-linux-x64) |
 
 Each artifact comes with a same-name `.sha256` checksum file (append `.sha256` to the same path). After downloading, rename it to `step` (or `step.exe` on Windows) and place it on your PATH.
 
@@ -49,7 +49,7 @@ xattr -d com.apple.quarantine step 2>/dev/null || true
 One command installs the latest version (a permalink that always resolves to the latest Release's tarball):
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot.tgz
+npm i -g https://github.com/Zi-Yi-Ming/step-pilot/releases/latest/download/step-pilot.tgz
 step --version
 ```
 
@@ -58,7 +58,7 @@ The tarball includes a pre-built `dist/`. `npm i -g <url>` only unpacks it and l
 To pin a specific version for reproducible installs, use that tag's versioned asset instead, e.g.:
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/download/v0.1.2/step-pilot-0.1.2.tgz
+npm i -g https://github.com/Zi-Yi-Ming/step-pilot/releases/download/v0.1.3/step-pilot-0.1.3.tgz
 ```
 
 ## npm install source branch (follow main)
@@ -66,7 +66,7 @@ npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/download/v0.1.
 Install directly from the development branch to get the latest code at the moment:
 
 ```bash
-npm i -g github:Zi-Yi-Ming/Step-Realtime-CLI#main
+npm i -g github:Zi-Yi-Ming/step-pilot#main
 step --version
 ```
 
@@ -79,8 +79,8 @@ This path resolves dependencies via npm's own logic, not the repository's pnpm l
 The current `main branch is iterating quickly, and releases may not catch up to the latest code. To get the newest features, build from source:
 
 ```bash
-git clone -b main https://github.com/Zi-Yi-Ming/Step-Realtime-CLI.git
-cd Step-Realtime-CLI
+git clone -b main https://github.com/Zi-Yi-Ming/step-pilot.git
+cd step-pilot
 pnpm install
 pnpm build        # tsc compiles to dist/
 pnpm test         # vitest unit tests (optional, verifies the environment works)
@@ -117,8 +117,8 @@ Download the new version and overwrite the file in place.
 Re-run the original install command; npm re-resolves the URL or git reference and overwrites the existing installation:
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot.tgz  # latest Release tarball
-npm i -g github:Zi-Yi-Ming/Step-Realtime-CLI#main                                  # source branch
+npm i -g https://github.com/Zi-Yi-Ming/step-pilot/releases/latest/download/step-pilot.tgz  # latest Release tarball
+npm i -g github:Zi-Yi-Ming/step-pilot#main                                  # source branch
 ```
 
 `npm update -g step-pilot` does not work for these variants—it targets registry packages, while the sources here are git references or URLs.
@@ -149,7 +149,7 @@ npm uninstall -g step-pilot
 ### Source install
 
 ```bash
-cd Step-Realtime-CLI
+cd step-pilot
 pnpm unlink --global   # removes the global step command
 ```
 

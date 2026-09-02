@@ -19,8 +19,8 @@ Small frontier models are fast and cheap, but they break under the weight of tra
 step-pilot treats small-model instruction following as a first-class constraint:
 
 - **~2000 char system prompt** — the smallest useful instruction set, not a kitchen-sink manifesto
-- **Tool results capped at 200K chars** — stops one runaway command from drowning the model
-- **Compaction triggers earlier, keeps less** — default trigger at 75% context, retains only the last 4 messages during summary; user messages get a 10K token fidelity budget
+- **Tool results capped at 400K chars** — stops one runaway command from drowning the model
+- **Compaction triggers earlier, keeps less** — default trigger at 75% context, retains the last 6 messages during summary; user messages get a 20K token fidelity budget
 - **Clearer tool contracts** — core tool descriptions rewritten for unambiguous instruction following
 
 The point isn't to make Flash behave like a 700B model. It's to stop wasting its context on things that don't matter, so the instructions that do matter actually get followed.
