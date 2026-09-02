@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **首次运行向导卡死在模型选择：确认后选择器原地重开**：向导循环里模型步骤缺 step 守卫，选完模型后 `continue` 跳回循环开头、把 confirm 段甩成永远不可达的死代码——用户按 Enter「没用」、选中下面却「跳回上面」（选择器重开、高亮重置），永远无法完成向导。修复后确认屏可达、配置正常落盘；新增进程级集成测试驱动完整向导流程守卫（配置未落盘即红）。
+- **API key 输入以明文回显**：key 步骤改为掩码输入（等长圆点，支持整段粘贴与退格），真实字符不落屏；confirm 屏仍只显示首尾各 4 位的掩码摘要。
+- **窄终端下向导直接崩溃**：key 步骤的长提示行按显示宽度超出终端列数时，pi-tui 对超宽渲染行直接 throw。Banner 组件渲染出口补逐行截断，向导所有提示行不再触发该崩溃。
+
 ### Added
 
 - **MCP 支持 streamable http transport，可接远程 server**：`~/.step-pilot/mcp.json` 的 server 条目新增 `url`（streamable http，与 `command` 的 stdio 二选一，互斥校验）与 `headers`（自定义请求头，如 `Authorization`）。鉴权暂走 headers 手填，OAuth 与已废弃的 SSE-only 传输不支持。配置错误（二者同时给或缺给、url 非法）不阻塞启动，以 failed 状态呈现在 `/mcp` 面板。
