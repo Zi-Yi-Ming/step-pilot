@@ -61,7 +61,7 @@ export class StreamBuffer {
 
   constructor(apply: (ev: AgentEvent) => void, opts: StreamBufferOptions = {}) {
     this.apply = apply;
-    this.flushMs = opts.flushMs ?? 50;
+    this.flushMs = opts.flushMs ?? 40;
     this.now = opts.now ?? (() => Date.now());
   }
 

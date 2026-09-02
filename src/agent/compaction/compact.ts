@@ -104,14 +104,14 @@ const MEDIA_PART_MARKERS: Record<string, string> = {
  * 一旦措辞漂移，后续回合就会按错误理解继续干活（实测：压缩后误判项目路径）。
  * 故把用户原话当一等公民，在摘要之外单独留预算逐条保真保留。
  */
-export const COMPACT_USER_MESSAGE_MAX_TOKENS = 10_000;
+export const COMPACT_USER_MESSAGE_MAX_TOKENS = 20_000;
 
 /**
  * 用户消息预算中划给「最早消息」的份额（默认 2K，其余全给最近消息）。
  * 最早的消息通常载有任务定义与全局约束，最近的消息载有当前意图；
  * 中间段最容易被摘要覆盖，故预算不足时优先牺牲中间。
  */
-export const COMPACT_USER_MESSAGE_HEAD_TOKENS = 1_000;
+export const COMPACT_USER_MESSAGE_HEAD_TOKENS = 2_000;
 
 /**
  * micro 压缩的单条 tool_result 最小正文 token 门槛（默认 100）。
