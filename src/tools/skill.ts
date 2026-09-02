@@ -20,7 +20,7 @@ const schema = z.object({
 export const skillTool: ToolDef<z.infer<typeof schema>> = {
   name: 'skill',
   description:
-    '激活一个技能，返回它的完整指令。system prompt 里有可用技能清单（名称/描述）；当任务匹配某技能描述时，调用本工具传入技能名（可选 args 展开占位符），加载完整指令后按指令执行。',
+    '激活技能并返回完整指令。system prompt 有可用技能清单；任务匹配某技能描述时调用本工具，传入技能名加载指令后执行。',
   schema,
   async execute(input, ctx) {
     if (ctx.skills === undefined) {

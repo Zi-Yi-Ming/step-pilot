@@ -254,7 +254,7 @@ function runForeground(
 export const bashTool: ToolDef<z.infer<typeof schema>> = {
   name: 'bash',
   description:
-    '执行一条 shell 命令并返回合并后的 stdout+stderr。Windows 上优先用 Git Bash（Unix 语法），无则回退 WSL/busybox/PowerShell。避免交互式或永不结束的命令。run_in_background=true 时后台执行并立即返回 task_id。前台超时后命令自动转为后台任务继续运行。',
+    '执行一条 shell 命令并返回 stdout+stderr。Windows 优先 Git Bash（Unix 语法）。避免交互式或永不结束的命令；需要长时间运行时才用 run_in_background=true。前台超时后命令自动转为后台任务继续运行。',
   schema,
   async execute(input, ctx) {
     const shell = resolveShell();

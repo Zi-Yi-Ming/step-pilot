@@ -36,7 +36,7 @@ export type QuestionAnswers = Record<string, string | string[]>;
 export const askUserTool: ToolDef<AskUserRequest> = {
   name: 'ask_user',
   description:
-    '向用户提问并让其从选项里选择，用于澄清歧义或收集偏好。仅在无法自行合理决策、且答案会实质改变下一步时才问，别过度打扰；能自己定的就别问。一次可问 1–4 题、每题给 2–4 个选项；推荐项放第一位并在 label 结尾标 (Recommended)。不要自带 "Other" 选项，系统会自动追加自由输入项。',
+    '向用户提问并从选项获取答案。仅当无法自行决策且答案会实质改变下一步时才问；能自己定的别问。一次 1–4 题，每题 2–4 个选项，推荐项放第一位并在 label 结尾标 (Recommended)。不要自带 "Other" 选项，系统自动追加自由输入。',
   schema,
   async execute(input, ctx) {
     if (ctx.askUser === undefined) {
