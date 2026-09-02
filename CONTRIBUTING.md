@@ -1,6 +1,6 @@
 # 贡献指南
 
-欢迎为 Step Code 贡献代码、文档或反馈。
+欢迎为 Step Pi 贡献代码、文档或反馈。
 
 ## 开发环境
 
@@ -51,7 +51,7 @@ git worktree add ../step-pi-worktrees/<名字> -b wt/<名字>
 
 日志写到 `~/.step-pi/logs/steppi.log`（进程内还留一份环形缓冲）。交互模式（`steppi`）日志只进文件，绝不污染 TUI；非交互（`-p`）与 `--reflect` 走 headless 模式。
 
-排查问题时用 `/export-debug-zip`（TUI 内）或 `step export-debug-zip [sessionId]`（命令行）导出脱敏的调试包（会话历史、config、mcp.json、错误日志、环境清单，密钥自动 redact），附在 issue 里最省沟通。
+排查问题时用 `/export-debug-zip`（TUI 内）或 `steppi export-debug-zip [sessionId]`（命令行）导出脱敏的调试包（会话历史、config、mcp.json、错误日志、环境清单，密钥自动 redact），附在 issue 里最省沟通。
 
 ### 界面没反应、日志也是空的
 
