@@ -141,6 +141,9 @@ jobs:
     needs: [sea, tarball]
     runs-on: ubuntu-latest
     steps:
+      # changelog 摘要要从 CHANGELOG.md 提取，没有 checkout 工作区就没有这个文件
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -175,7 +178,7 @@ jobs:
               if (line.startsWith("### ")) {
                 inSubsection = true;
                 buf.push("");
-                buf.push("**" + line.slice(5).trim() + "**");
+                buf.push("**" + line.slice(4).trim() + "**");
                 continue;
               }
               if (inSubsection && line.startsWith("- ")) {
@@ -200,7 +203,7 @@ jobs:
                 if (line.startsWith("### ")) {
                   inSubsection = true;
                   buf.push("");
-                  buf.push("**" + line.slice(5).trim() + "**");
+                  buf.push("**" + line.slice(4).trim() + "**");
                   continue;
                 }
                 if (inSubsection && line.startsWith("- ")) {
