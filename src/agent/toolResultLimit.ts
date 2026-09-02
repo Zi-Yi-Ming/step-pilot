@@ -14,12 +14,15 @@ import type { ToolResult } from '../tools/types.js';
  * 工具输出的头部通常是结构信息（表头、文件头、命令回显），尾部通常是结论（汇总行、错误栈的
  * 最内层、退出码）。只保头会丢结论，只保尾会丢上下文。保头尾、挖掉中间，是对模型最友好的一档。
  *
- * 与 web_fetch `MAX_INLINE_CHARS`（200k）对齐。对小模型尤其重要：更短的上下文意味着更稳定的
- * 指令遵循，减少大工具结果淹没系统提示的情况。
+ * ## 为什么默认值比 web_fetch 的单条上限宽
+ *
+ * 400k 字符 ≈ 800KB（UTF-16），是 web_fetch `MAX_INLINE_CHARS`（200k）的两倍。兜底层设宽一档，
+ * 保证正常路径由各工具的语义化上限决定行为（它们能给出针对性的恢复提示），本层只拦真正异常的
+ * 体量，不干扰正常截断策略。
  */
 
 /** 工具结果文本的兜底上限（字符数）。`0` 表示不限制。 */
-export const DEFAULT_MAX_TOOL_RESULT_CHARS = 200_000;
+export const DEFAULT_MAX_TOOL_RESULT_CHARS = 400_000;
 
 /** 头部保留占比：头 60% / 尾 40%——头部的结构信息通常比尾部密度低，多留一些。 */
 const HEAD_RATIO = 0.6;

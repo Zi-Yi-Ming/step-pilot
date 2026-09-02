@@ -23,7 +23,6 @@ import type { AgentEvent } from './events.js';
 import { type LoopHooks, resolveAuthorization, resolveFinalizeResult } from './hooks.js';
 import { stored, type StoredMessage } from './message.js';
 import { capToolResult } from './toolResultLimit.js';
-import { preprocessToolResult } from './toolResultPreprocess.js';
 import { ToolScheduler } from './toolScheduler.js';
 import { toWire } from './wire.js';
 
@@ -602,12 +601,9 @@ export async function* runTurn(
         try {
           let result = await executeTool(p.tu.name, p.tu.input, ctx);
           result = await resolveFinalizeResult(hooks, { id: p.tu.id, name: p.tu.name, input: p.tu.input }, result);
-          // 语义预处理：对超长结果先按工具类型做结构保留截断，减少 Flash 的注意力稀释。
-          // 放在 hook 之后：hook 先见全文。
-          const preprocessed = preprocessToolResult(result, p.tu.name);
           // 兜底长度上限：这一处赋值同时决定 tool_end 事件（→ items）与 makeToolResult（→ history），
-          // 单点拦截覆盖三处副本，且界面与模型看到的是同一份内容。
-          p.result = capToolResult(preprocessed);
+          // 单点拦截覆盖三处副本，且界面与模型看到的是同一份内容。放在 hook 之后：hook 先见全文。
+          p.result = capToolResult(result);
         } catch (e) {
           p.result = { content: `工具 ${p.tu.name} 执行异常：${(e as Error).message}`, isError: true };
         }
