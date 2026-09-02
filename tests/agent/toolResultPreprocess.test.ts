@@ -45,3 +45,22 @@ describe('preprocessToolResult', () => {
     expect(out).toBe(r);
   });
 });
+
+describe('preprocessToolResult: MCP 工具', () => {
+  it('mcp__ 前缀的超长输出按行截断（外部工具结构不可知，取行级最大公约数）', () => {
+    const chunk = 'd'.repeat(1000);
+    const lines = Array.from({ length: 120 }, (_, i) => `mcp line ${i + 1} ${chunk}`);
+    const r = mkResult(lines.join('\n'));
+    const out = preprocessToolResult(r, 'mcp__remote__fetch_data');
+    expect(out).not.toBe(r);
+    expect(out.content).toContain('mcp line 1');
+    expect(out.content).toContain('mcp line 101');
+    expect(out.content).not.toContain('mcp line 51');
+    expect(out.content).toContain('50 lines omitted');
+  });
+
+  it('mcp__ 前缀的短输出不处理', () => {
+    const r = mkResult('small result');
+    expect(preprocessToolResult(r, 'mcp__remote__fetch_data')).toBe(r);
+  });
+});

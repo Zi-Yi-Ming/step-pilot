@@ -532,6 +532,20 @@ What lives under `~/.step-pilot/`:
 | `input-history/` | Input history, isolated per working directory |
 | `debug-<session id>-<timestamp>.zip` | The debug bundle exported by `/export-debug-zip` (redacted session, configuration, logs, and environment metadata) |
 
+## Sharing: `step config export`
+
+Export your tuned provider/model config as a **secret-free** template that teammates can adopt by filling in their own keys:
+
+```bash
+step config export                       # reads ~/.step-pilot/config.toml, template to stdout
+step config export ./my.toml             # reads a specific path
+step config export --out shared.toml     # writes the template to a file
+```
+
+- Every `api_key = ...` line (top level / `[providers.*]` / `[models.*]`) is replaced with a placeholder comment; `api_key_env` is a variable name, not a secret, and is kept.
+- Line-level filtering: comments and formatting are preserved, and the export is still valid TOML.
+- Export is not an audit: review the template for any other sensitive information before sharing.
+
 ## Validation: `step doctor config`
 
 The diagnostic exit for a broken configuration. It runs headless, never enters the TUI, and changes no files:

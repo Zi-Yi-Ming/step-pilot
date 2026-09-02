@@ -51,7 +51,7 @@ describe('qualifyMcpToolName', () => {
   });
 });
 
-/** 假 MCP manager：覆盖底层握手，不真起子进程。behavior 以 config.command 为 key。 */
+/** 假 MCP manager：覆盖底层握手，不真起子进程/不发真请求。behavior 以 config.command ?? config.url 为 key。 */
 class FakeManager extends McpManager {
   behavior: Record<string, 'ok' | 'fail' | 'hang'> = {};
   calls: string[] = [];
@@ -60,8 +60,9 @@ class FakeManager extends McpManager {
     _client: Client,
     config: McpServerConfig,
   ): Promise<Array<{ name: string; description?: string; inputSchema?: unknown }>> {
-    this.calls.push(config.command);
-    const b = this.behavior[config.command] ?? 'ok';
+    const key = config.command ?? config.url ?? '';
+    this.calls.push(key);
+    const b = this.behavior[key] ?? 'ok';
     if (b === 'fail') throw new Error('spawn failed\nsecond line');
     if (b === 'hang') await new Promise((r) => setTimeout(r, 200));
     return [
@@ -156,5 +157,42 @@ describe('McpManager 并行连接', () => {
     expect(m.toolsOf('a')).toEqual([]);
     // 幂等：重复关闭不抛错
     await m.closeAll();
+  });
+});
+
+describe('server 配置校验与 http 类型', () => {
+  it('validateServerConfig：command/url 互斥，必填其一，url 必须合法绝对地址', async () => {
+    const { validateServerConfig } = await import('../../src/mcp/manager.js');
+    expect(validateServerConfig({ command: 'npx' })).toBeNull();
+    expect(validateServerConfig({ url: 'https://example.com/mcp' })).toBeNull();
+    expect(validateServerConfig({})).toContain('二者必填其一');
+    expect(validateServerConfig({ command: 'npx', url: 'https://example.com/mcp' })).toContain('二选一');
+    expect(validateServerConfig({ url: 'not-a-url' })).toContain('不是合法的绝对地址');
+    expect(validateServerConfig({ url: '' })).toContain('二者必填其一');
+  });
+
+  it('坏配置 connect 直接 failed，不进入握手（错误进 /mcp 面板状态）', async () => {
+    const m = new FakeManager();
+    const ok = await m.connect('bad', cfg('' as string));
+    expect(ok).toBe(false);
+    expect(m.calls).toEqual([]);
+    expect(m.statuses()[0]).toMatchObject({ name: 'bad', status: 'failed' });
+    expect(m.statuses()[0]!.error).toContain('二者必填其一');
+  });
+
+  it('command 与 url 同时给的配置同样 failed 且不握手', async () => {
+    const m = new FakeManager();
+    const ok = await m.connect('both', { command: 'npx', url: 'https://example.com/mcp' });
+    expect(ok).toBe(false);
+    expect(m.calls).toEqual([]);
+    expect(m.statuses()[0]!.error).toContain('二选一');
+  });
+
+  it('url 配置走 http 分支进入握手（FakeManager 按 url 记录调用）', async () => {
+    const m = new FakeManager();
+    const ok = await m.connect('remote', { url: 'https://example.com/mcp', headers: { Authorization: 'Bearer t' } });
+    expect(ok).toBe(true);
+    expect(m.calls).toEqual(['https://example.com/mcp']);
+    expect(m.statuses()[0]).toMatchObject({ name: 'remote', status: 'connected', toolCount: 2 });
   });
 });

@@ -10,7 +10,7 @@
 // 调用、stdout 零字节、不抛异常）。实测：有那行 → 0 字节，两包一致 → 2000+ 字节。
 //
 // 「设置点唯一、且在引导层」这条结构约束保留：它使分发形态与开发形态拿到一致的默认值。回归护栏见 tests/env.test.ts。
-import { copyFileSync, existsSync, readFileSync, renameSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { Command } from 'commander';
@@ -32,6 +32,7 @@ import { loadAgentsMd, DEFAULT_AGENTS_MD_BUDGET_BYTES } from './agent/agentsMd.j
 import { buildAgentRegistry } from './agent/subagent/registry.js';
 import { loadConfig, resolveModelEntry, TomlParseError, type ConfigLoadDiagnostics, type StepPilotConfig } from './config/config.js';
 import { runDoctorConfig } from './config/doctor.js';
+import { exportConfigTemplate } from './config/exportConfig.js';
 import { collectConfigWarnings } from './config/diagnostics.js';
 import { configureWebResultCache } from './tools/webCache.js';
 import { renderConfigDiagnostics } from './chat/configWarningText.js';
@@ -122,6 +123,39 @@ if (program.args[0] === 'export-debug-zip') {
   if (res.stdout !== undefined) process.stdout.write(res.stdout);
   if (res.stderr !== undefined) process.stderr.write(res.stderr);
   process.exit(res.code);
+}
+
+// 顶层 `config export [path] [--out <file>]` 子命令：导出剥掉 api_key 的配置分享模板。
+// 小团队场景：一人调好渠道/模型配置，导出模板给队友填自己的 key。不进 TUI、不改原文件。
+// path 缺省为 ~/.step-pilot/config.toml；无 --out 时写 stdout。放在 loadConfig 之前，
+// 坏配置也能导出吗？不能——读不了就报错退出，导出以能加载的配置为前提。
+if (program.args[0] === 'config') {
+  configureLogger({ mode: 'headless' });
+  if (program.args[1] !== 'export') {
+    process.stderr.write('usage: step config export [path] [--out <file>]\n');
+    process.exit(1);
+  }
+  const rest = program.args.slice(2);
+  const outIdx = rest.indexOf('--out');
+  const outPath = outIdx !== -1 ? rest[outIdx + 1] : undefined;
+  const positional = rest.find((a, i) => !a.startsWith('--') && (outIdx === -1 || i < outIdx));
+  const srcPath = positional ?? join(homedir(), '.step-pilot', 'config.toml');
+  let text: string;
+  try {
+    text = readFileSync(srcPath, 'utf8');
+  } catch {
+    process.stderr.write(`配置文件不存在或无法读取：${srcPath}\n`);
+    process.exit(1);
+  }
+  const { output, stripped } = exportConfigTemplate(text);
+  if (outPath !== undefined) {
+    writeFileSync(outPath, output, 'utf8');
+    process.stdout.write(`已导出分享模板（剥离 ${stripped} 处 api_key）：${outPath}\n分享前请自查输出中是否残留其他敏感信息。\n`);
+  } else {
+    process.stdout.write(output);
+    if (stripped > 0) process.stderr.write(`\n（已剥离 ${stripped} 处 api_key；分享前请自查是否残留其他敏感信息。）\n`);
+  }
+  process.exit(0);
 }
 
 // 顶层 `doctor config [path]` 子命令：无头校验 config.toml（不进 TUI、不改文件），退出码 0/非 0。

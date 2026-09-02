@@ -1,5 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { VERSION } from '../version.js';
@@ -50,17 +51,48 @@ export function mcpInputSchemaToZod(inputSchema: unknown): z.ZodTypeAny {
 
 /**
  * MCP（Model Context Protocol）接入：连接管理 + list_tools 注册 + call_tool。
- * 配置来源 ~/.step-pilot/mcp.json 的 mcpServers 表（stdio transport）。
+ * 配置来源 ~/.step-pilot/mcp.json 的 mcpServers 表。
+ * 两种 transport：stdio（command 启动本地进程）与 streamable http（url 连远程 server，
+ * MCP 官方现行传输协议；旧 SSE-only 传输已被上游废弃，不支持）。
+ * 授权：http 类型暂不做 OAuth，需要鉴权的服务器用 headers 手填（如 Authorization）。
  */
-
 export interface McpServerConfig {
-  command: string;
+  /** stdio：启动命令。与 url 互斥，二者必填其一。 */
+  command?: string;
   args?: string[];
   env?: Record<string, string>;
   cwd?: string;
+  /** streamable http：server 端点。与 command 互斥。 */
+  url?: string;
+  /** http 类型附带的自定义请求头（如 Authorization）；stdio 类型忽略。 */
+  headers?: Record<string, string>;
   enabled?: boolean;
   /** 单个 server 的启动超时（毫秒），缺省 30000。 */
   startupTimeoutMs?: number;
+}
+
+/** server 类型判别：url 非空即 http（streamable），否则 stdio（command）。 */
+export function isHttpServerConfig(config: McpServerConfig): boolean {
+  return typeof config.url === 'string' && config.url !== '';
+}
+
+/**
+ * 配置校验：返回单行错误摘要，null = 通过。connect() 前置调用，
+ * 坏配置不抛异常，以 failed 状态呈现在 /mcp 面板，与其他连接失败同一出口。
+ */
+export function validateServerConfig(config: McpServerConfig): string | null {
+  const hasCommand = typeof config.command === 'string' && config.command !== '';
+  const hasUrl = isHttpServerConfig(config);
+  if (hasCommand && hasUrl) return 'command 与 url 只能二选一（stdio 与 streamable http 互斥）';
+  if (!hasCommand && !hasUrl) return '缺少 command（stdio）或 url（streamable http），二者必填其一';
+  if (hasUrl) {
+    try {
+      void new URL(config.url!);
+    } catch {
+      return `url 不是合法的绝对地址：${config.url}`;
+    }
+  }
+  return null;
 }
 
 /** server 连接状态（供 /mcp 面板展示）。 */
@@ -137,7 +169,7 @@ function oneLine(message: string): string {
   return message.replace(/\s+/g, ' ').trim();
 }
 
-/** MCP 连接管理器：并行连接配置的 stdio server，发现工具，统一调用，暴露 per-server 状态。 */
+/** MCP 连接管理器：并行连接配置的 server（stdio / streamable http），发现工具，统一调用，暴露 per-server 状态。 */
 export class McpManager {
   private readonly servers = new Map<string, ConnectedServer>();
   private readonly states = new Map<string, McpServerState>();
@@ -149,6 +181,11 @@ export class McpManager {
   async connect(name: string, config: McpServerConfig): Promise<boolean> {
     if (config.enabled === false) {
       this.states.set(name, { name, status: 'disabled', toolCount: 0 });
+      return false;
+    }
+    const invalid = validateServerConfig(config);
+    if (invalid !== null) {
+      this.states.set(name, { name, status: 'failed', toolCount: 0, error: invalid });
       return false;
     }
     this.states.set(name, { name, status: 'pending', toolCount: 0 });
@@ -195,18 +232,22 @@ export class McpManager {
     );
   }
 
-  /** 与 server 握手并发现工具（默认 stdio transport；测试可覆盖为假实现）。 */
+  /** 与 server 握手并发现工具（按 config 分发 stdio / streamable http transport；测试可覆盖为假实现）。 */
   protected async connectAndListTools(
     client: Client,
     config: McpServerConfig,
   ): Promise<Array<{ name: string; description?: string; inputSchema?: unknown }>> {
-    const transport = new StdioClientTransport({
-      command: config.command,
-      args: config.args ?? [],
-      env: { ...process.env, ...(config.env ?? {}) } as Record<string, string>,
-      cwd: config.cwd,
-      stderr: 'pipe',
-    });
+    const transport = isHttpServerConfig(config)
+      ? new StreamableHTTPClientTransport(new URL(config.url!), {
+          requestInit: { headers: config.headers },
+        })
+      : new StdioClientTransport({
+          command: config.command!,
+          args: config.args ?? [],
+          env: { ...process.env, ...(config.env ?? {}) } as Record<string, string>,
+          cwd: config.cwd,
+          stderr: 'pipe',
+        });
     await client.connect(transport);
     const { tools } = await client.listTools();
     return tools;

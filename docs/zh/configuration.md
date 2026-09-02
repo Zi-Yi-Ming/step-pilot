@@ -540,6 +540,20 @@ timeout = 30                                 # 秒，可选，默认 30，硬顶
 | `input-history/` | 输入历史，按工作目录隔离 |
 | `debug-<会话 id>-<时间戳>.zip` | `/export-debug-zip` 导出的调试包（脱敏后的会话、配置、日志与环境元数据） |
 
+## 分享：`step config export`
+
+把调好的渠道/模型配置导出成**不含密钥**的分享模板，队友填入自己的 key 即可用：
+
+```bash
+step config export                       # 读 ~/.step-pilot/config.toml，模板写 stdout
+step config export ./my.toml             # 读指定路径
+step config export --out shared.toml     # 模板写入文件
+```
+
+- 所有 section 下的 `api_key = ...` 行替换为占位注释（顶层 / `[providers.*]` / `[models.*]`）；`api_key_env` 是环境变量名、不是密钥本体，保留。
+- 行级过滤：注释与排版原样保留，导出物仍是合法 TOML。
+- 导出不等于审计：分享前请自查模板里是否残留其他敏感信息。
+
 ## 校验：`step doctor config`
 
 配置写坏时的诊断出口，无头运行、不进 TUI、不改任何文件：
