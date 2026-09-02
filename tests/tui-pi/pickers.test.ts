@@ -545,3 +545,38 @@ describe('askLine 焦点恢复（2026-08-18 /rename 卡死修复）', () => {
     expect(tui.getFocusedComponent()).toBe(editor);
   });
 });
+
+describe('Windows Enter 复现：先移动后确认', () => {
+  function mk(): { overlay: PickerOverlay; picked: string[]; cancelled: number[] } {
+    const picked: string[] = [];
+    const cancelled: number[] = [];
+    const overlay = new PickerOverlay({
+      title: '选择模型',
+      items: [
+        { value: 'alpha', label: 'alpha', description: 'A' },
+        { value: 'beta', label: 'beta', description: 'B' },
+        { value: 'gamma', label: 'gamma', description: 'C' },
+      ],
+      requestRender: () => {},
+      onSelect: (item) => picked.push(item.value),
+      onCancel: () => cancelled.push(1),
+    });
+    return { overlay, picked, cancelled };
+  }
+  it('↓ 移动到第二项后按 \r，确认的应是第二项 beta', () => {
+    const { overlay, picked } = mk();
+    overlay.handleInput(DOWN);
+    overlay.handleInput(ENTER);
+    expect(picked).toEqual(['beta']);
+  });
+
+  it('↓ 移动到第二项后按 \n，确认的应是第二项 beta', () => {
+    const { overlay, picked } = mk();
+    overlay.handleInput(DOWN);
+    overlay.handleInput('\n');
+    expect(picked).toEqual(['beta']);
+  });
+
+  // SS3 Enter 拆包（ 与 OM 分两段）不在此测：pi-tui StdinBuffer 在 stdin 读取层
+  // 重组不完整 escape 序列，overlay 只会收到完整片段；孤立的  字节本义就是 Esc。
+});
