@@ -69,6 +69,8 @@ export interface McpServerConfig {
   enabled?: boolean;
   /** 单个 server 的启动超时（毫秒），缺省 30000。 */
   startupTimeoutMs?: number;
+  /** 单次工具调用超时（毫秒），缺省 60000。超时转 isError 结果回灌，不挂起回合。 */
+  callTimeoutMs?: number;
 }
 
 /** server 类型判别：url 非空即 http（streamable），否则 stdio（command）。 */
@@ -105,6 +107,8 @@ export interface McpServerState {
   toolCount: number;
   /** 失败时的单行错误摘要。 */
   error?: string;
+  /** transport 展示形态：'stdio: <command>' 或 'http: <url>'；配置未过校验时为 undefined。 */
+  transport?: string;
 }
 
 export interface McpToolInfo {
@@ -145,10 +149,18 @@ interface ConnectedServer {
   name: string;
   client: Client;
   tools: McpToolInfo[];
+  /** 工具调用超时（毫秒），mcp.json 可配；缺省见 DEFAULT_CALL_TIMEOUT_MS。 */
+  callTimeoutMs?: number;
 }
 
 /** 单个 server 的默认启动超时（可用 mcp.json 的 startupTimeoutMs 覆盖）。 */
 export const DEFAULT_STARTUP_TIMEOUT_MS = 30_000;
+
+/**
+ * 工具调用默认超时。stdio 时代进程崩溃即失败、问题不显；http 化后一个挂起的
+ * 远程 server 会卡死整个 agent 回合，必须有限界。
+ */
+export const DEFAULT_CALL_TIMEOUT_MS = 60_000;
 
 /** 带超时的 promise 包装：超时即拒，原 promise 挂 catch 防止 unhandled rejection。 */
 async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
@@ -188,7 +200,11 @@ export class McpManager {
       this.states.set(name, { name, status: 'failed', toolCount: 0, error: invalid });
       return false;
     }
-    this.states.set(name, { name, status: 'pending', toolCount: 0 });
+    // transport 展示形态：headers 只显示「已配置」不显值（Authorization 等不能进 /mcp 面板）
+    const transport = isHttpServerConfig(config)
+      ? `http: ${config.url}${config.headers !== undefined && Object.keys(config.headers).length > 0 ? ' (+headers)' : ''}`
+      : `stdio: ${config.command ?? ''}`;
+    this.states.set(name, { name, status: 'pending', toolCount: 0, transport });
     const client = new Client({ name: 'step-pilot', version: VERSION });
     try {
       const tools = await withTimeout(
@@ -202,8 +218,8 @@ export class McpManager {
         description: tool.description ?? '',
         inputSchema: (tool.inputSchema ?? { type: 'object' }) as Anthropic.Tool['input_schema'],
       }));
-      this.servers.set(name, { name, client, tools: infos });
-      this.states.set(name, { name, status: 'connected', toolCount: infos.length });
+      this.servers.set(name, { name, client, tools: infos, callTimeoutMs: config.callTimeoutMs });
+      this.states.set(name, { name, status: 'connected', toolCount: infos.length, transport });
       return true;
     } catch (e) {
       // 失败/超时后尽力关闭 client（会 kill stdio 子进程），避免进程泄漏
@@ -212,7 +228,7 @@ export class McpManager {
       } catch {
         // client 可能从未连上，close 报错属预期
       }
-      this.states.set(name, { name, status: 'failed', toolCount: 0, error: oneLine((e as Error).message) });
+      this.states.set(name, { name, status: 'failed', toolCount: 0, error: oneLine((e as Error).message), transport });
       return false;
     }
   }
@@ -283,23 +299,27 @@ export class McpManager {
     return [...this.servers.values()].flatMap((s) => s.tools);
   }
 
-  /** 按规范化名查工具（含所属 client）。 */
-  find(qualifiedName: string): { client: Client; info: McpToolInfo } | undefined {
+  /** 按规范化名查工具（含所属 client、server 配置）。 */
+  find(qualifiedName: string): { client: Client; info: McpToolInfo; server: ConnectedServer } | undefined {
     for (const s of this.servers.values()) {
       const info = s.tools.find((t) => t.qualifiedName === qualifiedName);
-      if (info !== undefined) return { client: s.client, info };
+      if (info !== undefined) return { client: s.client, info, server: s };
     }
     return undefined;
   }
 
-  /** 调用一个 MCP 工具，返回文本结果。 */
+  /** 调用一个 MCP 工具，返回文本结果。超时（callTimeoutMs，缺省 60s）转 isError 回灌，不挂起回合。 */
   async callTool(qualifiedName: string, args: Record<string, unknown>): Promise<{ content: string; isError: boolean }> {
     const found = this.find(qualifiedName);
     if (found === undefined) {
       return { content: `未找到 MCP 工具 ${qualifiedName}`, isError: true };
     }
+    const timeoutMs = found.server.callTimeoutMs ?? DEFAULT_CALL_TIMEOUT_MS;
     try {
-      const result = await found.client.callTool({ name: found.info.toolName, arguments: args });
+      const result = await withTimeout(
+        found.client.callTool({ name: found.info.toolName, arguments: args }),
+        timeoutMs,
+      );
       // 归一结果：取 text 内容
       const blocks = (result as { content?: Array<{ type: string; text?: string }> }).content ?? [];
       const text = blocks
@@ -308,7 +328,7 @@ export class McpManager {
       const isError = (result as { isError?: boolean }).isError === true;
       return { content: text === '' ? '[无输出]' : text, isError };
     } catch (e) {
-      return { content: `MCP 工具调用失败：${(e as Error).message}`, isError: true };
+      return { content: `MCP 工具调用失败：${oneLine((e as Error).message)}`, isError: true };
     }
   }
 }

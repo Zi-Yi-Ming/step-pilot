@@ -121,6 +121,27 @@ describe('parsePluginManifest 新字段', () => {
     expect(m!.hooks).toHaveLength(1);
     expect(m!.mcpServers).toBeUndefined();
   });
+
+  it('mcpServers 支持 url 形态（streamable http）；command/url 混给与非法 url 丢弃', () => {
+    const root = join(dir, 'p-url');
+    makePlugin(root, {
+      name: 'p-url',
+      mcpServers: {
+        remote: { url: 'https://api.example.com/mcp', headers: { Authorization: 'Bearer t' } },
+        bad: { command: 'npx', url: 'https://x/mcp' },
+        badurl: { url: 'not-a-url' },
+      },
+    });
+    const p = loadPlugin(root);
+    expect(p).not.toBeNull();
+    // 键带 <pluginId>: 前缀隔离
+    expect(p!.mcpServers?.['p-url:remote']).toEqual({
+      url: 'https://api.example.com/mcp',
+      headers: { Authorization: 'Bearer t' },
+    });
+    expect(p!.mcpServers?.['p-url:bad']).toBeUndefined();
+    expect(p!.mcpServers?.['p-url:badurl']).toBeUndefined();
+  });
 });
 
 describe('loadPlugin 能力面：MCP', () => {

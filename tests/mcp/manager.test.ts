@@ -142,10 +142,20 @@ describe('McpManager 并行连接', () => {
     expect(m.calls).toEqual([]);
   });
 
-  it('statuses 暴露 connected 工具数', async () => {
+  it('statuses 暴露 connected 工具数与 transport 形态（headers 只显示已配置不显值）', async () => {
     const m = new FakeManager();
     await m.connect('a', cfg('a'));
-    expect(m.statuses()[0]).toEqual({ name: 'a', status: 'connected', toolCount: 2 });
+    expect(m.statuses()[0]).toEqual({ name: 'a', status: 'connected', toolCount: 2, transport: 'stdio: a' });
+    await m.connect('r', { url: 'https://x.example/mcp', headers: { Authorization: 'Bearer secret' } });
+    const st = m.statuses().find((s) => s.name === 'r')!;
+    expect(st).toEqual({
+      name: 'r',
+      status: 'connected',
+      toolCount: 2,
+      transport: 'http: https://x.example/mcp (+headers)',
+    });
+    // header 值不得进状态展示
+    expect(JSON.stringify(st)).not.toContain('secret');
   });
 
   it('closeAll 清空已连接 server：工具登记随连接一起移除', async () => {
@@ -194,5 +204,44 @@ describe('server 配置校验与 http 类型', () => {
     expect(ok).toBe(true);
     expect(m.calls).toEqual(['https://example.com/mcp']);
     expect(m.statuses()[0]).toMatchObject({ name: 'remote', status: 'connected', toolCount: 2 });
+  });
+});
+
+describe('callTool 超时', () => {
+  it('挂起的调用在 callTimeoutMs 后转 isError 回灌，不无限等待', async () => {
+    class HangingManager extends FakeManager {
+      protected override async connectAndListTools(
+        _client: Client,
+        config: McpServerConfig,
+      ): Promise<Array<{ name: string; description?: string; inputSchema?: unknown }>> {
+        await super.connectAndListTools(_client, config);
+        // 记录 client 供 callTool 打桩
+        return [{ name: 'hang', description: 'hangs on call', inputSchema: { type: 'object' } }];
+      }
+    }
+    const m = new HangingManager();
+    await m.connect('slow', { command: 'slow-server', callTimeoutMs: 50 });
+    // 打桩：让底层 client.callTool 永远挂起
+    const server = [...m['servers'].values()][0]!;
+    server.client.callTool = () => new Promise(() => {});
+    const t0 = Date.now();
+    const r = await m.callTool('mcp__slow__hang', {});
+    const elapsed = Date.now() - t0;
+    expect(r.isError).toBe(true);
+    expect(r.content).toContain('启动超时');
+    expect(elapsed).toBeLessThan(3000);
+  });
+
+  it('正常调用不受超时影响', async () => {
+    const m = new FakeManager();
+    await m.connect('ok', { command: 'ok-server' });
+    const server = [...m['servers'].values()][0]!;
+    server.client.callTool = (async () => ({
+      content: [{ type: 'text', text: 'pong' }],
+      isError: false,
+    })) as never;
+    const r = await m.callTool('mcp__ok__echo', {});
+    expect(r.isError).toBe(false);
+    expect(r.content).toBe('pong');
   });
 });

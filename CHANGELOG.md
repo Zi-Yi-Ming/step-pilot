@@ -17,6 +17,10 @@
 ### Added
 
 - **MCP 支持 streamable http transport，可接远程 server**：`~/.step-pilot/mcp.json` 的 server 条目新增 `url`（streamable http，与 `command` 的 stdio 二选一，互斥校验）与 `headers`（自定义请求头，如 `Authorization`）。鉴权暂走 headers 手填，OAuth 与已废弃的 SSE-only 传输不支持。配置错误（二者同时给或缺给、url 非法）不阻塞启动，以 failed 状态呈现在 `/mcp` 面板。
+- **MCP 工具调用超时防护**：单次调用默认 60 秒（mcp.json 的 `callTimeoutMs` 可按 server 配置），超时转 isError 结果回灌模型自行决策——http 化后一个挂起的远程 server 不再卡死整个 agent 回合。
+- **`/mcp` 面板显示 transport 与端点**：每个 server 行附 `[stdio: <command>]` 或 `[http: <url>]` 标注；headers 只显示「(+headers)」不显值，鉴权头不进面板。
+- **plugin 的 MCP 声明支持 url 形态**：插件 manifest 的 `mcpServers` 与全局 mcp.json 同 schema，可声明远程 streamable http server（含 headers）；command/url 混给或非法 url 的条目整条丢弃。
+- **`step doctor config` 顺带校验 mcp.json**：存在 mcp.json 时逐 server 输出配置合法性（复用 McpManager 的前置校验规则），server 配置错误从「启动后 /mcp 面板才可见」提前到诊断出口。
 - **超长工具结果的语义预处理扩展到 MCP 工具**：`mcp__` 前缀工具的输出超过 50k 字符时按行保头 50 行 + 尾 20 行、中间标记省略——外部 server 的输出结构不可知，行级头尾是结构无关的最大公约数，远程大 JSON / 日志 / 网页正文不再淹没小模型上下文。
 - **配置分享模板导出 `step config export`**：把调好的渠道/模型配置导出成不含密钥的模板——所有 `api_key` 行替换为占位注释，`api_key_env` 保留，注释与排版原样不动（行级过滤，不丢注释），导出物仍是合法 TOML。小团队场景：一人调配置，队友填自己的 key 即用。
 

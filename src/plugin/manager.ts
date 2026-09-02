@@ -137,12 +137,40 @@ function resolveMcpCommand(root: string, command: string): string | null {
   return command;
 }
 
-/** 解析单个 MCP server 配置：command 合法才保留；cwd 给了就必须能解析进插件根。非法返回 null。 */
+/**
+ * 解析单个 MCP server 配置。两种形态（与全局 mcp.json 同 schema）：
+ * - stdio：command 必填且必须能解析进插件根；cwd 给了就必须能解析进插件根。
+ * - streamable http：url 必填（合法绝对地址），可选 headers；插件声明远程 server 用。
+ * 两者混给或缺一 → 非法返回 null。
+ */
 function resolveMcpServer(root: string, raw: unknown): McpServerConfig | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const obj = raw as Record<string, unknown>;
-  if (typeof obj['command'] !== 'string' || obj['command'] === '') return null;
-  const command = resolveMcpCommand(root, obj['command']);
+  const commandRaw = obj['command'];
+  const hasCommand = typeof commandRaw === 'string' && commandRaw !== '';
+  const urlRaw = obj['url'];
+  const hasUrl = typeof urlRaw === 'string' && urlRaw !== '';
+  if (hasCommand === hasUrl) return null; // 恰好二选一，混给或缺一都丢
+  if (hasUrl && typeof urlRaw === 'string') {
+    const url = obj['url'] as string;
+    try {
+      void new URL(url);
+    } catch {
+      return null;
+    }
+    const cfg: McpServerConfig = { url };
+    if (typeof obj['headers'] === 'object' && obj['headers'] !== null && !Array.isArray(obj['headers'])) {
+      const headers: Record<string, string> = {};
+      for (const [k, v] of Object.entries(obj['headers'] as Record<string, unknown>)) {
+        if (typeof v === 'string') headers[k] = v;
+      }
+      if (Object.keys(headers).length > 0) cfg.headers = headers;
+    }
+    if (typeof obj['enabled'] === 'boolean') cfg.enabled = obj['enabled'];
+    return cfg;
+  }
+  if (typeof commandRaw !== 'string' || commandRaw === '') return null;
+  const command = resolveMcpCommand(root, commandRaw);
   if (command === null) return null;
   const cfg: McpServerConfig = { command };
   if (Array.isArray(obj['args'])) {

@@ -3,15 +3,16 @@ import { join } from 'node:path';
 import { t } from '../i18n.js';
 import type { McpManager, McpServerState } from './manager.js';
 
-/** 单个 server 的状态行（名称 + 状态 + 工具数/错误摘要）。 */
+/** 单个 server 的状态行（名称 + transport + 状态 + 工具数/错误摘要）。 */
 function statusLine(s: McpServerState): string {
+  const where = s.transport !== undefined ? ` [${s.transport}]` : '';
   switch (s.status) {
     case 'connected':
-      return t('app.mcp.line.connected', { name: s.name, count: s.toolCount });
+      return t('app.mcp.line.connected', { name: s.name, count: s.toolCount }) + where;
     case 'pending':
-      return t('app.mcp.line.pending', { name: s.name });
+      return t('app.mcp.line.pending', { name: s.name }) + where;
     case 'failed':
-      return t('app.mcp.line.failed', { name: s.name, error: s.error ?? '' });
+      return t('app.mcp.line.failed', { name: s.name, error: s.error ?? '' }) + where;
     case 'disabled':
       return t('app.mcp.line.disabled', { name: s.name });
   }

@@ -13,7 +13,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import { resolvePermissionMode, resolveProxy, resolveThinkingConfig, type ModelEntry, type ProviderEntry } from './config.js';
 import { collectConfigWarnings, formatWarningZh } from './diagnostics.js';
@@ -288,6 +288,32 @@ export async function runDoctorConfig(
     lines.push(`info: [tools.web] ${parts.join(', ')}（网页结果缓存容量）`);
   } else {
     lines.push(`info: [tools.web] 未配置，缺省 100 条目 / 32MB 总字节 / 2MB 单条上限`);
+  }
+
+  // mcp.json 校验（存在才查）：server 配置错误是启动后 /mcp 面板才可见的 failed 状态，
+  // doctor 提前到诊断出口。规则与 McpManager.connect 前置校验共用 validateServerConfig。
+  const mcpPath = join(dirname(target), 'mcp.json');
+  if (existsSync(mcpPath)) {
+    try {
+      const parsed = JSON.parse(readFileSync(mcpPath, 'utf8')) as { mcpServers?: Record<string, unknown> };
+      const servers = parsed.mcpServers;
+      if (servers !== undefined && typeof servers === 'object' && !Array.isArray(servers)) {
+        const { validateServerConfig } = await import('../mcp/manager.js');
+        const names = Object.keys(servers);
+        if (names.length > 0) {
+          lines.push('');
+          lines.push(`=== mcp.json（${mcpPath}）===`);
+          for (const name of names) {
+            const err = validateServerConfig(servers[name] as never);
+            if (err !== null) lines.push(`warn: mcp server "${name}"：${err}`);
+            else lines.push(`ok: mcp server "${name}" 配置合法`);
+          }
+        }
+      }
+    } catch (e) {
+      lines.push('');
+      lines.push(`warn: mcp.json 解析失败（连接时将跳过）：${(e as Error).message}`);
+    }
   }
 
   // capabilities 实测（可选）：发真实请求验证 image_in 是否真实支持
