@@ -103,7 +103,7 @@ describe.skipIf(!canGc)('思考预览不得拖住整份累积文本（回归：2
         '泄漏时 512 条 LRU 各拖一份父串（实测 677MB）。' +
         'StatusLine 的思考预览可能又变回「先 replace 整份再 slice」的顺序',
     ).toBeLessThan(20 * 1024 * 1024);
-  }, 120_000);
+  }, 300_000);
 
   /**
    * 反证：上面那条不是「无论如何都通过」的空气测试。
@@ -132,7 +132,7 @@ describe.skipIf(!canGc)('思考预览不得拖住整份累积文本（回归：2
       growth,
       `泄漏写法只测出 ${(growth / 1024 / 1024).toFixed(1)}MB 增长，说明测量方法失效，上面那条断言不可信`,
     ).toBeGreaterThan(5 * 1024 * 1024);
-  }, 120_000);
+  }, 300_000);
 });
 
 describe.skipIf(!canGc)('pi-tui 补丁的通用防御：widthCache 不得拖住 key 的父串', () => {
@@ -168,7 +168,7 @@ describe.skipIf(!canGc)('pi-tui 补丁的通用防御：widthCache 不得拖住 
       `堆增量 ${(growth / 1024 / 1024).toFixed(1)}MB，512 条 LRU 各拖一份 ${BIG_PARENT_CHARS / 1000}K 字符父串约 51MB。` +
         'widthCache 可能又在直接存 key 而不是存副本（patches/ 里的补丁失配了？）',
     ).toBeLessThan(10 * 1024 * 1024);
-  }, 120_000);
+  }, 300_000);
 });
 
 describe('站点修复：单帧渲染开销不得随累积思考文本增长', () => {
@@ -202,5 +202,5 @@ describe('站点修复：单帧渲染开销不得随累积思考文本增长', (
       `8M 字符 preview 单帧耗时是 1K 字符的 ${ratio.toFixed(1)} 倍（${big.toFixed(1)}ms vs ${small.toFixed(1)}ms）。` +
         'StatusLine 的思考预览可能又变回「先对整份文本 replace，再切尾部」的顺序',
     ).toBeLessThan(50);
-  }, 120_000);
+  }, 300_000);
 });

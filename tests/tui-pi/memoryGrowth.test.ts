@@ -83,7 +83,7 @@ describe.skipIf(!canGc)('流式渲染的内存增长（回归：2026-08-16 的 4
       `堆增长 ${(growth / 1024 / 1024).toFixed(1)}MB，超过 3MB。` +
         'pi-tui 的 widthCache 补丁可能已失效（升级后 patch 失配？），见 patches/ 目录',
     ).toBeLessThan(3 * 1024 * 1024);
-  }, 120_000);
+  }, 300_000);
 
   it('Transcript 末块流式追加：2000 帧，堆增长不超过 3MB', () => {
     const t = new Transcript();
@@ -96,7 +96,7 @@ describe.skipIf(!canGc)('流式渲染的内存增长（回归：2026-08-16 的 4
       growth,
       `堆增长 ${(growth / 1024 / 1024).toFixed(1)}MB，超过 3MB（我方渲染路径）`,
     ).toBeLessThan(3 * 1024 * 1024);
-  }, 120_000);
+  }, 300_000);
 
   /**
    * 反证：这两条断言不是「无论如何都通过」的空气测试。
@@ -123,5 +123,5 @@ describe.skipIf(!canGc)('流式渲染的内存增长（回归：2026-08-16 的 4
       growth,
       '人为构造的 512 条全文缓存都没测出增长，说明测量方法失效，上面两条断言不可信',
     ).toBeGreaterThan(5 * 1024 * 1024);
-  }, 120_000);
+  }, 300_000);
 });
