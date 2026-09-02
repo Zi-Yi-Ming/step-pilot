@@ -87,6 +87,46 @@ Flash's `high` thinking level is much lower than a large model's `high`—don't 
 - **Long reasoning chains**: Beyond ~10 turns on complex tasks, Flash's instruction following degrades noticeably—break work into smaller subtasks
 - **Context window**: While 256K is supported, the stable working range is around 100K tokens; quality degrades significantly beyond that
 
+## Design decisions
+
+These are the key trade-offs behind steppi's Step 3.7 Flash optimizations, documented so future maintainers understand why things are built this way.
+
+### Why the system prompt is ~2000 characters
+
+Small models have limited attention budget. Every instruction in the system prompt competes with user messages and tool results for position. We cut from ~3500 to ~2000 characters by removing:
+
+- Redundant self-description ("I am Step Code, a TUI Agent running in your terminal")
+- Model training cutoff reminders (replaced with live search)
+- Optional tool suggestions ("use web_image_search when you need illustrations")
+
+What stays: identity, working environment, core behavioral rules, tool usage discipline, context budget awareness.
+
+What we intentionally kept unchanged: permission system, plan mode, sub-agent delegation rules — these are safety boundaries that don't change with model size.
+
+### Why the tool result cap dropped from 400K to 200K
+
+The two 2026-08-02 OOM crashes proved that an uncapped tool result is dangerous. But 400K is fine for large models and only hurts Flash.
+
+200K aligns with `web_fetch`'s per-call limit, creating a unified mental model: "any single tool result over 200K gets truncated."
+
+### Why compaction is more aggressive
+
+Default trigger ratio dropped from 85% to 75%. Retained messages dropped from 6 to 4 during summarization. User message fidelity budget dropped from 20K to 10K tokens.
+
+Reason: Flash's context quality degrades more steeply than large models. At 85% utilization, the model has already "forgotten" many early instructions. The 75% trigger + aggressive retention strategy is the sweet spot for Flash between "compaction quality" and "context freshness."
+
+### Why tool-call tolerance is intentionally shallow
+
+The current implementation handles only the two most common small-model format errors:
+- String `"true"/"false"` → boolean
+- Numeric strings → numbers
+
+We intentionally did NOT add more aggressive tolerance (like guessing defaults for missing fields, or force-converting mismatched types), because:
+
+1. Small-model format errors are usually at the "type level", not "semantic level"
+2. Semantic guessing (e.g., inferring which file the user wants when `path` is missing) is too risky — it can cause unwanted side effects
+3. Shallow tolerance already covers ~80% of common errors; investing in higher-risk behavior isn't worth it
+
 ## References
 
 - [Step 3.7 Flash official docs](https://platform.stepfun.com/docs/guides/model#step-3.7-flash)
