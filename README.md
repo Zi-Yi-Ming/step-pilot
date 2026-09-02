@@ -61,7 +61,7 @@ English documentation lives under [`docs/en/`](./docs/en/); the Chinese original
 | [Session management](./docs/en/sessions.md) | Persistence, resuming, forking, context compaction, review, non-interactive output |
 | [Skills, plugins, and MCP](./docs/en/skills-and-mcp.md) | SKILL.md format, loading precedence, plugins, MCP integration |
 | [Hooks](./docs/en/hooks.md) | Running shell commands at five lifecycle events |
-| [AGENTS.md](./docs/en/agents-md.md) | How project conventions are loaded, overridden, and sourced |
+| [Step 3.7 Flash best practices](./docs/en/best-practices.md) | How to get the most out of steppi with small models |
 
 ## Development
 

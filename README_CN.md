@@ -59,7 +59,7 @@ steppi
 | [会话管理](./docs/zh/sessions.md) | 持久化、续接与恢复、分叉、上下文压缩、回顾、非交互输出 |
 | [技能、插件与 MCP](./docs/zh/skills-and-mcp.md) | SKILL.md 格式、加载层级、plugin、MCP 接入 |
 | [hooks 机制](./docs/zh/hooks.md) | 五个生命周期事件点执行 shell 命令 |
-| [AGENTS.md 机制](./docs/zh/agents-md.md) | 项目规范怎么加载、覆盖、自定义来源 |
+| [Step 3.7 Flash 最佳实践](./docs/zh/best-practices.md) | 如何让小模型在 steppi 里发挥最好 |
 
 ## 开发
 
