@@ -3,9 +3,9 @@
   <a href="./zh/README.md">简体中文</a>
 </p>
 
-# Step Code Documentation
+# Step Pilot Documentation
 
-Step Code is a coding agent CLI for the terminal, powered by StepFun's Step model family.
+Step Pilot is a coding agent CLI for the terminal, powered by StepFun's Step model family.
 
 Pick a language above, or jump straight in:
 

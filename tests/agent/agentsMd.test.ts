@@ -29,14 +29,14 @@ function header(absPath: string): string {
 }
 
 describe('loadAgentsMd 收集顺序与注释头', () => {
-  it('用户级在前，项目级从根到叶；每层 .step-pi/AGENTS.md 优先', () => {
+  it('用户级在前，项目级从根到叶；每层 .step-pilot/AGENTS.md 优先', () => {
     const home = join(base, 'home');
     const proj = join(base, 'proj');
-    const userStepCode = put('home/.step-pi/AGENTS.md', 'user-stepcode');
+    const userStepCode = put('home/.step-pilot/AGENTS.md', 'user-stepcode');
     const userAgents = put('home/.agents/AGENTS.md', 'user-agents');
     const rootAgents = put('proj/AGENTS.md', 'root');
-    const subStepCode = put('proj/sub/.step-pi/AGENTS.md', 'sub-stepcode');
-    put('proj/sub/AGENTS.md', 'sub-plain'); // 应被 .step-pi 挤掉
+    const subStepCode = put('proj/sub/.step-pilot/AGENTS.md', 'sub-stepcode');
+    put('proj/sub/AGENTS.md', 'sub-plain'); // 应被 .step-pilot 挤掉
     const leafAgents = put('proj/sub/leaf/AGENTS.md', 'leaf');
     mkdirSync(join(proj, '.git'), { recursive: true });
 
@@ -185,21 +185,21 @@ describe('loadAgentsMd AGENTS.override.md 约定', () => {
     expect(out).toBe(header(override) + 'personal-override');
   });
 
-  it('项目层内 .step-pi/AGENTS.md 仍优先于 AGENTS.override.md', () => {
+  it('项目层内 .step-pilot/AGENTS.md 仍优先于 AGENTS.override.md', () => {
     const home = join(base, 'home');
     mkdirSync(home, { recursive: true });
-    const stepCode = put('proj/.step-pi/AGENTS.md', 'stepcode-rules');
+    const stepPilot = put('proj/.step-pilot/AGENTS.md', 'stepcode-rules');
     put('proj/AGENTS.override.md', 'personal-override');
     mkdirSync(join(base, 'proj', '.git'), { recursive: true });
 
     const out = loadAgentsMd(join(base, 'proj'), home).text;
-    expect(out).toBe(header(stepCode) + 'stepcode-rules');
+    expect(out).toBe(header(stepPilot) + 'stepcode-rules');
   });
 
-  it('用户级 ~/.step-pi/AGENTS.override.md 优先于 AGENTS.md', () => {
+  it('用户级 ~/.step-pilot/AGENTS.override.md 优先于 AGENTS.md', () => {
     const home = join(base, 'home');
-    put('home/.step-pi/AGENTS.md', 'user-plain');
-    const override = put('home/.step-pi/AGENTS.override.md', 'user-override');
+    put('home/.step-pilot/AGENTS.md', 'user-plain');
+    const override = put('home/.step-pilot/AGENTS.override.md', 'user-override');
 
     const out = loadAgentsMd(base, home).text;
     expect(out).toBe(header(override) + 'user-override');
@@ -209,7 +209,7 @@ describe('loadAgentsMd AGENTS.override.md 约定', () => {
 describe('loadAgentsMd customPaths 覆盖模式', () => {
   it('配了 customPaths 时只读指定路径，忽略默认的用户级与项目级收集', () => {
     const home = join(base, 'home');
-    put('home/.step-pi/AGENTS.md', 'user-stepcode'); // 默认会被收，覆盖模式下应被忽略
+    put('home/.step-pilot/AGENTS.md', 'user-stepcode'); // 默认会被收，覆盖模式下应被忽略
     put('proj/AGENTS.md', 'root'); // 同上
     mkdirSync(join(base, 'proj', '.git'), { recursive: true });
     const custom = put('custom/my-rules.md', 'custom-rules');

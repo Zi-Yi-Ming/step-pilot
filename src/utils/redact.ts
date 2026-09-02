@@ -120,7 +120,7 @@ const PATH_RULES: { re: RegExp; replace: string }[] = [
   // Git Bash / MSYS 路径
   { re: new RegExp('\/c\/Users\/[^/]+\/Documents\/projects\/' + escRe(VAULT_PARENT) + '\/' + escRe(VAULT_DIR) + '[^\s"' + "'" + '\]]*', 'g'), replace: VAULT_PATH },
   // 其它 C: 开头的知识库相关路径
-  { re: /C:\\Users\\[^\\]+\\.step-pi\b/g, replace: 'C:\\Users\\USER\\.step-pi' },
+  { re: /C:\\Users\\[^\\]+\\.step-pilot\b/g, replace: 'C:\\Users\\USER\\.step-pilot' },
   { re: /C:\\Users\\[^\\]+\\.pi\b/g, replace: 'C:\\Users\\USER\\.pi' },
   // 知识库系列目录名
   { re: new RegExp('\\b' + escRe(VAULT_DIR) + '(?:-skills|-agents-md|-runtime|-recon|-wealth|-books|-lab|-archive)\\b', 'g'), replace: 'VAULT' },

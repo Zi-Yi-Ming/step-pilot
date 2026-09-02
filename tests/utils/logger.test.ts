@@ -12,7 +12,7 @@ import {
 } from '../../src/utils/logger.js';
 
 let dir: string;
-const logFile = (): string => join(dir, 'steppi.log');
+const logFile = (): string => join(dir, 'step-pilot.log');
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'stepcode-log-'));
@@ -65,9 +65,9 @@ describe('logger 环形缓冲', () => {
 });
 
 describe('logger 级别过滤', () => {
-  it('默认（无 STEP_PI_DEBUG）不记 debug 级', () => {
-    // 测试进程默认未设 STEP_PI_DEBUG=1，debug 应被过滤
-    const hasDebugEnv = process.env['STEP_PI_DEBUG'] === '1';
+  it('默认（无 STEP_PILOT_DEBUG）不记 debug 级', () => {
+    // 测试进程默认未设 STEP_PILOT_DEBUG=1，debug 应被过滤
+    const hasDebugEnv = process.env['STEP_PILOT_DEBUG'] === '1';
     logDebug('debug-should-drop');
     logInfo('info-kept');
     const dump = dumpLogBuffer();

@@ -33,7 +33,7 @@ export interface ExportDebugBundleOptions {
   sessionId: string;
   /** 会话模型名，写入 manifest。缺省为 'unknown'。 */
   model?: string;
-  /** ~/.step-pi 数据根，用于定位 config.toml/mcp.json 与产物落点。测试可覆盖。 */
+  /** ~/.step-pilot 数据根，用于定位 config.toml/mcp.json 与产物落点。测试可覆盖。 */
   dataDir?: string;
   /** 脱敏级别，缺省 vendor。 */
   level?: RedactLevel;
@@ -47,8 +47,8 @@ export interface ExportDebugBundleResult {
   redacted: boolean;
 }
 
-/** 版本号取自 src/version.ts 单一来源（曾按 package.json 的 name==='step-code-pi' 匹配，
- *  仓库改名 steppi 后改为直接取 src/version.ts 的 VERSION）。 */
+/** 版本号取自 src/version.ts 单一来源（曾按 package.json 的 name==='step-pilot-pi' 匹配，
+ *  仓库改名 step-pilot 后改为直接取 src/version.ts 的 VERSION）。 */
 
 /** 时间戳 YYYYMMDDHHMMSS（本地时间），用于产物命名。 */
 function stamp(d: Date): string {
@@ -87,7 +87,7 @@ function redactJson(raw: string): string {
  */
 export async function exportDebugBundle(opts: ExportDebugBundleOptions): Promise<ExportDebugBundleResult> {
   const { store, cwd, sessionId } = opts;
-  const dataDir = opts.dataDir ?? join(homedir(), '.step-pi');
+  const dataDir = opts.dataDir ?? join(homedir(), '.step-pilot');
   const model = opts.model ?? 'unknown';
   const level: RedactLevel = opts.level ?? 'vendor';
   const isVendor = level === 'vendor';
@@ -149,7 +149,7 @@ export async function exportDebugBundle(opts: ExportDebugBundleOptions): Promise
   included.push('manifest.json');
   const manifest: Record<string, unknown> = {
     generatedAt: now.toISOString(),
-    app: { name: 'steppi', version: VERSION },
+    app: { name: 'step-pilot', version: VERSION },
     os: { platform: platform(), release: release(), arch: arch() },
     node: process.version,
     model,

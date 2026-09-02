@@ -6,14 +6,14 @@
  * 主会话端点，那是稳定失败，压缩持续报错等于上下文兜底失效。
  */
 import { describe, expect, it } from 'vitest';
-import type { StepCodeConfig } from '../../src/config/config.js';
+import type { StepPilotConfig } from '../../src/config/config.js';
 import { resolveCompactionBinding } from '../../src/provider/compaction.js';
 import { OpenAiChatProvider } from '../../src/provider/openaiChat.js';
 import type { NormalizedChatProvider } from '../../src/provider/normalizedProvider.js';
 import { StepfunAdapter } from '../../src/provider/adapter.js';
 import type { ChatProvider } from '../../src/provider/types.js';
 
-function baseConfig(overrides: Partial<StepCodeConfig> = {}): StepCodeConfig {
+function baseConfig(overrides: Partial<StepPilotConfig> = {}): StepPilotConfig {
   return {
     provider: 'stepfun',
     apiKey: 'main-key',
@@ -28,8 +28,8 @@ function baseConfig(overrides: Partial<StepCodeConfig> = {}): StepCodeConfig {
 }
 
 /** 主会话走 stepfun（anthropic 协议），另有一条 openai 协议的 plan 渠道。 */
-function crossChannelConfig(compactionModel?: string): StepCodeConfig {
-  const compaction: StepCodeConfig['compaction'] = { triggerRatio: 0.85, reservedTokens: 32_000 };
+function crossChannelConfig(compactionModel?: string): StepPilotConfig {
+  const compaction: StepPilotConfig['compaction'] = { triggerRatio: 0.85, reservedTokens: 32_000 };
   if (compactionModel !== undefined) compaction.model = compactionModel;
   return baseConfig({
     compaction,

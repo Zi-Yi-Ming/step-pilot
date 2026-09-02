@@ -9,23 +9,23 @@ This page is the complete reference for configuration fields. Look things up by 
 
 ## API key
 
-Three ways to supply it, in priority order: environment variable > `.env` at the project root > `~/.step-pi/config.toml`.
+Three ways to supply it, in priority order: environment variable > `.env` at the project root > `~/.step-pilot/config.toml`.
 
 `.env` only fills in environment variables that are **not already set** (existing keys are never overwritten), so its real role is "a supplementary source for environment variables" rather than an independent third priority level. Only `KEY=VALUE` lines are parsed; comments and blank lines are ignored, and single or double quotes wrapping the value are stripped automatically.
 
 ```bash
-# Environment variables (the implicit provider recognizes only STEP_PI_API_KEY;
+# Environment variables (the implicit provider recognizes only STEP_PILOT_API_KEY;
 # the anthropic / openai protocols additionally recognize their conventional variables)
-export STEP_PI_API_KEY=<your-key>
+export STEP_PILOT_API_KEY=<your-key>
 
 # Optional overrides
-export STEP_PI_BASE_URL=https://api.stepfun.com
-export STEP_PI_MODEL=step-3.7-flash
-export STEP_PI_PROVIDER=stepfun    # presets: stepfun / anthropic / openai / openai_responses
+export STEP_PILOT_BASE_URL=https://api.stepfun.com
+export STEP_PILOT_MODEL=step-3.7-flash
+export STEP_PILOT_PROVIDER=stepfun    # presets: stepfun / anthropic / openai / openai_responses
 ```
 
 ```toml
-# ~/.step-pi/config.toml (api_key is no longer supported at the top level; see [providers] / [models] below)
+# ~/.step-pilot/config.toml (api_key is no longer supported at the top level; see [providers] / [models] below)
 model = "step-3.7-flash"
 base_url = "https://api.stepfun.com"
 provider = "stepfun"                 # defaults to stepfun (anthropic protocol)
@@ -35,14 +35,14 @@ The command-line flags `--provider` / `--model` take the highest priority.
 
 ## Every config.toml field
 
-File location: `~/.step-pi/config.toml`.
+File location: `~/.step-pilot/config.toml`.
 
 There is only this one user-level file, with no project-level config.toml. The location of a config file is a trust boundary: cloning a repository should not let a config file shipped inside it silently inject sensitive items such as api_key, base_url, or `[[hooks]]` commands. Project-scoped customization therefore goes through directory conventions rather than a second config.toml:
 
 | Project-level convention | Location |
 |-----------|------|
-| Project-level skills | `<project>/.agents/skills/`, `<project>/.step-pi/skills/` |
-| Project-level sub-agents | `<project>/.step-pi/agents/` |
+| Project-level skills | `<project>/.agents/skills/`, `<project>/.step-pilot/skills/` |
+| Project-level sub-agents | `<project>/.step-pilot/agents/` |
 | Project conventions | `<project>/AGENTS.md` and similar; see [How AGENTS.md works](./agents-md.md) |
 
 MCP server declarations (`mcp.json`) and `[[hooks]]` follow the same rule: only the user-level file is read.
@@ -119,10 +119,10 @@ The built-in presets `stepfun` and `anthropic` are only the carriers of the zero
 
 When each model alias is expanded, the first available key is taken along the chain for its branch (`env(X)` means reading the environment variable named X; an empty string counts as unset):
 
-- **Provider branch** (the alias `provider` points at a `[providers.<id>]` provider): provider `api_key` → env(provider `api_key_env`) → the conventional environment variable for the provider type → alias `api_key` → env(alias `api_key_env`) → the implicit provider key (`STEP_PI_API_KEY` or the conventional environment variable for the top-level provider).
-- **Inherited branch** (the alias `provider` is omitted): alias `api_key` → env(alias `api_key_env`) → the conventional environment variable for the top-level provider → `STEP_PI_API_KEY`.
+- **Provider branch** (the alias `provider` points at a `[providers.<id>]` provider): provider `api_key` → env(provider `api_key_env`) → the conventional environment variable for the provider type → alias `api_key` → env(alias `api_key_env`) → the implicit provider key (`STEP_PILOT_API_KEY` or the conventional environment variable for the top-level provider).
+- **Inherited branch** (the alias `provider` is omitted): alias `api_key` → env(alias `api_key_env`) → the conventional environment variable for the top-level provider → `STEP_PILOT_API_KEY`.
 
-The implicit provider key itself comes from `STEP_PI_API_KEY` (the anthropic / openai protocols additionally recognize their conventional environment variables). `api_key` is no longer supported at the top level of config.toml. When no key is found anywhere along the chain, startup no longer fails; instead the provider constructor throws a "missing API key" error with configuration guidance.
+The implicit provider key itself comes from `STEP_PILOT_API_KEY` (the anthropic / openai protocols additionally recognize their conventional environment variables). `api_key` is no longer supported at the top level of config.toml. When no key is found anywhere along the chain, startup no longer fails; instead the provider constructor throws a "missing API key" error with configuration guidance.
 
 > **Warning about mixing vendors**: the implicit provider key is the last fallback for every provider, so when a provider has no key of its own, that key is sent to that provider's endpoint. When mixing several vendors, always give each provider its own `api_key` or `api_key_env` so a key is never sent to the wrong vendor.
 
@@ -151,7 +151,7 @@ capabilities = ["thinking", "image_in"] # optional, see capabilities tags below
 | `capabilities` | Array of capability tags (such as `thinking` or `image_in`); the single source of truth for tool gating and request shaping. Must be a non-empty array of plain strings with values from the allowed set, otherwise startup fails (see [capabilities tags](#capabilities-tags)) |
 | `media_keep_recent` | Overrides how many recent images media degradation keeps, per alias; falls back to the top-level `media_keep_recent`. Image limits vary widely by provider (step-3.7 measured at 60 per request, Gemini at 10), so generous providers can keep more and stricter ones fewer; see [Media degradation](#media-degradation) |
 
-- The final model is expanded through the alias table once at startup, so `--model <alias>`, `STEP_PI_MODEL=<alias>`, and the top-level `model = "<alias>"` in toml all behave identically.
+- The final model is expanded through the alias table once at startup, so `--model <alias>`, `STEP_PILOT_MODEL=<alias>`, and the top-level `model = "<alias>"` in toml all behave identically.
 - At runtime, `/model` opens the interactive selector and `/model <alias>` switches directly. Switching rebuilds the provider from the merged configuration, and the context window follows; see [Interactive use](./interactive.md).
 - Unknown fields inside an alias are ignored; an entry is skipped when its alias name is an empty string or its value is not a table.
 
@@ -203,7 +203,7 @@ The semantics of `capabilities`: listing a value declares support, and dimension
 
 #### Media degradation
 
-When a request is rejected for exceeding an image limit (413 payload too large, or a 400 for too many/too-large images), step-code replaces the older images in history with placeholder text, keeps only the most recent N, and retries automatically. This prevents one oversized image from "poisoning" the whole session — where every subsequent message, even plain text, fails with the same error.
+When a request is rejected for exceeding an image limit (413 payload too large, or a 400 for too many/too-large images), step-pilot replaces the older images in history with placeholder text, keeps only the most recent N, and retries automatically. This prevents one oversized image from "poisoning" the whole session — where every subsequent message, even plain text, fails with the same error.
 
 **Degradation levels** (retried along the chain, each level at most once per request):
 
@@ -264,7 +264,7 @@ high = 32000
 
 At runtime, `/think` switches the level for the session (selector / direct / off); see [Interactive use](./interactive.md).
 
-The level name is sent as the reasoning-strength value directly. The three protocols use different parameter names and nesting (`output_config.effort` / top-level `reasoning_effort` / nested `reasoning.effort`); Step Code translates for each, so you do not need to care which provider you are on.
+The level name is sent as the reasoning-strength value directly. The three protocols use different parameter names and nesting (`output_config.effort` / top-level `reasoning_effort` / nested `reasoning.effort`); Step Pilot translates for each, so you do not need to care which provider you are on.
 
 **There is no `budget_tokens` key.** There used to be one, and it was removed: all three upstream endpoints accept only a level string, never a token count, so that number was never actually sent — it was only used to derive a level. Because the derivation thresholds were fixed, editing `[thinking.levels]` could make the level you picked differ from the level actually sent. A field that has no effect and can silently pick the wrong level should not be exposed. Setting this key now fails fast and points you at `default_level`.
 
@@ -380,7 +380,7 @@ One case does not count as "cannot compact further": when history is still short
 
 ### `[memory]`: the memory observation pool
 
-A long-term observation store maintained by the agent itself: when the user explicitly asks to remember something, corrects the agent, or a stable project convention shows up, the agent writes an observation into two markdown directory layers (global `~/.step-pi/memory/` and project `.step-pi/memory/`), and the system prompt carries a directory note plus an observation index at its tail. Observations **do not take effect directly** (marked as unconfirmed; confirmed rules like AGENTS.md win on conflict) — they are promoted into your rules only after your periodic review.
+A long-term observation store maintained by the agent itself: when the user explicitly asks to remember something, corrects the agent, or a stable project convention shows up, the agent writes an observation into two markdown directory layers (global `~/.step-pilot/memory/` and project `.step-pilot/memory/`), and the system prompt carries a directory note plus an observation index at its tail. Observations **do not take effect directly** (marked as unconfirmed; confirmed rules like AGENTS.md win on conflict) — they are promoted into your rules only after your periodic review.
 
 ```toml
 [memory]
@@ -479,7 +479,7 @@ Run your shell commands at lifecycle event points, for observation or for blocki
 [[hooks]]
 event = "PreToolUse"                        # event name
 matcher = "^bash$"                           # optional regex, matched against the tool name / event identifier
-command = "python ~/.step-pi/hooks/guard.py"
+command = "python ~/.step-pilot/hooks/guard.py"
 timeout = 30                                 # seconds, optional, default 30, hard cap 600
 ```
 
@@ -492,27 +492,27 @@ timeout = 30                                 # seconds, optional, default 30, ha
 
 Validation is per entry: when one entry has an invalid `event`, a missing or empty `command`, or a `matcher` that fails to compile, only that entry is skipped and the remaining hooks load normally.
 
-Only user-level global configuration is supported (`~/.step-pi/config.toml`), with no project level, because the location of a config file is a trust boundary. For event semantics, blocking rules, and the stdin/exit conventions, see [How hooks work](./hooks.md).
+Only user-level global configuration is supported (`~/.step-pilot/config.toml`), with no project level, because the location of a config file is a trust boundary. For event semantics, blocking rules, and the stdin/exit conventions, see [How hooks work](./hooks.md).
 
 ## Environment variables
 
 | Variable | Description |
 |------|------|
-| `STEP_PI_API_KEY` | API key; the only variable the implicit provider recognizes |
+| `STEP_PILOT_API_KEY` | API key; the only variable the implicit provider recognizes |
 | `ANTHROPIC_API_KEY` | The conventional key variable when the provider or provider type is `anthropic` |
 | `OPENAI_API_KEY` | The conventional key variable when the provider or provider type is `openai` / `openai_responses` |
-| `STEP_PI_PROVIDER` | Provider; higher priority than config.toml, lower than `--provider` |
-| `STEP_PI_BASE_URL` | API address; higher priority than config.toml |
-| `STEP_PI_MODEL` | Model name or a `[models]` alias; higher priority than config.toml, lower than `--model` |
-| `STEP_PI_DEBUG` | Set to `1` to relax the runtime log level from info to debug (logs are written to `~/.step-pi/logs/step-code.log`; in non-interactive `-p` mode, debug logs also go to stderr) |
+| `STEP_PILOT_PROVIDER` | Provider; higher priority than config.toml, lower than `--provider` |
+| `STEP_PILOT_BASE_URL` | API address; higher priority than config.toml |
+| `STEP_PILOT_MODEL` | Model name or a `[models]` alias; higher priority than config.toml, lower than `--model` |
+| `STEP_PILOT_DEBUG` | Set to `1` to relax the runtime log level from info to debug (logs are written to `~/.step-pilot/logs/step-pilot.log`; in non-interactive `-p` mode, debug logs also go to stderr) |
 | `STEP_SHELL_PATH` | Windows only: the absolute path to the interpreter for the `bash` tool, for cases where Git Bash is installed in a non-standard location. Takes priority over auto-detection |
-| `STEP_DEBUG_RENDER` | Set to `1` to enable dynamic frame render budget diagnostics: when a downgrade (`DEGRADED`) or a frame-height threshold hit (`DANGER`) occurs, an entry is appended to `%TEMP%/steppi-render-debug.log`, for debugging rendering and scrolling problems |
+| `STEP_DEBUG_RENDER` | Set to `1` to enable dynamic frame render budget diagnostics: when a downgrade (`DEGRADED`) or a frame-height threshold hit (`DANGER`) occurs, an entry is appended to `%TEMP%/step-pilot-render-debug.log`, for debugging rendering and scrolling problems |
 
 The variable name referenced by `api_key_env` is yours to choose and is not in this table. An empty string in the key variables above is equivalent to unset.
 
 ## Data directory
 
-What lives under `~/.step-pi/`:
+What lives under `~/.step-pilot/`:
 
 | Path | Contents |
 |------|------|
@@ -524,7 +524,7 @@ What lives under `~/.step-pi/`:
 | `plugins/` | Plugin directory; see [Skills, plugins, and MCP](./skills-and-mcp.md) |
 | `plugins.json` | Plugin enable/disable state (records the disabled set) |
 | `hooks/` | By convention, holds the scripts referenced by `[[hooks]]` (not enforced) |
-| `logs/step-code.log` | Runtime log (the diagnostics channel); rotated to `.log.old` at startup once it exceeds 5MB; redacted before writing |
+| `logs/step-pilot.log` | Runtime log (the diagnostics channel); rotated to `.log.old` at startup once it exceeds 5MB; redacted before writing |
 | `sessions/<working-directory key>/` | Session snapshots `<id>.json` and full history `<id>.full.jsonl`, bucketed by working directory |
 | `sessions/<working-directory key>/subagents/` | Sub-agent session snapshots, full logs, and the runtime active lock (`.lock`), kept apart from the main session bucket; see [Session management](./sessions.md#subagent-sessions) |
 | `sessions/<working-directory key>/attachments/` | Image attachments stored content-addressed (the filename is the sha256), with only a reference pointer left in the session |
@@ -537,11 +537,11 @@ What lives under `~/.step-pi/`:
 The diagnostic exit for a broken configuration. It runs headless, never enters the TUI, and changes no files:
 
 ```bash
-step doctor config              # validate ~/.step-pi/config.toml
+step doctor config              # validate ~/.step-pilot/config.toml
 step doctor config ./my.toml    # validate a given path
 ```
 
-`path` defaults to `~/.step-pi/config.toml`. It runs **before** `loadConfig`, so the validator itself still works when the configuration is broken badly enough to prevent the process from starting. There are only two exit codes: **0** means parsing and validation passed (warnings still exit 0), and **1** means failure.
+`path` defaults to `~/.step-pilot/config.toml`. It runs **before** `loadConfig`, so the validator itself still works when the configuration is broken badly enough to prevent the process from starting. There are only two exit codes: **0** means parsing and validation passed (warnings still exit 0), and **1** means failure.
 
 Four failure classes (exit code 1, reported as `error:` with an immediate return):
 
@@ -564,14 +564,14 @@ Three warning classes (still exit code 0, listed one per line after the `ok:` li
 
 ## Startup self-check
 
-`step` automatically validates `~/.step-pi/config.toml` on startup — **you do not need to run `step doctor config` yourself**. A clean configuration produces zero output; problems are split by severity:
+`step` automatically validates `~/.step-pilot/config.toml` on startup — **you do not need to run `step doctor config` yourself**. A clean configuration produces zero output; problems are split by severity:
 
 | Level | Covers | Behavior |
 |------|------|------|
-| **Fatal** | TOML syntax error, top level is not a table | Reports the error and exits with code 1, with a repair hint (`step doctor config` to validate, or `STEP_PI_IGNORE_BAD_CONFIG=1` to ignore the bad file and start with defaults) |
+| **Fatal** | TOML syntax error, top level is not a table | Reports the error and exits with code 1, with a repair hint (`step doctor config` to validate, or `STEP_PILOT_IGNORE_BAD_CONFIG=1` to ignore the bad file and start with defaults) |
 | **Warning** | Unknown top-level key, invalid `[providers.<id>]` `type`, alias referencing an unavailable channel, invalid `[[hooks]]` entry | Warns without blocking startup |
 
-**Why the escape hatch is mandatory**: the configuration file lives in the home directory, and users routinely use step-code itself to modify it (the built-in `update-config` skill does exactly that). If a syntax error always caused an exit, you would deadlock: cannot start → cannot use step-code to fix step-code's configuration. With `STEP_PI_IGNORE_BAD_CONFIG=1` the entire file is ignored, but the interface keeps telling you so (silently running on defaults is exactly what this feature eliminates).
+**Why the escape hatch is mandatory**: the configuration file lives in the home directory, and users routinely use step-pilot itself to modify it (the built-in `update-config` skill does exactly that). If a syntax error always caused an exit, you would deadlock: cannot start → cannot use step-pilot to fix step-pilot's configuration. With `STEP_PILOT_IGNORE_BAD_CONFIG=1` the entire file is ignored, but the interface keeps telling you so (silently running on defaults is exactly what this feature eliminates).
 
 **Alias reference checks** cover three failure modes (shared by `step doctor config` and the startup self-check):
 

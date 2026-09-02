@@ -5,7 +5,7 @@
 
 # The AGENTS.md mechanism
 
-AGENTS.md is a project-level or personal convention file written for the model. When Step Pi starts a session it automatically collects the relevant AGENTS.md files and appends them to the end of the system prompt. This page answers three questions: where they are loaded from by default, how to override one layer, and how to fully customize the sources.
+AGENTS.md is a project-level or personal convention file written for the model. When Step Pilot starts a session it automatically collects the relevant AGENTS.md files and appends them to the end of the system prompt. This page answers three questions: where they are loaded from by default, how to override one layer, and how to fully customize the sources.
 
 ## Default collection paths
 
@@ -13,15 +13,15 @@ AGENTS.md is a project-level or personal convention file written for the model. 
 
 | Directory | Fallback order |
 |------|----------|
-| `~/.step-pi/` | `AGENTS.override.md` → `AGENTS.md` |
+| `~/.step-pilot/` | `AGENTS.override.md` → `AGENTS.md` |
 | `~/.agents/` | `AGENTS.override.md` → `AGENTS.md` → `agents.md` |
 
-`~/.agents/` is a cross-tool shared directory, so the same conventions can be read by several agent tools; that is why it also accepts the lowercase `agents.md` to accommodate different tools' spellings. `~/.step-pi/` is this tool's own directory and only accepts the two canonical names.
+`~/.agents/` is a cross-tool shared directory, so the same conventions can be read by several agent tools; that is why it also accepts the lowercase `agents.md` to accommodate different tools' spellings. `~/.step-pilot/` is this tool's own directory and only accepts the two canonical names.
 
-**Project level**: Step Pi walks up from the current directory to find the project root containing `.git`, then walks back down from the root to the current directory, taking the first matching file at each level:
+**Project level**: Step Pilot walks up from the current directory to find the project root containing `.git`, then walks back down from the root to the current directory, taking the first matching file at each level:
 
 ```
-.step-pi/AGENTS.md  →  AGENTS.override.md  →  AGENTS.md  →  agents.md
+.step-pilot/AGENTS.md  →  AGENTS.override.md  →  AGENTS.md  →  agents.md
 ```
 
 All matched files are concatenated in the order "user level first, then project level from root to leaf", each prefixed with a `<!-- From: <absolute path> -->` comment header. The closer a file is to the current directory, the later it appears, so from the model's point of view more specific conventions take precedence. The total budget defaults to 32KB (tunable via `agents_md_max_bytes`, where `0` disables loading); on overflow, allocation favors the leaves and truncation is UTF-8 safe. When truncation or a whole-file drop happens, a single notice appears in the transcript after startup listing which files were affected and how large they originally were.
@@ -34,7 +34,7 @@ A typical use: the repository's `AGENTS.md` is the team-shared version, and you 
 
 ## Overriding everything: agents_paths
 
-Once this is set in `~/.step-pi/config.toml`, default collection is **turned off entirely** and only the listed entries are loaded:
+Once this is set in `~/.step-pilot/config.toml`, default collection is **turned off entirely** and only the listed entries are loaded:
 
 ```toml
 agents_paths = ["~/my-rules/AGENTS.md", "./team-docs"]
@@ -49,12 +49,12 @@ This is an escape hatch, not an everyday entry point: once configured, team conv
 
 ## Cross-tool sharing
 
-`~/.agents/AGENTS.md` lives in a tool-neutral directory, without Step Pi's private path prefix. Put tool-independent conventions there, the "who I am, how I work, what my technical preferences are" kind, so several agent tools can share one copy instead of each maintaining its own.
+`~/.agents/AGENTS.md` lives in a tool-neutral directory, without Step Pilot's private path prefix. Put tool-independent conventions there, the "who I am, how I work, what my technical preferences are" kind, so several agent tools can share one copy instead of each maintaining its own.
 
-Tool-specific instructions (conventions that apply only to Step Pi) belong in `~/.step-pi/AGENTS.md` or the in-project `.step-pi/AGENTS.md`, kept separate from the shared layer so this tool's implementation details are not exposed to other tools.
+Tool-specific instructions (conventions that apply only to Step Pilot) belong in `~/.step-pilot/AGENTS.md` or the in-project `.step-pilot/AGENTS.md`, kept separate from the shared layer so this tool's implementation details are not exposed to other tools.
 
 ## Maintenance advice
 
 - Team conventions that go into version control belong in the project root `AGENTS.md`; keep it lean and only write what applies to collaborators generally
-- Personal conventions belong in `~/.step-pi/AGENTS.md` (global) or an in-project `AGENTS.override.md` (single project)
-- `.step-pi/AGENTS.md` has the highest precedence and suits tool-specific instructions (for example conventions that apply only to Step Pi)
+- Personal conventions belong in `~/.step-pilot/AGENTS.md` (global) or an in-project `AGENTS.override.md` (single project)
+- `.step-pilot/AGENTS.md` has the highest precedence and suits tool-specific instructions (for example conventions that apply only to Step Pilot)

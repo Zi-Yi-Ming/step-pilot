@@ -37,7 +37,7 @@ type StreamParams = Parameters<ChatProvider['stream']>[0];
  * stream 内的执行顺序不可调换：
  * 1. 先对**原始** messages 查不变量。反了就永远查不到——归一化会把违规全修掉，
  *    检查放在后面只会得到一份永远干净的历史，掩盖源头缺陷。
- * 2. 有违规时按 `STEP_PI_STRICT_HISTORY` 分流：设为 '1' 抛错（开发期硬失败，
+ * 2. 有违规时按 `STEP_PILOT_STRICT_HISTORY` 分流：设为 '1' 抛错（开发期硬失败，
  *    因为不变量是时序/结构性质，`tsc` 全绿也照样违规），否则只 logWarn 并继续。
  *    开关刻意不用 `NODE_ENV`——本项目踩过 NODE_ENV 分流致 TUI 首帧静默失效的坑。
  * 3. 用归一化后的历史发请求。
@@ -58,8 +58,8 @@ export function withHistoryNormalization(inner: ChatProvider): NormalizedChatPro
       const violations = checkHistoryInvariants(params.messages);
       if (violations.length > 0) {
         const detail = violations.map((v) => `[${v.code}] ${v.detail}`).join('; ');
-        if (process.env['STEP_PI_STRICT_HISTORY'] === '1') {
-          throw new Error(`历史不变量被破坏（STEP_PI_STRICT_HISTORY=1 下硬失败）：${detail}`);
+        if (process.env['STEP_PILOT_STRICT_HISTORY'] === '1') {
+          throw new Error(`历史不变量被破坏（STEP_PILOT_STRICT_HISTORY=1 下硬失败）：${detail}`);
         }
         const fresh = violations.filter((v) => !warned.has(v.code));
         if (fresh.length > 0) {

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// loadConfig 读 ~/.step-pi/config.toml：把 homedir 指到临时目录（对齐 tests/permissionMode.test.ts），
+// loadConfig 读 ~/.step-pilot/config.toml：把 homedir 指到临时目录（对齐 tests/permissionMode.test.ts），
 // 避免开发机上的真实配置污染断言。
 let fakeHome = '';
 vi.mock('node:os', async (importOriginal) => {
@@ -17,7 +17,7 @@ import { runDoctorConfig } from '../src/config/doctor.js';
 let dir: string;
 
 function writeHomeConfig(content: string): void {
-  const cfgDir = join(dir, '.step-pi');
+  const cfgDir = join(dir, '.step-pilot');
   mkdirSync(cfgDir, { recursive: true });
   writeFileSync(join(cfgDir, 'config.toml'), content, 'utf8');
 }
@@ -74,13 +74,13 @@ describe('loadConfig proxy 接线', () => {
 describe('doctor proxy 校验', () => {
   it('合法 proxy 配置 doctor 通过', async () => {
     writeHomeConfig('proxy = "http://127.0.0.1:7892"\n');
-    const r = await runDoctorConfig(join(dir, '.step-pi', 'config.toml'));
+    const r = await runDoctorConfig(join(dir, '.step-pilot', 'config.toml'));
     expect(r.code).toBe(0);
   });
 
   it('非法 proxy 配置 doctor exit 1', async () => {
     writeHomeConfig('proxy = "socks5://127.0.0.1:1080"\n');
-    const r = await runDoctorConfig(join(dir, '.step-pi', 'config.toml'));
+    const r = await runDoctorConfig(join(dir, '.step-pilot', 'config.toml'));
     expect(r.code).toBe(1);
     expect(r.stderr).toContain('proxy');
   });

@@ -1,7 +1,7 @@
 name: Sync labels
 on:
   push:
-    branches: [step-code-explore]
+    branches: [step-pilot-explore]
     paths:
       - .github/labels.yml
       - .github/workflows/labels-sync.yml

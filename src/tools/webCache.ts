@@ -166,7 +166,7 @@ export class WebResultCache {
 export const webResultCache = new WebResultCache();
 
 /**
- * 用 StepCodeConfig 的 [tools.web] 段重配全局 webResultCache。
+ * 用 StepPilotConfig 的 [tools.web] 段重配全局 webResultCache。
  * 未配置 web 段时保持内置默认值（等价于空对象传入 configure）。
  * 每次 loadConfig / reloadConfig 后调用一次即可。
  */

@@ -5,7 +5,7 @@
  * 2. OSC 9 —— 现代终端桌面通知（iTerm2、WezTerm、Kitty、Ghostty、Windows Terminal、Warp）。
  *    tmux 内自动套 DCS 透传，否则被吞掉。
  *
- * 取业界终端 agent 的通行做法，精简为 Step Code 最小面（只做完成提醒，不做进度条）。
+ * 取业界终端 agent 的通行做法，精简为 Step Pilot 最小面（只做完成提醒，不做进度条）。
  */
 
 const ESC = '\u001B';

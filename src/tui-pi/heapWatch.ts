@@ -28,7 +28,7 @@ const DUMP_RATIO = 0.8;
  * 从环境变量读一个 0..1 的比例，非法值忽略。
  *
  * 开这三个口子有两个用处：真机验证时能把阈值压到必然触发；用户怀疑内存问题时能主动收紧
- * 监控（`STEP_PI_HEAP_WARN_RATIO=0.3 STEP_PI_HEAP_CHECK_MS=5000`），不必等默认的
+ * 监控（`STEP_PILOT_HEAP_WARN_RATIO=0.3 STEP_PILOT_HEAP_CHECK_MS=5000`），不必等默认的
  * 60% 水位才拿到线索。
  */
 function envRatio(name: string): number | undefined {
@@ -83,8 +83,8 @@ export function checkHeapOnce(
   const { used, limit } = read();
   if (limit <= 0) return { warned: false };
   const ratio = used / limit;
-  const warnAt = opts.warnRatio ?? envRatio('STEP_PI_HEAP_WARN_RATIO') ?? WARN_RATIO;
-  const dumpAt = opts.dumpRatio ?? envRatio('STEP_PI_HEAP_DUMP_RATIO') ?? DUMP_RATIO;
+  const warnAt = opts.warnRatio ?? envRatio('STEP_PILOT_HEAP_WARN_RATIO') ?? WARN_RATIO;
+  const dumpAt = opts.dumpRatio ?? envRatio('STEP_PILOT_HEAP_DUMP_RATIO') ?? DUMP_RATIO;
   const mb = (b: number): string => (b / 1024 / 1024).toFixed(0);
   const out: { warned: boolean; dumpedTo?: string } = { warned: false };
 
@@ -130,7 +130,7 @@ export function startHeapWatch(opts: HeapWatchOptions): () => void {
     } catch {
       // 看护自身出错不能影响主流程
     }
-  }, opts.intervalMs ?? envInt('STEP_PI_HEAP_CHECK_MS') ?? CHECK_INTERVAL_MS);
+  }, opts.intervalMs ?? envInt('STEP_PILOT_HEAP_CHECK_MS') ?? CHECK_INTERVAL_MS);
   // 不 ref 事件循环：看护不该让进程多活一秒
   timer.unref?.();
   return () => clearInterval(timer);

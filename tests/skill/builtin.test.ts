@@ -28,7 +28,7 @@ describe('builtin skill 注册', () => {
   });
 
   it('builtin 优先级最低：项目级同名 skill shadow 并记入冲突', () => {
-    const shadowDir = join(dir, '.step-pi', 'skills', 'update-config');
+    const shadowDir = join(dir, '.step-pilot', 'skills', 'update-config');
     mkdirSync(shadowDir, { recursive: true });
     writeFileSync(join(shadowDir, 'SKILL.md'), SHADOW_MD);
     const reg = buildSkillRegistry(dir);

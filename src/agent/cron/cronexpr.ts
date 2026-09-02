@@ -1,6 +1,6 @@
 /**
  * 极简 5 字段 cron 解析（分 时 日 月 周），支持 *、逗号、范围 a-b、步进 a-b/n 或 星/n。
- * 仅用于 step-code 的 cron 定时任务，不追求完整 cron 语义（不含 ?、L、W、# 等扩展）。
+ * 仅用于 step-pilot 的 cron 定时任务，不追求完整 cron 语义（不含 ?、L、W、# 等扩展）。
  */
 
 export interface CronSpec {

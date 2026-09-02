@@ -4,22 +4,22 @@
 
 ## API key
 
-三种方式，优先级：环境变量 > 项目根 `.env` > `~/.step-pi/config.toml`。
+三种方式，优先级：环境变量 > 项目根 `.env` > `~/.step-pilot/config.toml`。
 
 `.env` 只补齐**尚未设置**的环境变量（已存在的键不被覆盖），因此它的实际位置是「环境变量的补充来源」而非独立的第三优先级。只解析 `KEY=VALUE` 行，忽略注释与空行，自动去掉值两侧包裹的单/双引号。
 
 ```bash
-# 环境变量（隐式渠道只认 STEP_PI_API_KEY；anthropic / openai 协议另认各自的惯例变量）
-export STEP_PI_API_KEY=<your-key>
+# 环境变量（隐式渠道只认 STEP_PILOT_API_KEY；anthropic / openai 协议另认各自的惯例变量）
+export STEP_PILOT_API_KEY=<your-key>
 
 # 可选覆盖
-export STEP_PI_BASE_URL=https://api.stepfun.com
-export STEP_PI_MODEL=step-3.7-flash
-export STEP_PI_PROVIDER=stepfun    # 预设：stepfun / anthropic / openai / openai_responses
+export STEP_PILOT_BASE_URL=https://api.stepfun.com
+export STEP_PILOT_MODEL=step-3.7-flash
+export STEP_PILOT_PROVIDER=stepfun    # 预设：stepfun / anthropic / openai / openai_responses
 ```
 
 ```toml
-# ~/.step-pi/config.toml（顶层不再支持 api_key；key 见下方 [providers] / [models]）
+# ~/.step-pilot/config.toml（顶层不再支持 api_key；key 见下方 [providers] / [models]）
 model = "step-3.7-flash"
 base_url = "https://api.stepfun.com"
 provider = "stepfun"                 # 默认 stepfun（anthropic 协议）
@@ -29,14 +29,14 @@ provider = "stepfun"                 # 默认 stepfun（anthropic 协议）
 
 ## config.toml 全字段
 
-文件位置：`~/.step-pi/config.toml`。
+文件位置：`~/.step-pilot/config.toml`。
 
 只有用户级这一份，没有项目级 config.toml——配置文件位置即信任边界：克隆一个仓库不应让它随附的配置文件静默注入 api_key、base_url、`[[hooks]]` 命令这类敏感项。项目粒度的定制因此走目录约定，而不是第二份 config.toml：
 
 | 项目级约定 | 位置 |
 |-----------|------|
-| 项目级 skills | `<项目>/.agents/skills/`、`<项目>/.step-pi/skills/` |
-| 项目级子 agent | `<项目>/.step-pi/agents/` |
+| 项目级 skills | `<项目>/.agents/skills/`、`<项目>/.step-pilot/skills/` |
+| 项目级子 agent | `<项目>/.step-pilot/agents/` |
 | 项目规范 | `<项目>/AGENTS.md` 等，见 [AGENTS.md 机制](./agents-md.md) |
 
 MCP server 声明（`mcp.json`）与 `[[hooks]]` 同理，只读用户级一份。
@@ -113,10 +113,10 @@ api_key = "<your-key>"                # 多渠道推荐写法：key 配在渠道
 
 每个模型别名展开时按所属分支沿以下链路取第一把可用的 key（`env(X)` 表示读取名为 X 的环境变量，空串视为未设置）：
 
-- **渠道分支**（别名 `provider` 指向 `[providers.<id>]` 渠道）：渠道 `api_key` → env（渠道 `api_key_env`）→ 渠道 type 的惯例环境变量 → 别名 `api_key` → env（别名 `api_key_env`）→ 隐式渠道 key（`STEP_PI_API_KEY` 或顶层 provider 的惯例环境变量）。
-- **继承分支**（别名 `provider` 缺省）：别名 `api_key` → env（别名 `api_key_env`）→ 顶层 provider 的惯例环境变量 → `STEP_PI_API_KEY`。
+- **渠道分支**（别名 `provider` 指向 `[providers.<id>]` 渠道）：渠道 `api_key` → env（渠道 `api_key_env`）→ 渠道 type 的惯例环境变量 → 别名 `api_key` → env（别名 `api_key_env`）→ 隐式渠道 key（`STEP_PILOT_API_KEY` 或顶层 provider 的惯例环境变量）。
+- **继承分支**（别名 `provider` 缺省）：别名 `api_key` → env（别名 `api_key_env`）→ 顶层 provider 的惯例环境变量 → `STEP_PILOT_API_KEY`。
 
-隐式渠道 key 本身来自 `STEP_PI_API_KEY`（顶层 provider 为 anthropic / openai 协议时另认其惯例环境变量）。config.toml 顶层不再支持 `api_key`；整条链都找不到 key 时启动不再报错，由 provider 构造时抛出带配置指引的「缺少 API key」错误。
+隐式渠道 key 本身来自 `STEP_PILOT_API_KEY`（顶层 provider 为 anthropic / openai 协议时另认其惯例环境变量）。config.toml 顶层不再支持 `api_key`；整条链都找不到 key 时启动不再报错，由 provider 构造时抛出带配置指引的「缺少 API key」错误。
 
 > **跨服务商混用警告**：隐式渠道 key 是所有渠道的最后一级回落——渠道没配 key 时会把它发给该渠道的端点。混用多家服务商时务必给每个渠道单独配 `api_key` 或 `api_key_env`，避免 key 被发到错误的服务商。
 
@@ -145,7 +145,7 @@ capabilities = ["thinking", "image_in"] # 可选，见下方 capabilities 能力
 | `capabilities` | 能力标签数组（如 `thinking` / `image_in`），工具门控与请求整形的唯一依据。要求非空的纯字符串数组、取值在白名单内，否则启动报错（见 [capabilities 能力标签](#capabilities-能力标签)） |
 | `media_keep_recent` | 按别名覆盖媒体降级保留张数，缺省继承顶层 `media_keep_recent`。通道图片限制差异大（step-3.7 实测 60 张、Gemini 10 张），宽松通道可多留、严格通道少留，见[媒体降级](#媒体降级) |
 
-- 启动时对最终 model 展开一次别名，因此 `--model 别名`、`STEP_PI_MODEL=别名`、toml 顶层 `model = "别名"` 三条路径同效。
+- 启动时对最终 model 展开一次别名，因此 `--model 别名`、`STEP_PILOT_MODEL=别名`、toml 顶层 `model = "别名"` 三条路径同效。
 - 运行时用 `/model` 打开交互式选择器或 `/model <别名>` 直切，切换会按合并配置重建 provider，上下文窗口随之跟随，见[交互使用](./interactive.md)。
 - 别名内的未知字段被忽略；别名名为空串或其值不是表时，该条被跳过。
 
@@ -197,7 +197,7 @@ capabilities = ["thinking", "image_in"] # 可选，见下方 capabilities 能力
 
 #### 媒体降级
 
-当一次请求因图片超限被 API 拒绝（413 载荷过大、400 图片太多/太大）时，step-code 会把历史里较旧的图片换成占位文本、只保留最近 N 张，然后自动重试——避免整张会话被一张超限图「毒化」（后续所有消息包括纯文本都报同一个错）。
+当一次请求因图片超限被 API 拒绝（413 载荷过大、400 图片太多/太大）时，step-pilot 会把历史里较旧的图片换成占位文本、只保留最近 N 张，然后自动重试——避免整张会话被一张超限图「毒化」（后续所有消息包括纯文本都报同一个错）。
 
 **降级档位**（沿链逐档重试，每档每请求最多一次）：
 
@@ -258,7 +258,7 @@ high = 32000
 
 运行时可用 `/think` 会话级切换档位（选择器/直切/off），见[交互使用](./interactive.md)。
 
-档位名会直接作为思考强度值随请求发出。三个协议的参数名与嵌套位置各不相同（`output_config.effort` / 顶层 `reasoning_effort` / 嵌套 `reasoning.effort`），Step Code 各自翻译，你不需要关心配的是哪条渠道。
+档位名会直接作为思考强度值随请求发出。三个协议的参数名与嵌套位置各不相同（`output_config.effort` / 顶层 `reasoning_effort` / 嵌套 `reasoning.effort`），Step Pilot 各自翻译，你不需要关心配的是哪条渠道。
 
 **没有 `budget_tokens` 这个键**。曾经有，已删除：阶跃三个接口都只收档位字符串、不收 token 数字，那个数字从来没有真正发出过，只是被用来折算档位——而折算阈值是固定的，改了 `[thinking.levels]` 的数字反而会导致选中的档位和实际发出的档位不一致。既然填了不生效、还可能错档，就不该让用户填。配了这个键现在会直接报错并提示改用 `default_level`。
 
@@ -378,7 +378,7 @@ max_auto_continues = 3  # 默认 3；设 0 关闭自动续写
 
 ### `[memory]` 记忆观察池
 
-agent 自主维护的长期观察目录：对话中出现「用户明确要求记住、用户纠正了 agent、稳定的项目约定」时，agent 会把观察写入两级 markdown 目录（全局 `~/.step-pi/memory/` 与项目 `.step-pi/memory/`），system 尾部注入目录说明与观察索引。观察**不直接生效**（标注为未经确认，与 AGENTS.md 等规范冲突时以规范为准），定期回顾经你确认后才晋升进规范层。
+agent 自主维护的长期观察目录：对话中出现「用户明确要求记住、用户纠正了 agent、稳定的项目约定」时，agent 会把观察写入两级 markdown 目录（全局 `~/.step-pilot/memory/` 与项目 `.step-pilot/memory/`），system 尾部注入目录说明与观察索引。观察**不直接生效**（标注为未经确认，与 AGENTS.md 等规范冲突时以规范为准），定期回顾经你确认后才晋升进规范层。
 
 ```toml
 [memory]
@@ -418,7 +418,7 @@ enabled = true   # 默认 false：不注入记忆段、不建目录；已有文�
 | `error_preview_lines` | int | 4 | 工具错误输出折叠态预览行数，clamp 到 1–20 |
 | `terminal_title` | bool | true | 把会话标题写进终端 tab 标题（OSC 0）；`false` 为不写 |
 
-`terminal_title` 开启时，会话的 tab 标题在新会话时为当前目录名，第一轮回答后自动换成 AI 生成的会话标题，`/resume` 切换会话、`/rename` 改名时同步更新，退出时清空。不支持的终端（非 TTY 重定向、`TERM=dumb`、CI 环境、tmux 未开启 passthrough）会自动跳过，不会污染输出；也可用环境变量 `STEP_PI_NO_TERMINAL_TITLE=1` 强制关闭。Windows Terminal 的 profile 若设了 `suppressApplicationTitle: true`，tab 标题被终端侧锁定，程序无法修改。
+`terminal_title` 开启时，会话的 tab 标题在新会话时为当前目录名，第一轮回答后自动换成 AI 生成的会话标题，`/resume` 切换会话、`/rename` 改名时同步更新，退出时清空。不支持的终端（非 TTY 重定向、`TERM=dumb`、CI 环境、tmux 未开启 passthrough）会自动跳过，不会污染输出；也可用环境变量 `STEP_PILOT_NO_TERMINAL_TITLE=1` 强制关闭。Windows Terminal 的 profile 若设了 `suppressApplicationTitle: true`，tab 标题被终端侧锁定，程序无法修改。
 
 ### `[search]` 联网搜索
 
@@ -486,7 +486,7 @@ max_entry_bytes = 2_097_152  # 单条字节上限（估算值），默认 2MB；
 [[hooks]]
 event = "PreToolUse"                        # 事件名
 matcher = "^bash$"                           # 可选正则，匹配工具名/事件标识
-command = "python ~/.step-pi/hooks/guard.py"
+command = "python ~/.step-pilot/hooks/guard.py"
 timeout = 30                                 # 秒，可选，默认 30，硬顶 600
 ```
 
@@ -499,28 +499,28 @@ timeout = 30                                 # 秒，可选，默认 30，硬顶
 
 校验按条独立：某一条的 `event` 非法、`command` 缺失或为空串、`matcher` 编译不过时，只跳过该条，其余 hook 照常加载。
 
-只支持用户级全局配置（`~/.step-pi/config.toml`），不做项目级——配置文件位置即信任边界。事件语义、阻断规则、stdin/exit 约定见 [hooks 机制](./hooks.md)。
+只支持用户级全局配置（`~/.step-pilot/config.toml`），不做项目级——配置文件位置即信任边界。事件语义、阻断规则、stdin/exit 约定见 [hooks 机制](./hooks.md)。
 
 ## 环境变量一览
 
 | 变量 | 说明 |
 |------|------|
-| `STEP_PI_API_KEY` | API key，隐式渠道只认这个变量 |
-| `STEP_PI_NO_TERMINAL_TITLE` | 设为 `1` 时不写终端 tab 标题（同 `[tui] terminal_title = false`，不改 config 也能立刻关掉） |
+| `STEP_PILOT_API_KEY` | API key，隐式渠道只认这个变量 |
+| `STEP_PILOT_NO_TERMINAL_TITLE` | 设为 `1` 时不写终端 tab 标题（同 `[tui] terminal_title = false`，不改 config 也能立刻关掉） |
 | `ANTHROPIC_API_KEY` | 渠道/provider 类型为 `anthropic` 时的惯例 key 变量 |
 | `OPENAI_API_KEY` | 渠道/provider 类型为 `openai` / `openai_responses` 时的惯例 key 变量 |
-| `STEP_PI_PROVIDER` | 服务商，优先级高于 config.toml、低于 `--provider` |
-| `STEP_PI_BASE_URL` | API 地址，优先级高于 config.toml |
-| `STEP_PI_MODEL` | 模型名或 `[models]` 别名，优先级高于 config.toml、低于 `--model` |
-| `STEP_PI_DEBUG` | 设为 `1` 把运行日志级别从 info 放宽到 debug（日志写 `~/.step-pi/logs/step-code.log`；`-p` 非交互模式下 debug 日志同时进 stderr） |
+| `STEP_PILOT_PROVIDER` | 服务商，优先级高于 config.toml、低于 `--provider` |
+| `STEP_PILOT_BASE_URL` | API 地址，优先级高于 config.toml |
+| `STEP_PILOT_MODEL` | 模型名或 `[models]` 别名，优先级高于 config.toml、低于 `--model` |
+| `STEP_PILOT_DEBUG` | 设为 `1` 把运行日志级别从 info 放宽到 debug（日志写 `~/.step-pilot/logs/step-pilot.log`；`-p` 非交互模式下 debug 日志同时进 stderr） |
 | `STEP_SHELL_PATH` | Windows 专用：`bash` 工具的解释器绝对路径，用于 Git Bash 装在非标准路径的情况，优先于自动探测 |
-| `STEP_DEBUG_RENDER` | 设为 `1` 开启动态帧渲染预算诊断：触发降级（`DEGRADED`）或帧高触线（`DANGER`）时追加写 `%TEMP%/steppi-render-debug.log`，用于排查渲染/滚动问题 |
+| `STEP_DEBUG_RENDER` | 设为 `1` 开启动态帧渲染预算诊断：触发降级（`DEGRADED`）或帧高触线（`DANGER`）时追加写 `%TEMP%/step-pilot-render-debug.log`，用于排查渲染/滚动问题 |
 
 `api_key_env` 指向的变量名由你自定义，不在此表内。上表中的 key 类变量空串等同未设置。
 
 ## 数据目录
 
-`~/.step-pi/` 下的内容：
+`~/.step-pilot/` 下的内容：
 
 | 路径 | 内容 |
 |------|------|
@@ -532,7 +532,7 @@ timeout = 30                                 # 秒，可选，默认 30，硬顶
 | `plugins/` | 插件目录，见[技能、插件与 MCP](./skills-and-mcp.md) |
 | `plugins.json` | 插件启停状态（记录 disabled 集合） |
 | `hooks/` | 惯例上存放 `[[hooks]]` 引用的脚本（非强制） |
-| `logs/step-code.log` | 运行日志（诊断通道），超 5MB 在启动时轮转为 `.log.old`；写入前做脱敏 |
+| `logs/step-pilot.log` | 运行日志（诊断通道），超 5MB 在启动时轮转为 `.log.old`；写入前做脱敏 |
 | `sessions/<工作目录键>/` | 会话快照 `<id>.json` 与全量历史 `<id>.full.jsonl`，按工作目录分桶 |
 | `sessions/<工作目录键>/subagents/` | 子 agent 会话快照、全量日志与运行期活跃锁（`.lock`），独立于主会话桶，见[会话管理](./sessions.md#子-agent-会话) |
 | `sessions/<工作目录键>/attachments/` | 图片附件按内容寻址落盘（文件名为 sha256），会话里只留引用指针 |
@@ -545,11 +545,11 @@ timeout = 30                                 # 秒，可选，默认 30，硬顶
 配置写坏时的诊断出口，无头运行、不进 TUI、不改任何文件：
 
 ```bash
-step doctor config              # 校验 ~/.step-pi/config.toml
+step doctor config              # 校验 ~/.step-pilot/config.toml
 step doctor config ./my.toml    # 校验指定路径
 ```
 
-`path` 缺省为 `~/.step-pi/config.toml`。它跑在 `loadConfig` **之前**，所以配置坏到起不了进程时校验器本身仍然能用。退出码只有两个：**0** 表示解析与校验通过（有警告也是 0），**1** 表示失败。
+`path` 缺省为 `~/.step-pilot/config.toml`。它跑在 `loadConfig` **之前**，所以配置坏到起不了进程时校验器本身仍然能用。退出码只有两个：**0** 表示解析与校验通过（有警告也是 0），**1** 表示失败。
 
 四类失败（退出码 1，报 `error:` 并立即返回）：
 
@@ -572,14 +572,14 @@ step doctor config ./my.toml    # 校验指定路径
 
 ## 启动自检
 
-`step` 启动时会自动校验 `~/.step-pi/config.toml`，**不需要你主动跑 `step doctor config`**。正常配置下零输出；有问题时按严重级分流：
+`step` 启动时会自动校验 `~/.step-pilot/config.toml`，**不需要你主动跑 `step doctor config`**。正常配置下零输出；有问题时按严重级分流：
 
 | 级别 | 覆盖 | 行为 |
 |------|------|------|
-| **致命** | TOML 语法错误、顶层不是表 | 报错 + `exit 1`，并给出修复指引（`step doctor config` 校验 / `STEP_PI_IGNORE_BAD_CONFIG=1` 忽略坏配置以默认配置启动） |
+| **致命** | TOML 语法错误、顶层不是表 | 报错 + `exit 1`，并给出修复指引（`step doctor config` 校验 / `STEP_PILOT_IGNORE_BAD_CONFIG=1` 忽略坏配置以默认配置启动） |
 | **警告** | 未知顶层键、渠道 `type` 非法、别名引用不可用渠道、`hooks` 非法条目 | 提示，不阻塞启动 |
 
-**为什么必须有逃生舱**：配置文件在 home 目录，而用户常用 step-code 自己修改它（内置 `update-config` skill 就是干这个的）。若语法错误一律 `exit`，就出现「起不来 → 无法用 step-code 修 step-code 的配置」的死锁。`STEP_PI_IGNORE_BAD_CONFIG=1` 时整份配置不生效，但会在界面上持续告知（不能悄悄用默认配置跑）。
+**为什么必须有逃生舱**：配置文件在 home 目录，而用户常用 step-pilot 自己修改它（内置 `update-config` skill 就是干这个的）。若语法错误一律 `exit`，就出现「起不来 → 无法用 step-pilot 修 step-pilot 的配置」的死锁。`STEP_PILOT_IGNORE_BAD_CONFIG=1` 时整份配置不生效，但会在界面上持续告知（不能悄悄用默认配置跑）。
 
 **别名引用检查**覆盖三种成因（`step doctor config` 与启动自检共用同一份规则）：
 

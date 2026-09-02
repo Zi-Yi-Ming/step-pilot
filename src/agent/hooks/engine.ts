@@ -18,7 +18,7 @@ interface HookExecResult {
 
 /**
  * 引擎消费的 hook 条目：在 config.toml 的 [[hooks]] 条目之上可选携带 cwd/env。
- * plugin hooks 用这两个字段把 command 的 cwd 固定为插件根并注入 STEP_PI_PLUGIN_ROOT。
+ * plugin hooks 用这两个字段把 command 的 cwd 固定为插件根并注入 STEP_PILOT_PLUGIN_ROOT。
  */
 export interface HookEngineEntry extends HookConfigEntry {
   /** 命令工作目录（缺省继承宿主进程 cwd）。 */

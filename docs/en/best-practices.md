@@ -1,6 +1,6 @@
 # Step 3.7 Flash Best Practices
 
-steppi applies multiple optimizations for Step 3.7 Flash, but the model's characteristics mean it shouldn't be used like a large model. This page explains why these design choices exist and how you can work with Flash effectively.
+step-pilot applies multiple optimizations for Step 3.7 Flash, but the model's characteristics mean it shouldn't be used like a large model. This page explains why these design choices exist and how you can work with Flash effectively.
 
 ## Why Flash needs special treatment
 
@@ -11,9 +11,9 @@ Step 3.7 Flash is a sparse MoE architecture (198B total parameters / 11B active 
 - **Single tool outputs are huge**: A 5000-line bash output drowns out all subsequent instructions
 - **Compaction is lazy**: Waiting until context is almost full before compacting means the model has already "forgotten" the original task
 
-steppi's design philosophy is not "make Flash behave like a 700B model", but "don't waste its context on things that don't matter."
+step-pilot's design philosophy is not "make Flash behave like a 700B model", but "don't waste its context on things that don't matter."
 
-## What steppi does differently
+## What step-pilot does differently
 
 ### 1. Trimmed system prompt
 
@@ -89,13 +89,13 @@ Flash's `high` thinking level is much lower than a large model's `high`—don't 
 
 ## Design decisions
 
-These are the key trade-offs behind steppi's Step 3.7 Flash optimizations, documented so future maintainers understand why things are built this way.
+These are the key trade-offs behind step-pilot's Step 3.7 Flash optimizations, documented so future maintainers understand why things are built this way.
 
 ### Why the system prompt is ~2000 characters
 
 Small models have limited attention budget. Every instruction in the system prompt competes with user messages and tool results for position. We cut from ~3500 to ~2000 characters by removing:
 
-- Redundant self-description ("I am Step Code, a TUI Agent running in your terminal")
+- Redundant self-description ("I am Step Pilot, a TUI Agent running in your terminal")
 - Model training cutoff reminders (replaced with live search)
 - Optional tool suggestions ("use web_image_search when you need illustrations")
 
@@ -130,4 +130,4 @@ We intentionally did NOT add more aggressive tolerance (like guessing defaults f
 ## References
 
 - [Step 3.7 Flash official docs](https://platform.stepfun.com/docs/guides/model#step-3.7-flash)
-- steppi source code: `src/agent/systemPrompt.ts`, `src/agent/toolResultLimit.ts`, `src/agent/compaction/compact.ts`
+- step-pilot source code: `src/agent/systemPrompt.ts`, `src/agent/toolResultLimit.ts`, `src/agent/compaction/compact.ts`

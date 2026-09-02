@@ -1,6 +1,6 @@
-# Contributing to Step Pi
+# Contributing to Step Pilot
 
-Thanks for your interest in improving Step Pi.
+Thanks for your interest in improving Step Pilot.
 
 ## Code of Conduct
 
@@ -24,7 +24,7 @@ pnpm dev
 
 Use the bug report template and include:
 - OS and Node version
-- CLI invocation and config (`~/.step-pi/config.toml`, redacted)
+- CLI invocation and config (`~/.step-pilot/config.toml`, redacted)
 - Exact error output and steps to reproduce
 
 ## Feature requests

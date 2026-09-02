@@ -30,7 +30,7 @@ import type { WireEvent } from './agent/wirelog.js';
 import { buildSystemPrompt, subagentListing } from './agent/systemPrompt.js';
 import { loadAgentsMd, DEFAULT_AGENTS_MD_BUDGET_BYTES } from './agent/agentsMd.js';
 import { buildAgentRegistry } from './agent/subagent/registry.js';
-import { loadConfig, resolveModelEntry, TomlParseError, type ConfigLoadDiagnostics, type StepCodeConfig } from './config/config.js';
+import { loadConfig, resolveModelEntry, TomlParseError, type ConfigLoadDiagnostics, type StepPilotConfig } from './config/config.js';
 import { runDoctorConfig } from './config/doctor.js';
 import { collectConfigWarnings } from './config/diagnostics.js';
 import { configureWebResultCache } from './tools/webCache.js';
@@ -64,8 +64,8 @@ import { versionLine } from './buildInfo.js';
 
 const program = new Command();
 program
-  .name('steppi')
-  .description('Step Pi — 终端编码 agent，由阶跃 Step 系列模型驱动')
+  .name('step-pilot')
+  .description('Step Pilot — 终端编码 agent，由阶跃 Step 系列模型驱动')
   .version(versionLine())
   // 允许位置参数（用于 `step sessions [list|show|delete] <id>` 子命令检测）
   .allowExcessArguments(true)
@@ -126,7 +126,7 @@ if (program.args[0] === 'export-debug-zip') {
 
 // 顶层 `doctor config [path]` 子命令：无头校验 config.toml（不进 TUI、不改文件），退出码 0/非 0。
 // 是内置 update-config skill 变更协议「覆盖前独立校验」一环的入口；放在 loadConfig 之前，
-// 坏配置不能阻塞校验器自身。path 缺省为 ~/.step-pi/config.toml。
+// 坏配置不能阻塞校验器自身。path 缺省为 ~/.step-pilot/config.toml。
 // --test-capabilities 是位置参数（不是 commander 选项），从 program.args 里读。
 if (program.args[0] === 'doctor') {
   configureLogger({ mode: 'headless' });
@@ -141,7 +141,7 @@ if (program.args[0] === 'doctor') {
   process.exit(res.code);
 }
 
-let config: StepCodeConfig;
+let config: StepPilotConfig;
 /** 启动自检的原始素材：loadConfig 内部解析 TOML 时回调带出（零重复读文件/解析）。 */
 let configDiagnostics: ConfigLoadDiagnostics | undefined;
 try {
@@ -384,8 +384,8 @@ async function runFirstRunSetup(): Promise<FirstRunResult> {
  */
 async function runBrokenConfigRecovery(
   err: TomlParseError,
-): Promise<{ config: StepCodeConfig; diagnostics: ConfigLoadDiagnostics | undefined } | null> {
-  const tomlPath = join(homedir(), '.step-pi', 'config.toml');
+): Promise<{ config: StepPilotConfig; diagnostics: ConfigLoadDiagnostics | undefined } | null> {
+  const tomlPath = join(homedir(), '.step-pilot', 'config.toml');
   // 打印解析失败的现场，让用户知道坏在哪、文件被备份到哪。
   console.error(`\n配置文件无法解析，已启动修复引导。\n  ${err.detail}\n`);
   const backupPath = `${tomlPath}.broken-${new Date().toISOString().replace(/[:.]/g, '-')}`;
@@ -477,11 +477,11 @@ ctx.videoBudgetBytes = config.videoBudgetBytes;
 // bash 前台超时自动转后台开关（[background].bash_auto_background_on_timeout，默认 true）
 ctx.bashAutoBackgroundOnTimeout = config.background?.bashAutoBackgroundOnTimeout ?? true;
 
-// MCP 接入：读 ~/.step-pi/mcp.json 拿到 server 配置（仅解析，连接不阻塞启动）。
+// MCP 接入：读 ~/.step-pilot/mcp.json 拿到 server 配置（仅解析，连接不阻塞启动）。
 const mcpManager = new McpManager();
 let mcpServerConfigs: Record<string, McpServerConfig> = {};
 try {
-  const mcpPath = join(homedir(), '.step-pi', 'mcp.json');
+  const mcpPath = join(homedir(), '.step-pilot', 'mcp.json');
   if (existsSync(mcpPath)) {
     const mcpCfg = JSON.parse(readFileSync(mcpPath, 'utf8')) as { mcpServers?: Record<string, McpServerConfig> };
     mcpServerConfigs = mcpCfg.mcpServers ?? {};
@@ -588,7 +588,7 @@ if (opts.resume !== undefined) {
   const r = resumeSession(store, cwd, opts.session);
   if (r === null && opts.print !== undefined) {
     // -p 模式 + 显式 --session <id> 未命中：fail-fast（stderr 报错 + stream-json 发事件 + exit 2）
-    const sessionsDir = join(homedir(), '.step-pi', 'sessions');
+    const sessionsDir = join(homedir(), '.step-pilot', 'sessions');
     process.stderr.write(`错误：会话 ${opts.session} 未找到（sessions 目录：${sessionsDir}）。\n`);
     if (opts.outputFormat === 'stream-json') {
       const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -665,9 +665,9 @@ if (session.model !== '' && session.model !== config.model) {
   }
 }
 
-// 用户可配置 hooks（~/.step-pi/config.toml [[hooks]]）+ plugin 声明的 hooks：全局唯一引擎，
+// 用户可配置 hooks（~/.step-pilot/config.toml [[hooks]]）+ plugin 声明的 hooks：全局唯一引擎，
 // PreToolUse/PostToolUse/Stop 叠加在 LoopHooks 之上（接口不动），UserPromptSubmit/SessionStart 在提交/启动点触发。
-// plugin hook 的 cwd 已固定为插件根并注入 STEP_PI_PLUGIN_ROOT（加载时在 manifest 解析层完成）。
+// plugin hook 的 cwd 已固定为插件根并注入 STEP_PILOT_PLUGIN_ROOT（加载时在 manifest 解析层完成）。
 // hookEngineRef 持有当前引擎：/reload 热重载后按新 [[hooks]] 整体换引用（对齐 skillsRef 模式），
 // 引擎构造廉价（纯数据装配，无连接），运行中的 turn 不受影响（hooks 按轮组装）。
 const hookEntries = [...(config.hooks ?? []), ...plugins.flatMap((p) => p.hooks)];
@@ -682,8 +682,8 @@ const hookEngineRef: { current: HookEngine | undefined } = {
  * 失败原子性：loadConfig 抛错时一步都不落，返回 error，旧配置整体保留。
  * 热应用决策（provider 重建、派生 state 同步、diff 反馈）全部在 App 的 case 'reload' 完成。
  */
-const reloadConfig = (): { config: StepCodeConfig } | { error: string } => {
-  let next: StepCodeConfig;
+const reloadConfig = (): { config: StepPilotConfig } | { error: string } => {
+  let next: StepPilotConfig;
   try {
     next = loadConfig(cwd, { provider: opts.provider, model: opts.model });
   } catch (e) {
@@ -932,7 +932,7 @@ async function runPrint(prompt: string): Promise<void> {
     // 非交互模式专项指令：明确告知模型「直接执行任务，不要解释命令，不要激活 skill」
     system: (() => {
       const base = hookContext !== '' ? `${composeSystem()}\n\n${hookContext}` : composeSystem();
-      return `${base}\n\n# 非交互模式（-p/--print）\n你当前运行在非交互模式，用户通过命令行传入单条指令。行为准则：\n- **直接执行任务**：用户的输入是要做的事，不是要解释的主题。比如「读取 X 文件」就是让你调 read_file 工具，不是让你解释「读取」是什么意思。\n- **不要解释命令**：不要解释 steppi 的命令行参数（如 --model、--yolo），用户已经知道这些。\n- **不要激活 skill**：非交互模式下，skill 路由（如 update-config、user-profile）不适用。\n- **工具优先**：能用工具完成的任务，直接调工具，不要只给文字描述。\n- **简洁输出**：任务完成后直接给结果，不要铺垫、不要总结过程。`;
+      return `${base}\n\n# 非交互模式（-p/--print）\n你当前运行在非交互模式，用户通过命令行传入单条指令。行为准则：\n- **直接执行任务**：用户的输入是要做的事，不是要解释的主题。比如「读取 X 文件」就是让你调 read_file 工具，不是让你解释「读取」是什么意思。\n- **不要解释命令**：不要解释 step-pilot 的命令行参数（如 --model、--yolo），用户已经知道这些。\n- **不要激活 skill**：非交互模式下，skill 路由（如 update-config、user-profile）不适用。\n- **工具优先**：能用工具完成的任务，直接调工具，不要只给文字描述。\n- **简洁输出**：任务完成后直接给结果，不要铺垫、不要总结过程。`;
     })(),
     ctx: subCtx,
     messages: session.messages,

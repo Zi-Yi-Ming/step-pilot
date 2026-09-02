@@ -69,7 +69,7 @@ describe('ItemBlock 渲染', () => {
     const lines = plain(w.render(80));
     expect(lines[0]).toMatch(/^╭─+╮$/);
     expect(lines.some((l) => l.includes('│ / __|'))).toBe(true);
-    expect(lines.some((l) => l.includes('Welcome to Step Code!'))).toBe(true);
+    expect(lines.some((l) => l.includes('Welcome to Step Pilot!'))).toBe(true);
     expect(lines.some((l) => l.includes('Directory: /proj/demo'))).toBe(true);
     expect(lines.some((l) => l.includes('Model:     step-3.7'))).toBe(true);
     expect(lines[lines.length - 2]).toMatch(/^╰─+╯$/);

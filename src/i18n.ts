@@ -77,7 +77,7 @@ const zh = {
   'input.exitPrimed': '  · 再按一次 Ctrl+C 退出',
 
   // --- 欢迎框（WelcomeBox）---
-  'welcome.title': 'Welcome to Step Code!',
+  'welcome.title': 'Welcome to Step Pilot!',
   'welcome.helpHint': '输入 /help 查看命令',
 
   // --- 工具调用行（ToolCall）---
@@ -211,14 +211,14 @@ const zh = {
   'app.image.unsupported': '当前模型（{model}）不支持图片输入，{count} 张图片未直接发送；已落盘缓存，可用 read_media 读取，或 /model 切换到多模态模型后重试。',
 
   'app.think.unavailable': '当前渠道未启用思考控制字段，思考深度不可用（在 config.toml 的 [thinking] 段设 enabled = true 可开启）。',
-  'app.memory.disabled': '记忆未开启。用 /memory on 开启：agent 会把对话中观察到的偏好与约定沉淀到 ~/.step-pi/memory/ 与 .step-pi/memory/（观察不直接生效，定期回顾确认后才晋升）。',
+  'app.memory.disabled': '记忆未开启。用 /memory on 开启：agent 会把对话中观察到的偏好与约定沉淀到 ~/.step-pilot/memory/ 与 .step-pilot/memory/（观察不直接生效，定期回顾确认后才晋升）。',
   'app.memory.nowOn': '记忆已开启（已写入 config.toml）。已引导 agent 回看本次会话补沉淀；之后的对话会正常积累。',
   'app.memory.nowOff': '记忆已关闭（已写入 config.toml）。已有记忆文件原样保留，重新开启即恢复。',
   'app.memory.alreadyOn': '记忆已是开启状态。',
   'app.memory.alreadyOff': '记忆已是关闭状态。',
   'app.memory.usage': '用法：/memory [on|off]（无参查看当前观察列表）',
-  'app.memory.listGlobal': '全局记忆（~/.step-pi/memory/）：',
-  'app.memory.listProject': '项目记忆（.step-pi/memory/）：',
+  'app.memory.listGlobal': '全局记忆（~/.step-pilot/memory/）：',
+  'app.memory.listProject': '项目记忆（.step-pilot/memory/）：',
   'app.memory.listEmpty': '  （空）',
   'app.memory.indexUsage': '索引占用：{used} / {budget} 字符',
   'app.memory.brokenHeader': '以下文件缺字段或解析失败：',
@@ -548,7 +548,7 @@ const zh = {
   'app.skill.reload.done': '技能已重载：新增 [{added}] · 移除 [{removed}] · 变更 [{changed}]',
   'app.skill.reload.none': '技能无变化（已强制重扫）。',
   'app.skill.autoReload': '检测到技能目录变更，已自动重载：新增 [{added}] · 移除 [{removed}] · 变更 [{changed}]',
-  'app.skill.conflict.header': '同名技能冲突 {count} 项，已按优先级采用（plugin > 追加目录 > 项目 .step-pi/skills > 项目 .agents/skills > 用户级）：',
+  'app.skill.conflict.header': '同名技能冲突 {count} 项，已按优先级采用（plugin > 追加目录 > 项目 .step-pilot/skills > 项目 .agents/skills > 用户级）：',
   'app.skill.conflict.line': '「{name}」采用 {winner}，覆盖 {losers}',
   'app.agentsMd.truncated.header': 'AGENTS.md 超出总量预算（{budget} KB），以下内容未完整注入 system prompt（可调大 config.toml 的 agents_md_max_bytes）：',
   'app.agentsMd.truncated.line': '{path}（原始 {original} KB，仅注入前 {kept} KB）',
@@ -688,7 +688,7 @@ const zh = {
   'cmd.plugin.sub.remove': '卸载 plugin（id）',
   'cmd.plugin.sub.info': '查看 plugin 详情（id）',
   'cmd.plugin.sub.dynamic': '已安装 plugin（{id}）',
-  'cmd.exit': '退出 Step Code',
+  'cmd.exit': '退出 Step Pilot',
   'cmd.tasks': '查看后台任务（列表 + 输出预览，可停止运行中任务）',
   'cmd.helpText.aliasSuffix': '（/{aliases}）',
   'cmd.helpText.line': '/{name}{alias} — {describe}',
@@ -773,7 +773,7 @@ const zh = {
   'hook.blocked.noReason': '（hook 未给出原因）',
 
   // --- 错误码 → 建议用户动作（附加在 error 事件文案后；最小目录，见 errorAdvice）---
-  'error.advice.auth': '建议：API key 无效或权限不足，请检查 STEP_PI_API_KEY 环境变量或 config.toml 中的 key 配置。',
+  'error.advice.auth': '建议：API key 无效或权限不足，请检查 STEP_PILOT_API_KEY 环境变量或 config.toml 中的 key 配置。',
   'error.advice.rateLimit': '建议：限流持续存在，请稍后重试，或检查账户配额。',
   'error.emptyStream': '服务端返回了空响应：本轮没有产出正文，也没有工具调用。',
   'error.emptyStream.diagnostics': '  实测信息：{details}',
@@ -791,12 +791,12 @@ const zh = {
   // --- provider 工厂（cli.ts 在 setLocale 之后调用，翻得到）---
   'factory.unknownProvider': "未知服务商 provider='{provider}'。当前支持：{list}。",
   'factory.missingApiKey':
-    '缺少 API key（provider={provider}）。请设置环境变量 STEP_PI_API_KEY、该服务商的惯例环境变量（anthropic→ANTHROPIC_API_KEY、openai→OPENAI_API_KEY），或在 ~/.step-pi/config.toml 的 [providers] 渠道 / [models] 别名下写入 api_key（也可用 api_key_env 指定环境变量名）。',
+    '缺少 API key（provider={provider}）。请设置环境变量 STEP_PILOT_API_KEY、该服务商的惯例环境变量（anthropic→ANTHROPIC_API_KEY、openai→OPENAI_API_KEY），或在 ~/.step-pilot/config.toml 的 [providers] 渠道 / [models] 别名下写入 api_key（也可用 api_key_env 指定环境变量名）。',
   'config.apiKey.channelMismatch':
     '渠道「{channel}」（type={channelType}）未配置自己的 key，但当前回落目标是顶层 provider（{topProvider}）的全局 key。跨服务商借用 key 会泄露到错误端点，已拒绝。请为该渠道配置 api_key 或 api_key_env，或将顶层 provider 改为 {channelType}。',
 
   // --- 首次运行引导（FirstRunSetup）---
-  'firstRun.title': '欢迎使用 Step Code！',
+  'firstRun.title': '欢迎使用 Step Pilot！',
   'firstRun.hint': '未检测到 API key。请配置后继续使用：',
   'firstRun.optionPlan': 'StepFun Plan 订阅',
   'firstRun.optionApi': 'StepFun API 按量',
@@ -871,7 +871,7 @@ const en: Record<keyof typeof zh, string> = {
   'input.bangHint': 'bash mode: runs locally, output is injected into context',
   'input.exitPrimed': '  · Press Ctrl+C again to exit',
 
-  'welcome.title': 'Welcome to Step Code!',
+  'welcome.title': 'Welcome to Step Pilot!',
   'welcome.helpHint': 'Type /help to see commands',
 
   'toolCall.elapsed': '  running {s}s',
@@ -991,14 +991,14 @@ const en: Record<keyof typeof zh, string> = {
   'app.image.unsupported': 'Current model ({model}) does not support image input; {count} image(s) were not sent directly but were cached to disk (readable via read_media). Switch to a multimodal model with /model and try again.',
 
   'app.think.unavailable': 'The current provider does not send thinking-control fields, so thinking level is unavailable (set enabled = true under [thinking] in config.toml to turn it on).',
-  'app.memory.disabled': 'Memory is off. Enable with /memory on: the agent will record observed preferences and conventions into ~/.step-pi/memory/ and .step-pi/memory/ (observations do not take effect directly; they are promoted only after your review).',
+  'app.memory.disabled': 'Memory is off. Enable with /memory on: the agent will record observed preferences and conventions into ~/.step-pilot/memory/ and .step-pilot/memory/ (observations do not take effect directly; they are promoted only after your review).',
   'app.memory.nowOn': 'Memory enabled (saved to config.toml). The agent has been prompted to review this session for anything worth recording.',
   'app.memory.nowOff': 'Memory disabled (saved to config.toml). Existing memory files are kept; re-enabling restores them.',
   'app.memory.alreadyOn': 'Memory is already on.',
   'app.memory.alreadyOff': 'Memory is already off.',
   'app.memory.usage': 'Usage: /memory [on|off] (no argument lists current observations)',
-  'app.memory.listGlobal': 'Global memory (~/.step-pi/memory/):',
-  'app.memory.listProject': 'Project memory (.step-pi/memory/):',
+  'app.memory.listGlobal': 'Global memory (~/.step-pilot/memory/):',
+  'app.memory.listProject': 'Project memory (.step-pilot/memory/):',
   'app.memory.listEmpty': '  (none)',
   'app.memory.indexUsage': 'Index usage: {used} / {budget} chars',
   'app.memory.brokenHeader': 'Files with missing fields or parse failures:',
@@ -1301,7 +1301,7 @@ const en: Record<keyof typeof zh, string> = {
   'app.skill.reload.done': 'Skills reloaded: added [{added}] · removed [{removed}] · changed [{changed}]',
   'app.skill.reload.none': 'No skill changes (forced rescan done).',
   'app.skill.autoReload': 'Skill directory changed, auto-reloaded: added [{added}] · removed [{removed}] · changed [{changed}]',
-  'app.skill.conflict.header': '{count} skill name conflict(s); resolved by priority (plugin > extra dirs > project .step-pi/skills > project .agents/skills > user-level):',
+  'app.skill.conflict.header': '{count} skill name conflict(s); resolved by priority (plugin > extra dirs > project .step-pilot/skills > project .agents/skills > user-level):',
   'app.skill.conflict.line': '"{name}": using {winner}, overriding {losers}',
   'app.agentsMd.truncated.header': 'AGENTS.md exceeds the total budget ({budget} KB); the following was not fully injected into the system prompt (raise agents_md_max_bytes in config.toml):',
   'app.agentsMd.truncated.line': '{path} (original {original} KB, only first {kept} KB injected)',
@@ -1442,7 +1442,7 @@ const en: Record<keyof typeof zh, string> = {
   'cmd.plugin.sub.remove': 'Uninstall plugin (id)',
   'cmd.plugin.sub.info': 'View plugin details (id)',
   'cmd.plugin.sub.dynamic': 'Installed plugin ({id})',
-  'cmd.exit': 'Quit Step Code',
+  'cmd.exit': 'Quit Step Pilot',
   'cmd.tasks': 'Browse background tasks (list + output preview; stop running tasks)',
   'cmd.helpText.aliasSuffix': ' (/{aliases})',
   'cmd.helpText.line': '/{name}{alias} — {describe}',
@@ -1523,7 +1523,7 @@ const en: Record<keyof typeof zh, string> = {
   'hook.notice.failed': '[hook] {event} failed ({detail}), allowed: {command}',
   'hook.blocked.noReason': '(hook gave no reason)',
 
-  'error.advice.auth': 'Hint: the API key is invalid or lacks permission. Check the STEP_PI_API_KEY environment variable or the key in config.toml.',
+  'error.advice.auth': 'Hint: the API key is invalid or lacks permission. Check the STEP_PILOT_API_KEY environment variable or the key in config.toml.',
   'error.advice.rateLimit': 'Hint: rate limiting persists. Retry later, or check your account quota.',
   'error.emptyStream': 'The server returned an empty response: this turn produced no answer text and no tool calls.',
   'error.emptyStream.diagnostics': '  Observed: {details}',
@@ -1540,12 +1540,12 @@ const en: Record<keyof typeof zh, string> = {
 
   'factory.unknownProvider': "Unknown provider provider='{provider}'. Supported: {list}.",
   'factory.missingApiKey':
-    'Missing API key (provider={provider}). Set the STEP_PI_API_KEY environment variable, the conventional variable for this provider (anthropic→ANTHROPIC_API_KEY, openai→OPENAI_API_KEY), or write api_key under a [providers] channel / under a [models] alias in ~/.step-pi/config.toml (api_key_env may name an environment variable instead).',
+    'Missing API key (provider={provider}). Set the STEP_PILOT_API_KEY environment variable, the conventional variable for this provider (anthropic→ANTHROPIC_API_KEY, openai→OPENAI_API_KEY), or write api_key under a [providers] channel / under a [models] alias in ~/.step-pilot/config.toml (api_key_env may name an environment variable instead).',
   'config.apiKey.channelMismatch':
     'Channel "{channel}" (type={channelType}) has no key of its own, but the fallback is the top-level provider ({topProvider}) global key. Borrowing a key across providers would send it to the wrong endpoint; refused. Configure api_key or api_key_env for this channel, or change the top-level provider to {channelType}.',
 
   // --- First-run setup (FirstRunSetup) ---
-  'firstRun.title': 'Welcome to Step Code!',
+  'firstRun.title': 'Welcome to Step Pilot!',
   'firstRun.hint': 'No API key detected. Please configure one to continue:',
   'firstRun.optionPlan': 'StepFun Plan Subscription',
   'firstRun.optionApi': 'StepFun API Pay-As-You-Go',

@@ -63,7 +63,7 @@ const PROVIDER_OPTIONS: ProviderOption[] = [
 
 const DOCS_VALUE = '__docs__';
 const DOCS_URL =
-  'https://github.com/Zi-Yi-Ming/step-pi/blob/main/docs/zh/quickstart.md#2-%E9%85%8B%E7%BD%AE-api-key';
+  'https://github.com/Zi-Yi-Ming/step-pilot/blob/main/docs/zh/quickstart.md#2-%E9%85%8B%E7%BD%AE-api-key';
 /** 自定义渠道的模型别名与默认上下文窗口。 */
 const CUSTOM_ALIAS = 'custom';
 const DEFAULT_MAX_CONTEXT = 262144;
@@ -140,7 +140,7 @@ async function wizard(tui: TUI, banner: Banner): Promise<FirstRunResult> {
           `${t('firstRun.confirmProvider', { label: chosen!.name })} · ${t('firstRun.confirmBaseUrl', { url: chosen!.baseUrl })}`,
         ),
         c.accent(t('firstRun.pasteTitle')),
-        c.dim('steppi 需要 API key 才能调用模型；key 仅保存在你本机的配置文件中，不会上传到任何地方。'),
+        c.dim('step-pilot 需要 API key 才能调用模型；key 仅保存在你本机的配置文件中，不会上传到任何地方。'),
       );
       const key = await askLine(tui, t('firstRun.pasteHint'), undefined, t('firstRun.pasteEscHint'));
       if (key === null) {

@@ -20,7 +20,7 @@ class FakeManager extends McpManager {
 }
 
 describe('formatMcpStatus', () => {
-  it('无配置时给出配置指引（指向 ~/.step-pi/mcp.json）', () => {
+  it('无配置时给出配置指引（指向 ~/.step-pilot/mcp.json）', () => {
     const text = formatMcpStatus(new FakeManager());
     expect(text).toContain('未配置 MCP server');
     expect(text).toContain('mcp.json');

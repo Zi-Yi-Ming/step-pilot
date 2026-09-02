@@ -7,7 +7,7 @@
 模型可以派生子 agent：全新上下文、角色化工具白名单、完成后只把摘要回灌主会话。适合"交给它独立搞定一件事，别弄脏主对话"的场景。
 
 - **内置两类**：`general`（工具全集，可读写、可执行命令）、`explore`（只读调查，工具白名单为 `read_file`/`read_media`/`list_dir`/`glob`/`grep`/`web_search`/`web_fetch`/`web_image_search`/`skill`）
-- **自定义**：在 `.step-pi/agents/<名称>.md`（项目级）或 `~/.step-pi/agents/<名称>.md`（用户级）写 agent 定义
+- **自定义**：在 `.step-pilot/agents/<名称>.md`（项目级）或 `~/.step-pilot/agents/<名称>.md`（用户级）写 agent 定义
 - **优先级**：内置 < 用户级 < 项目级，同名后者覆盖
 - **护栏**：单会话派生上限、嵌套深度上限、单 agent 轮数上限、并行并发上限，都可在 `[subagent]` 段配置（见[配置参考](./configuration.md)）
 
@@ -27,7 +27,7 @@
 
 ### 自定义 agent 定义格式
 
-子 agent 定义可以放在两处：项目级 `<cwd>/.step-pi/agents/<名称>.md`、用户级 `~/.step-pi/agents/<名称>.md`。加载优先级为 **内置 < 用户级 < 项目级**，同名定义后者**完整覆盖**前者，不是字段合并。因此，如果你在项目里写了 `explore.md`，内置的 `explore` 就会被它完全替换。
+子 agent 定义可以放在两处：项目级 `<cwd>/.step-pilot/agents/<名称>.md`、用户级 `~/.step-pilot/agents/<名称>.md`。加载优先级为 **内置 < 用户级 < 项目级**，同名定义后者**完整覆盖**前者，不是字段合并。因此，如果你在项目里写了 `explore.md`，内置的 `explore` 就会被它完全替换。
 
 YAML frontmatter + 正文，正文即该 agent 的 system prompt：
 
@@ -61,7 +61,7 @@ maxSteps: 40              # 可选，缺省用 [subagent].max_steps
 
 典型用途是给只读探索类任务降档——检索、定位、汇总这类工作对推理深度要求不高，用轻量模型足够，还更快更省。有两种做法：
 
-**一是新建一个轻量角色**，内置 `explore` 不受影响，派生时显式选类型。写 `.step-pi/agents/explore-fast.md`：
+**一是新建一个轻量角色**，内置 `explore` 不受影响，派生时显式选类型。写 `.step-pilot/agents/explore-fast.md`：
 
 ```markdown
 ---
@@ -94,7 +94,7 @@ model: step35
 
 ### 并行执行
 
-模型一轮可以返回多个工具调用，Step Pi 按**资源冲突**决定谁能并行：每个工具声明自己的访问面（无副作用 / 读某路径 / 写某路径 / 全局独占），互不冲突的并行跑、冲突的串行跑，结果始终按调用顺序回灌。
+模型一轮可以返回多个工具调用，Step Pilot 按**资源冲突**决定谁能并行：每个工具声明自己的访问面（无副作用 / 读某路径 / 写某路径 / 全局独占），互不冲突的并行跑、冲突的串行跑，结果始终按调用顺序回灌。
 
 `spawn_agent` 的访问面按类型区分：`explore` 声明无副作用（可并行），`general` 声明全局独占（自然串行）。所以多个 explore 子 agent、多次只读的 read/grep 会并行；`general` 子 agent、写文件、`bash` 这类会串行。
 
@@ -166,7 +166,7 @@ return rs.map((r) => r.topic).join('\n');
 | 参数 | 说明 |
 |------|------|
 | `script` | JS 编排脚本（async 函数体，以 `return <报告>` 收尾）。与 `name` / `script_path` 三者给一个；同时给 `script` 与 `name` 时以 `script` 为准 |
-| `name` | 按名加载 `.step-pi/workflows/<name>.js` 已存脚本执行。未命中时报错并列出当前可用脚本名 |
+| `name` | 按名加载 `.step-pilot/workflows/<name>.js` 已存脚本执行。未命中时报错并列出当前可用脚本名 |
 | `save_as` | 把本次 `script` 存为命名脚本（同名覆盖更新），之后可用 `name` 复用。必须配 `script` |
 | `script_path` | 从 cwd 内的文件读脚本执行；**路径越界（cwd 之外）直接拒绝**。与 `script` / `name` 同给属歧义会被拒 |
 | `args` | 传给脚本的参数对象，沙箱内以全局 `args` 访问 |
@@ -186,7 +186,7 @@ return rs.map((r) => r.topic).join('\n');
 
 典型修法是两者叠加：编辑存档文件修掉 bug，用 `script_path` 指过去，同时带上 `resume_from_run_id` 复用已完成的部分。
 
-脚本可命名保存复用：`save_as` 存到 `.step-pi/workflows/<名字>.js`，之后用 `name` 调同名脚本，名字未命中时列出可用名。不带任何参数调用本工具则列出当前可用脚本（发现入口）。
+脚本可命名保存复用：`save_as` 存到 `.step-pilot/workflows/<名字>.js`，之后用 `name` 调同名脚本，名字未命中时列出可用名。不带任何参数调用本工具则列出当前可用脚本（发现入口）。
 
 ## 自主目标（goal）
 

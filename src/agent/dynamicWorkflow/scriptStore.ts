@@ -11,7 +11,7 @@ export interface ScriptInfo {
 const DESCRIPTION_RE = /^\/\/\s*description:\s*(.+?)\s*$/;
 
 /**
- * 命名脚本存储：`<cwd>/.step-pi/workflows/<name>.js`（.step-pi/ 已在 gitignore）。
+ * 命名脚本存储：`<cwd>/.step-pilot/workflows/<name>.js`（.step-pilot/ 已在 gitignore）。
  * 结构化重复性任务的可复用工件层：dynamic_workflow 的 save_as 写入，name 按名加载执行。
  */
 export class ScriptStore {
@@ -19,7 +19,7 @@ export class ScriptStore {
   private static readonly NAME_RE = /^[\p{L}\p{N}_-]+$/u;
 
   static dir(cwd: string): string {
-    return path.join(cwd, '.step-pi', 'workflows');
+    return path.join(cwd, '.step-pilot', 'workflows');
   }
 
   static isValidName(name: string): boolean {

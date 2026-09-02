@@ -41,7 +41,7 @@ import {
   saveDefaultProvider,
   saveLanguage,
   saveMemoryEnabled,
-  type StepCodeConfig,
+  type StepPilotConfig,
 } from '../config/config.js';
 import { getLocale, setLocale, t } from '../i18n.js';
 import type { McpManager } from '../mcp/manager.js';
@@ -122,7 +122,7 @@ export interface PiChatDeps {
   reloadSkills: (force?: boolean) => unknown;
   ctx: ToolContext;
   model: string;
-  config: StepCodeConfig;
+  config: StepPilotConfig;
   initialMode: PermissionMode;
   /** 当前渠道名（config.provider）：/think 门控与 loop 的思考参数判定要用。 */
   providerName?: string;
@@ -142,7 +142,7 @@ export interface PiChatDeps {
    * 重载配置（/reload）。组合根注入：重跑 loadConfig 并换掉模块级 config/ctx/hookEngine 引用，
    * 失败时保证一步不落（旧配置整体保留），这里只负责把结果反馈到界面。
    */
-  reloadConfig?: () => { config: StepCodeConfig } | { error: string };
+  reloadConfig?: () => { config: StepPilotConfig } | { error: string };
   /** plugin 贡献的命令模板（name 已带 <pluginId>: 前缀）。 */
   pluginCommands?: PluginCommand[];
   /** 已发现的 plugin id 列表（供 /plugin 参数补全）。 */
@@ -618,7 +618,7 @@ export class PiChat {
     // 更高水位时留一份 heap snapshot——崩溃后的堆没法事后检查，只能在崩之前抓。
     this.stopHeapWatch = startHeapWatch({
       notify: (text) => this.push({ kind: 'note', text }),
-      dumpDir: join(homedir(), '.step-pi'),
+      dumpDir: join(homedir(), '.step-pilot'),
     });
     this.tui.requestRender();
     return new Promise<PiChatExit>((resolve) => {
@@ -1479,7 +1479,7 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
           text:
             this.deps.mcp !== undefined
               ? formatMcpStatus(this.deps.mcp)
-              : '没有配置 MCP 服务器（~/.step-pi/mcp.json）',
+              : '没有配置 MCP 服务器（~/.step-pilot/mcp.json）',
         });
         return;
 
@@ -2017,7 +2017,7 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
     const names = [...registry.skills.keys()];
     if (args === '') {
       if (names.length === 0) {
-        this.push({ kind: 'note', text: '没有发现任何技能（放到 .step-pi/skills/ 或 ~/.step-pi/skills/）' });
+        this.push({ kind: 'note', text: '没有发现任何技能（放到 .step-pilot/skills/ 或 ~/.step-pilot/skills/）' });
         return;
       }
       const picked = await this.showInlinePicker({
@@ -3540,7 +3540,7 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
    */
   openExternalEditor(): boolean {
     const text = this.editor.getText();
-    const tmpFile = join(tmpdir(), `step-code-prompt-${Date.now()}.md`);
+    const tmpFile = join(tmpdir(), `step-pilot-prompt-${Date.now()}.md`);
     try {
       writeFileSync(tmpFile, text, 'utf8');
     } catch {

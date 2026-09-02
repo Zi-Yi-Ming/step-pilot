@@ -167,7 +167,7 @@ export class SessionStore {
   private readonly wireCounts = new Map<string, number>();
 
   constructor(baseDir?: string) {
-    this.baseDir = baseDir ?? join(homedir(), '.step-pi', 'sessions');
+    this.baseDir = baseDir ?? join(homedir(), '.step-pilot', 'sessions');
     this.attachments = new AttachmentStore(this.baseDir);
   }
 

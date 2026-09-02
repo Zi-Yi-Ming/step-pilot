@@ -275,12 +275,12 @@ describe('error 事件的 cause 剥离（内部元数据不进对外流）', () 
 
 describe('session.not_found 事件', () => {
   it('结构包含 id、request_id 与 sessions_dir', () => {
-    const ev = sessionNotFoundEvent('sess-abc', 'req-123', '/home/user/.step-pi/sessions');
+    const ev = sessionNotFoundEvent('sess-abc', 'req-123', '/home/user/.step-pilot/sessions');
     expect(ev).toEqual({
       type: 'session.not_found',
       session_id: 'sess-abc',
       request_id: 'req-123',
-      sessions_dir: '/home/user/.step-pi/sessions',
+      sessions_dir: '/home/user/.step-pilot/sessions',
     });
     expect(JSON.stringify(ev)).not.toContain('\n');
   });

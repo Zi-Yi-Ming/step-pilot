@@ -1,7 +1,7 @@
 import type { SkillDefinition } from '../registry.js';
 
 /**
- * 内置 skill「team」：step-code 多 agent 团队模式的内联操作指南。
+ * 内置 skill「team」：step-pilot 多 agent 团队模式的内联操作指南。
  *
  * 设计决策与 updateConfig.ts 一致：正文内嵌模板字符串，不读外部 .md。
  * 正文内不使用反引号与 ${ 序列（外层模板字符串冲突 + 占位符展开风险）。
@@ -250,7 +250,7 @@ teardown / exit 后，state.json 里的 closedAt 被写入：
 export const TEAM_SKILL: SkillDefinition = {
   name: 'team',
   description:
-    '教模型正确使用 step-code team 多 agent 团队工具。覆盖：什么时候用 team vs 不用、team_init 三个参数的正确用法（repo/dir/base 缺省与常见错误）、工作流全流程（init → plan → spawn → 审阅 → merge 门禁 → teardown）、rework/respawn 两种重派机制、merge 后自动清理 worktree、worker 失联 lost 联动、工作期用法、收编后验证（主仓全量测试 + 合并前 typecheck 门）、三条退出通道、协调者纪律、已知边界（dist 错位）。当模型需要调用 team_init / team_plan / team_spawn / team_merge / team_teardown / team_send / team_inbox / team_status 前必须读取本 skill。',
+    '教模型正确使用 step-pilot team 多 agent 团队工具。覆盖：什么时候用 team vs 不用、team_init 三个参数的正确用法（repo/dir/base 缺省与常见错误）、工作流全流程（init → plan → spawn → 审阅 → merge 门禁 → teardown）、rework/respawn 两种重派机制、merge 后自动清理 worktree、worker 失联 lost 联动、工作期用法、收编后验证（主仓全量测试 + 合并前 typecheck 门）、三条退出通道、协调者纪律、已知边界（dist 错位）。当模型需要调用 team_init / team_plan / team_spawn / team_merge / team_teardown / team_send / team_inbox / team_status 前必须读取本 skill。',
   content: TEAM_SKILL_BODY,
   dir: 'builtin://team',
   source: 'builtin',

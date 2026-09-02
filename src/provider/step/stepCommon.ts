@@ -15,7 +15,7 @@
  * 最后一行是本模块存在的理由：同一语义（控制思考深度）换了参数名与嵌套位置，
  * 任何「按协议族推导」的通用适配层都无法自动得出，必须显式适配。
  *
- * ## 实测依据（step-code-labs/api-param-semantics/param-truth.mjs，step-3.7-flash）
+ * ## 实测依据（step-pilot-labs/api-param-semantics/param-truth.mjs，step-3.7-flash）
  *
  * - `thinking:{type:'enabled',budget_tokens:4096}` → 200，`stop_reason=max_tokens`，正文仅 628 字符（被截断）
  * - `effort:'low'` → 200，`stop_reason=end_turn`，正文 803 字符（正常收尾）

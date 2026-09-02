@@ -1,14 +1,14 @@
 # 贡献者
 
-本文件记录 `step-pi` 项目的主要贡献者及其贡献方向。项目处于探索期，本文件随重要贡献持续更新。
+本文件记录 `step-pilot` 项目的主要贡献者及其贡献方向。项目处于探索期，本文件随重要贡献持续更新。
 
 ## 当前贡献者
 
 | 贡献者 | GitHub | 主要贡献 |
 |--------|--------|----------|
-| **li-xiu-qi** | [@li-xiu-qi](https://github.com/li-xiu-qi) | 项目作者与维护者。`step-pi` 的发起与推进，agent 主循环、provider 边界层、子 agent 跨渠道模型解析、TUI 交互、文档体系与发布准备。 |
+| **li-xiu-qi** | [@li-xiu-qi](https://github.com/li-xiu-qi) | 项目作者与维护者。`step-pilot` 的发起与推进，agent 主循环、provider 边界层、子 agent 跨渠道模型解析、TUI 交互、文档体系与发布准备。 |
 | **Peron** | [@PeronGH](https://github.com/PeronGH) | 无痕思考修复（PR #1）。识别出模型只回思考签名、不回正文时 UI 零信号、与卡死无法区分的问题，实现 `thinking_start` / `thinking_end` 边界事件与状态行「思考中…」显示，并把忙碌态随机状态词改为中性词。 |
-| **ZouR-Ma** | [@ZouR-Ma](https://github.com/ZouR-Ma) | `step-pi` 项目探索的支持与指导。为项目早期架构探索提供了独立的演进空间。 |
+| **ZouR-Ma** | [@ZouR-Ma](https://github.com/ZouR-Ma) | `step-pilot` 项目探索的支持与指导。为项目早期架构探索提供了独立的演进空间。 |
 
 ## 说明
 

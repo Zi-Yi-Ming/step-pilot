@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveModelEntry, type StepCodeConfig } from '../../src/config/config.js';
+import { resolveModelEntry, type StepPilotConfig } from '../../src/config/config.js';
 
 /**
  * 模拟 cli.ts 恢复会话时的 model 别名展开逻辑。
@@ -8,7 +8,7 @@ import { resolveModelEntry, type StepCodeConfig } from '../../src/config/config.
  * 存真实 id 时被 resolveStartupModelAlias 误反查到同名别名。
  */
 describe('cli 恢复路径：session.model 保留别名，providerModel 承载真实 id', () => {
-  function makeConfig(models?: StepCodeConfig['models']): StepCodeConfig {
+  function makeConfig(models?: StepPilotConfig['models']): StepPilotConfig {
     return {
       provider: 'stepfun',
       apiKey: 'k-implicit',

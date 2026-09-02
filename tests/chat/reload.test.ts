@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { StepCodeConfig } from '../../src/config/config.js';
+import type { StepPilotConfig } from '../../src/config/config.js';
 import { diffConfig, formatConfigChange, planProviderReload, resolveCapabilitiesOnReload } from '../../src/chat/reload.js';
 
 /** 构造一个最小合法配置（默认值对齐 config.ts 内置默认），用 overrides 覆盖差异字段。 */
-function makeCfg(overrides: Partial<StepCodeConfig> = {}): StepCodeConfig {
+function makeCfg(overrides: Partial<StepPilotConfig> = {}): StepPilotConfig {
   return {
     provider: 'stepfun',
     apiKey: 'k-top',
@@ -147,7 +147,7 @@ describe('formatConfigChange', () => {
 });
 
 describe('planProviderReload', () => {
-  const aliasCfg = (apiKey: string): StepCodeConfig =>
+  const aliasCfg = (apiKey: string): StepPilotConfig =>
     makeCfg({
       models: { big: { model: 'test-model-x', apiKey, maxContextSize: 1_048_576 } },
     });

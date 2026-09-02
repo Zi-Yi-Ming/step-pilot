@@ -94,15 +94,15 @@ function loadAgentsFromDir(dir: string): AgentDefinition[] {
 }
 
 /**
- * 构建 agent 注册表：内置 < 用户(~/.step-pi/agents) < 项目(<cwd>/.step-pi/agents)，同名后者覆盖。
+ * 构建 agent 注册表：内置 < 用户(~/.step-pilot/agents) < 项目(<cwd>/.step-pilot/agents)，同名后者覆盖。
  */
 export function buildAgentRegistry(cwd: string): Map<string, AgentDefinition> {
   const registry = new Map<string, AgentDefinition>();
   for (const def of BUILTIN_AGENTS) registry.set(def.name, def);
-  for (const def of loadAgentsFromDir(join(homedir(), '.step-pi', 'agents'))) {
+  for (const def of loadAgentsFromDir(join(homedir(), '.step-pilot', 'agents'))) {
     registry.set(def.name, def);
   }
-  for (const def of loadAgentsFromDir(join(cwd, '.step-pi', 'agents'))) {
+  for (const def of loadAgentsFromDir(join(cwd, '.step-pilot', 'agents'))) {
     registry.set(def.name, def);
   }
   return registry;

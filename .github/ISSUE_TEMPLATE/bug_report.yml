@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible bug in step-code
+description: Report a reproducible bug in step-pilot
 title: "[bug] "
 labels: ["type/bug", "status/needs-triage"]
 body:
@@ -10,7 +10,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: step-code 版本
+      label: step-pilot 版本
       description: 运行 `step --version`
       placeholder: "0.1.0"
     validations:

@@ -1,6 +1,6 @@
 # PR path-based auto-labeling — actions/labeler@v5 格式（每个标签下 changed-files/any-glob-to-any-file）。
 # area/* 路径与 .github/labels.yml 的 area 标签保持一致。
-# 对应 step-code 单包结构：源码在 src/<domain>/，非 monorepo。
+# 对应 step-pilot 单包结构：源码在 src/<domain>/，非 monorepo。
 
 "area/agent":
   - changed-files:

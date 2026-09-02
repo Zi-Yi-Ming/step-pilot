@@ -13,12 +13,12 @@ const EDIT_DIFF_MAX_LINES = 40;
 const MAX_DIFF_FILES = 20;
 
 /**
- * 完整 diff 落盘到 `.step-pi/tool-output/edit-diff-*.log`，返回相对 cwd 的路径。
+ * 完整 diff 落盘到 `.step-pilot/tool-output/edit-diff-*.log`，返回相对 cwd 的路径。
  * 磁盘不可写等失败返回 null（调用方退回原提示文案）。超出保留数按 mtime 删最旧。
  */
 function saveFullDiff(cwd: string, content: string): string | null {
   try {
-    const dir = join(cwd, '.step-pi', 'tool-output');
+    const dir = join(cwd, '.step-pilot', 'tool-output');
     mkdirSync(dir, { recursive: true });
     const now = new Date();
     const p = (n: number, w = 2): string => String(n).padStart(w, '0');
@@ -39,7 +39,7 @@ function saveFullDiff(cwd: string, content: string): string | null {
         // 被占用或已删：跳过
       }
     }
-    return `.step-pi/tool-output/${name}`;
+    return `.step-pilot/tool-output/${name}`;
   } catch {
     return null;
   }

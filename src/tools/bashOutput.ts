@@ -82,7 +82,7 @@ const SHARED_BUDGET = TOTAL_BUDGET - PER_STREAM_RESERVE * 2;
 /** 溢出文件保留个数上限：写新文件前把最旧的删到这个数以内，防止无限堆积。 */
 const MAX_OVERFLOW_FILES = 20;
 /** 溢出文件所在目录（相对 cwd），与 journal/ workflows/ 同址，已在 gitignore。 */
-const OVERFLOW_SUBDIR = join('.step-pi', 'tool-output');
+const OVERFLOW_SUBDIR = join('.step-pilot', 'tool-output');
 
 export interface OutputCollectorOptions {
   /** 该流保底额（字节）：即使另一条流占满共享池，这部分也 guaranteed。 */

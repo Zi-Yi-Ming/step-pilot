@@ -51,9 +51,9 @@ export interface AppendProviderResult {
   aliases: string[];
 }
 
-/** config.toml 默认路径（~/.step-pi/config.toml，与 config.ts 口径一致）。 */
+/** config.toml 默认路径（~/.step-pilot/config.toml，与 config.ts 口径一致）。 */
 export function defaultConfigPath(): string {
-  return join(homedir(), '.step-pi', 'config.toml');
+  return join(homedir(), '.step-pilot', 'config.toml');
 }
 
 /** TOML 键：bare key 字符集原样用，其余走 quoted key（转义反斜杠与双引号）。 */
@@ -115,7 +115,7 @@ export function renderSections(input: AppendProviderInput, newline: string): str
  * 原文件不存在时按首次创建处理（无备份）；doctor 失败时新文件直接删除回滚。
  *
  * @param input 渠道与模型草稿（别名冲突由调用方用 {@link allocateAlias} 预消化，这里仍兜底检查）
- * @param path 目标文件路径，缺省 ~/.step-pi/config.toml（测试注入用）
+ * @param path 目标文件路径，缺省 ~/.step-pilot/config.toml（测试注入用）
  * @throws 冲突 / 原文件语法错误 / doctor 校验失败（已回滚）
  */
 export async function appendProviderConfig(input: AppendProviderInput, path?: string): Promise<AppendProviderResult> {
@@ -212,7 +212,7 @@ function normalizeHeader(inner: string): string {
  * 归属别名清单取自解析结果（而不是逐行正则），避免手排版的 section 漏判。
  *
  * @param providerId [providers.<id>] 的渠道 id（内置预设不在文件里，删不到也无需删）
- * @param path 目标文件路径，缺省 ~/.step-pi/config.toml（测试注入用）
+ * @param path 目标文件路径，缺省 ~/.step-pilot/config.toml（测试注入用）
  * @throws 文件不存在 / 文件语法错误 / 渠道不存在 / doctor 校验失败（已回滚）
  */
 export async function removeProviderConfig(providerId: string, path?: string): Promise<RemoveProviderResult> {

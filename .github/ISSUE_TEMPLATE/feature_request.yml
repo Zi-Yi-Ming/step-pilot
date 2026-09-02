@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose a new capability for step-code
+description: Propose a new capability for step-pilot
 title: "[feat] "
 labels: ["type/feat", "status/needs-triage"]
 body:

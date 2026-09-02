@@ -85,7 +85,7 @@ for line in proc.stdout:
 {"type":"subagent.start","subagent_id":"1","subagent_type":"explore","description":"读取配置文件"}
 {"type":"subagent.tool","subagent_id":"1","name":"read_file"}
 {"type":"subagent.usage","subagent_id":"1","tokens":7068}
-{"type":"subagent.end","subagent_id":"1","is_error":false,"summary":"配置文件在 ~/.step-pi/config.toml…","session_id":"f2c14fb3-…","tool_uses":1,"duration_ms":10153}
+{"type":"subagent.end","subagent_id":"1","is_error":false,"summary":"配置文件在 ~/.step-pilot/config.toml…","session_id":"f2c14fb3-…","tool_uses":1,"duration_ms":10153}
 ```
 
 关于 `subagent.end`：

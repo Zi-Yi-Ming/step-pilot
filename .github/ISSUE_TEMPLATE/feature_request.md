@@ -12,7 +12,7 @@ assignees: ''
 
 ## 期望方案
 
-你希望 steppi 怎么表现。
+你希望 step-pilot 怎么表现。
 
 ## 替代方案
 

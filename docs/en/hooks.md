@@ -9,19 +9,19 @@ Hooks let you run your own shell commands at lifecycle event points without chan
 
 ## How it relates to the permission system
 
-Step Pi already has an internal layer of in-process mount points (authorization, result post-processing, continuation decisions), and the permission system hangs off of it. Hooks are **an opening in that layer exposed to users**: shell commands declared in configuration take part in the same lifecycle.
+Step Pilot already has an internal layer of in-process mount points (authorization, result post-processing, continuation decisions), and the permission system hangs off of it. Hooks are **an opening in that layer exposed to users**: shell commands declared in configuration take part in the same lifecycle.
 
 One bottom line to state up front: **hooks are not a security boundary**. When a command times out, crashes, or returns an exit code outside the convention, it is always allowed through (fail-open); the security boundary always remains the permission system. Hooks are positioned as an experience enhancement, for logging, injecting context, and intercepting the occasional obviously wrong operation. Do not expect them to serve as a security fallback.
 
 ## Configuration
 
-Declare them in `~/.step-pi/config.toml` with a `[[hooks]]` array; each entry has four fields:
+Declare them in `~/.step-pilot/config.toml` with a `[[hooks]]` array; each entry has four fields:
 
 ```toml
 [[hooks]]
 event = "PreToolUse"                          # event name
 matcher = "^bash$"                             # optional regex, matched against the tool name / event identifier
-command = "python ~/.step-pi/hooks/guard.py" # the shell command to run
+command = "python ~/.step-pilot/hooks/guard.py" # the shell command to run
 timeout = 30                                   # seconds, optional, default 30, hard cap 600
 ```
 
@@ -66,7 +66,7 @@ The timeout defaults to 30 seconds (`timeout` is configurable, with a hard cap o
 
 ```python
 #!/usr/bin/env python3
-# ~/.step-pi/hooks/guard.py
+# ~/.step-pilot/hooks/guard.py
 import json, sys
 
 data = json.load(sys.stdin)
@@ -82,9 +82,9 @@ sys.exit(0)           # allow
 [[hooks]]
 event = "PreToolUse"
 matcher = "^(write_file|edit_file)$"
-command = "python ~/.step-pi/hooks/guard.py"
+command = "python ~/.step-pilot/hooks/guard.py"
 ```
 
 ## Hooks provided by plugins
 
-Plugins can declare hooks too (see [Skills, plugins, and MCP](./skills-and-mcp.md)). Plugin hooks reuse the same four fields and the same execution conventions; the difference is that the working directory for `command` is fixed to the plugin root and the `STEP_PI_PLUGIN_ROOT` environment variable is injected, making it easy to reference scripts inside the plugin. The safety semantics are identical to user hooks (fail-open).
+Plugins can declare hooks too (see [Skills, plugins, and MCP](./skills-and-mcp.md)). Plugin hooks reuse the same four fields and the same execution conventions; the difference is that the working directory for `command` is fixed to the plugin root and the `STEP_PILOT_PLUGIN_ROOT` environment variable is injected, making it easy to reference scripts inside the plugin. The safety semantics are identical to user hooks (fail-open).

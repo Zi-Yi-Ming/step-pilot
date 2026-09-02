@@ -123,13 +123,13 @@ describe('redactPaths', () => {
     expect(redactPaths('the pkm-hub repo')).toContain('VAULT');
   });
 
-  it('替换 .step-pi 和 .pi 目录中的用户名', () => {
-    expect(redactPaths('C:\\Users\\ke\\.step-pi\\config.toml')).not.toContain('C:\\Users\\ke');
+  it('替换 .step-pilot 和 .pi 目录中的用户名', () => {
+    expect(redactPaths('C:\\Users\\ke\\.step-pilot\\config.toml')).not.toContain('C:\\Users\\ke');
     expect(redactPaths('C:\\Users\\ke\\.pi\\agent')).not.toContain('C:\\Users\\ke');
   });
 
   it('不触碰非知识库路径', () => {
-    const clean = 'C:\\Users\\ke\\Documents\\projects\\CodeProjects\\step-code\\src\\cli.ts';
+    const clean = 'C:\\Users\\ke\\Documents\\projects\\CodeProjects\\step-pilot\\src\\cli.ts';
     expect(redactPaths(clean)).toBe(clean);
   });
 
@@ -194,7 +194,7 @@ describe('redactWireLineVendor', () => {
       message: {
         message: {
           content: [
-            { type: 'tool_use', id: 'tu_3', name: 'read_file', input: { path: 'C:\\Users\\ke\\Documents\\projects\\CodeProjects\\step-code\\src\\cli.ts' } },
+            { type: 'tool_use', id: 'tu_3', name: 'read_file', input: { path: 'C:\\Users\\ke\\Documents\\projects\\CodeProjects\\step-pilot\\src\\cli.ts' } },
             { type: 'tool_result', tool_use_id: 'tu_3', content: 'source code content' },
           ],
         },

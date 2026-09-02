@@ -12,7 +12,7 @@ import { runAgent } from '../loop.js';
 import { stored, type StoredMessage } from '../message.js';
 import { skillListing, type SkillRegistry } from '../../skill/registry.js';
 import type { SessionData } from '../../session/store.js';
-import { resolveModelEntry, type StepCodeConfig } from '../../config/config.js';
+import { resolveModelEntry, type StepPilotConfig } from '../../config/config.js';
 import { createProvider } from '../../provider/factory.js';
 import { buildAgentRegistry } from './registry.js';
 import { closeDanglingToolUse } from '../wirelog.js';
@@ -103,7 +103,7 @@ export interface SubagentRunnerDeps {
    * （如主会话在 A 渠道、探索子 agent 走 B 渠道的轻量模型）。
    * 缺省（如单测直调）= 不做别名解析，`model` 按真实模型 id 走父 provider。
    */
-  config?: StepCodeConfig;
+  config?: StepPilotConfig;
   /** 父 agent 的 hooks（子 agent 沿用，使其写操作走父的审批对话）。 */
   hooks: LoopHooks;
   /** 嵌套深度上限（来自 config.subagent.maxDepth，父=0）。 */

@@ -6,7 +6,7 @@
 
 请通过 GitHub Security Advisories 私密披露：
 
-- https://github.com/Zi-Yi-Ming/step-pi/security/advisories/new
+- https://github.com/Zi-Yi-Ming/step-pilot/security/advisories/new
 
 我们会尽快确认并跟进修复。在漏洞修复并发布前，请勿公开相关细节。
 

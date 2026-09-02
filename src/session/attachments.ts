@@ -34,7 +34,7 @@ export class AttachmentStore {
   private readonly baseDir: string;
 
   constructor(baseDir?: string) {
-    this.baseDir = baseDir ?? join(homedir(), '.step-pi', 'sessions');
+    this.baseDir = baseDir ?? join(homedir(), '.step-pilot', 'sessions');
   }
 
   private dirFor(cwd: string): string {

@@ -1,7 +1,7 @@
 /**
  * 终端窗口/tab 标题写入（OSC 0）。
  *
- * 用途：把会话标题显示在终端 tab 上，多开几个 step-code 时能一眼分辨哪个 tab 在干什么。
+ * 用途：把会话标题显示在终端 tab 上，多开几个 step-pilot 时能一眼分辨哪个 tab 在干什么。
  * 标题来源是会话标题（session.name ?? title，见 session/title.ts 的 AI 生成），
  * 本模块只管「怎么安全地写进终端」，不管标题内容怎么来。
  *
@@ -23,7 +23,7 @@
  */
 
 /** 逃生舱环境变量：设为 1 时完全不写终端标题（不改 config 也能立刻关掉）。 */
-export const NO_TERMINAL_TITLE_ENV = 'STEP_PI_NO_TERMINAL_TITLE';
+export const NO_TERMINAL_TITLE_ENV = 'STEP_PILOT_NO_TERMINAL_TITLE';
 
 /**
  * 标题显示宽度上限（中文按 2 宽计）。

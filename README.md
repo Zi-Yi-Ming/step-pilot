@@ -4,19 +4,19 @@
 </p>
 
 > [!IMPORTANT]
-> **Unofficial — a community-driven exploration.** Step Pi is a terminal coding agent CLI, forked and evolved independently by community contributors.
+> **Unofficial — a community-driven exploration.** Step Pilot is a terminal coding agent CLI, forked and evolved independently by community contributors.
 
-# Step Pi
+# Step Pilot
 
-[![CI](https://github.com/Zi-Yi-Ming/step-pi/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Zi-Yi-Ming/step-pi/actions/workflows/test.yml)
+[![CI](https://github.com/Zi-Yi-Ming/step-pilot/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Zi-Yi-Ming/step-pilot/actions/workflows/test.yml)
 
 A terminal coding agent CLI optimized for **Step 3.7 Flash stability**. It ditches the heavy prompt stack and bloated context budget that make small models fail: a ~2000 char system prompt, tighter tool-result caps, and earlier compaction let Flash actually follow instructions — without giving up the agent loop, sub-agents, or plugin system when you need them.
 
-## Why steppi
+## Why step-pilot
 
 Small frontier models are fast and cheap, but they break under the weight of traditional agent scaffolding: long system prompts, runaway tool outputs, and lazy compression eat the context window before the real work starts.
 
-steppi treats small-model instruction following as a first-class constraint:
+step-pilot treats small-model instruction following as a first-class constraint:
 
 - **~2000 char system prompt** — the smallest useful instruction set, not a kitchen-sink manifesto
 - **Tool results capped at 200K chars** — stops one runaway command from drowning the model
@@ -27,7 +27,7 @@ The point isn't to make Flash behave like a 700B model. It's to stop wasting its
 
 ## What it is
 
-steppi is a terminal coding agent CLI. The model uses tools to read and write real files, run real commands, and spawn sub-agents; results feed back into the loop until the task is done.
+step-pilot is a terminal coding agent CLI. The model uses tools to read and write real files, run real commands, and spawn sub-agents; results feed back into the loop until the task is done.
 
 It's built with **pi-tui** and speaks three protocols — Anthropic Messages, OpenAI Chat Completions, OpenAI Responses — so any compatible provider works out of the box. Step is the default and best-tested path.
 
@@ -36,15 +36,15 @@ It's built with **pi-tui** and speaks three protocols — Anthropic Messages, Op
 First run is interactive — it walks you through API key, provider, and model selection. No manual config editing required.
 
 ```bash
-npm i -g steppi
-steppi
+npm i -g step-pilot
+step-pilot
 ```
 
-Requires Node.js >= 22. Without Node, grab the standalone executable for your platform from [Releases](https://github.com/Zi-Yi-Ming/step-pi/releases/latest); to modify the code, install from source instead.
+Requires Node.js >= 22. Without Node, grab the standalone executable for your platform from [Releases](https://github.com/Zi-Yi-Ming/step-pilot/releases/latest); to modify the code, install from source instead.
 
 See [Quick start](./docs/en/quickstart.md) for installation and configuration details, and [Installation](./docs/en/installation.md) for the trade-offs between installation methods.
 
-If you already have another AI agent at hand, [`skills/steppi-install/`](./skills/steppi-install/SKILL.md) is an install-instructions skill: clone the repo, point your agent at it, and it will know how to build, where to put the API key, and what to check when the build fails.
+If you already have another AI agent at hand, [`skills/step-pilot-install/`](./skills/step-pilot-install/SKILL.md) is an install-instructions skill: clone the repo, point your agent at it, and it will know how to build, where to put the API key, and what to check when the build fails.
 
 ## Documentation
 
@@ -61,7 +61,7 @@ English documentation lives under [`docs/en/`](./docs/en/); the Chinese original
 | [Session management](./docs/en/sessions.md) | Persistence, resuming, forking, context compaction, review, non-interactive output |
 | [Skills, plugins, and MCP](./docs/en/skills-and-mcp.md) | SKILL.md format, loading precedence, plugins, MCP integration |
 | [Hooks](./docs/en/hooks.md) | Running shell commands at five lifecycle events |
-| [Step 3.7 Flash best practices](./docs/en/best-practices.md) | How to get the most out of steppi with small models |
+| [Step 3.7 Flash best practices](./docs/en/best-practices.md) | How to get the most out of step-pilot with small models |
 
 ## Development
 
@@ -77,7 +77,7 @@ CI runs typecheck, build, and test on Ubuntu, Windows, and macOS. Development co
 
 ## Acknowledgements
 
-The source code of Step Code is written from scratch by this project; it is not affiliated with, sponsored by, or endorsed by any third-party project. Third-party open-source license texts are collected under [`licenses/`](./licenses/) for compliance, with details in [`licenses/NOTICE.md`](./licenses/NOTICE.md).
+The source code of Step Pilot is written from scratch by this project; it is not affiliated with, sponsored by, or endorsed by any third-party project. Third-party open-source license texts are collected under [`licenses/`](./licenses/) for compliance, with details in [`licenses/NOTICE.md`](./licenses/NOTICE.md).
 
 ## License
 

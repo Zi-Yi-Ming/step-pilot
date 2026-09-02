@@ -545,7 +545,7 @@ describe('fullCompact 用户原话保真', () => {
       { textChunks: [], finalContent: [textBlock('我已经确认了路径并改完了配置。')] },
     ]);
     const msgs: StoredMessage[] = [
-      stored({ role: 'user', content: '项目在 C:/proj/step-code-suite 这个哈' }, { kind: 'user' }),
+      stored({ role: 'user', content: '项目在 C:/proj/step-pilot-suite 这个哈' }, { kind: 'user' }),
       bulkAssistant('A1'),
       stored({ role: 'user', content: '代号 ORION，别写成 ORLON' }, { kind: 'user' }),
       bulkAssistant('A2'),
@@ -557,7 +557,7 @@ describe('fullCompact 用户原话保真', () => {
     const verbatim = out.filter((m) => m.origin.kind === 'user_verbatim');
     const texts = verbatim.map((m) => m.message.content as string);
     // 原话保真：路径与代号原样在场，不是摘要转述
-    expect(texts.some((t) => t.includes('C:/proj/step-code-suite'))).toBe(true);
+    expect(texts.some((t) => t.includes('C:/proj/step-pilot-suite'))).toBe(true);
     expect(texts.some((t) => t.includes('代号 ORION，别写成 ORLON'))).toBe(true);
     // 顺序：保真消息全部排在摘要之前
     const summaryIdx = out.findIndex((m) => m.origin.kind === 'compaction_summary');

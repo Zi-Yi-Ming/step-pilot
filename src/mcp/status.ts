@@ -17,11 +17,11 @@ function statusLine(s: McpServerState): string {
   }
 }
 
-/** /mcp 面板文案：每 server 一行状态；无配置时给配置指引（指向 ~/.step-pi/mcp.json）。 */
+/** /mcp 面板文案：每 server 一行状态；无配置时给配置指引（指向 ~/.step-pilot/mcp.json）。 */
 export function formatMcpStatus(manager: McpManager): string {
   const states = manager.statuses();
   if (states.length === 0) {
-    return t('app.mcp.none', { path: join(homedir(), '.step-pi', 'mcp.json') });
+    return t('app.mcp.none', { path: join(homedir(), '.step-pilot', 'mcp.json') });
   }
   const lines = states.map(statusLine).join('\n');
   return `${t('app.mcp.title')}\n${lines}`;

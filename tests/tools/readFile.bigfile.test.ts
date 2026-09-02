@@ -157,5 +157,5 @@ describe('read_file 大文件分页', () => {
  * 且必须分块读、块大小有与文件体积无关的上限。这三条是确定性的，不依赖 GC 调度，
  * 且鉴别力更强——分页分支一旦退化回全量载入，第一条立刻红。
  *
- * 对照数据由 step-code-labs/readfile-linecount-fastpath/probe.mjs 产出，可复跑。
+ * 对照数据由 step-pilot-labs/readfile-linecount-fastpath/probe.mjs 产出，可复跑。
  */

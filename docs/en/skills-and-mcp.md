@@ -5,7 +5,7 @@
 
 # Skills, plugins and MCP
 
-This page covers three ways to extend Step Pi: skills (SKILL.md), plugins, and external MCP servers.
+This page covers three ways to extend Step Pilot: skills (SKILL.md), plugins, and external MCP servers.
 
 ## Skills
 
@@ -34,16 +34,16 @@ When generating a commit message, follow these rules:
 In scan order, a later source overrides an earlier one with the same name (specific beats general, native beats compatibility):
 
 1. Builtin: shipped with the package, lowest precedence (for example `update-config`)
-2. User level: `~/.step-pi/skills/`
+2. User level: `~/.step-pilot/skills/`
 3. Project level (compatibility directory): `<project>/.agents/skills/`, a directory convention shared with other CLIs
-4. Project level (native directory): `<project>/.step-pi/skills/`
+4. Project level (native directory): `<project>/.step-pilot/skills/`
 5. Extra directories: `extra_skill_dirs` in config.toml
 6. Plugin-provided: highest precedence
 
 Only one copy of a given skill name survives, so the listing has no duplicates; when two directories hold a skill with the same name, the higher-precedence one takes effect. When such an override happens, the conflict list is reported explicitly at startup and after a reload: which source was used and what it overrode, so an old version never silently shadows a newer one.
 
 ```toml
-# ~/.step-pi/config.toml: append your private skill directory alongside the defaults
+# ~/.step-pilot/config.toml: append your private skill directory alongside the defaults
 extra_skill_dirs = ["~/my-private-skills"]
 ```
 
@@ -51,7 +51,7 @@ A skill in an extra directory shadows same-named skills at the project and user 
 
 ### Hot reload and `/skill reload`
 
-Adding, editing or deleting a SKILL.md mid-session does not require a restart: at each turn boundary Step Pi compares a fingerprint built from the path plus modification time of every SKILL.md, and on any change it rebuilds the whole registry and reports the added, removed and changed entries. After the rebuild, the next turn's system prompt, the `skill` tool and sub-agents immediately use the new listing. To refresh right away, run:
+Adding, editing or deleting a SKILL.md mid-session does not require a restart: at each turn boundary Step Pilot compares a fingerprint built from the path plus modification time of every SKILL.md, and on any change it rebuilds the whole registry and reports the added, removed and changed entries. After the rebuild, the next turn's system prompt, the `skill` tool and sub-agents immediately use the new listing. To refresh right away, run:
 
 ```
 /skill reload    # force a full rescan of the skill directories
@@ -62,7 +62,7 @@ If name conflicts exist after the reload, they are reported together with the re
 ### Excluding by name
 
 ```toml
-# ~/.step-pi/config.toml: never load a skill with this name, whatever its source
+# ~/.step-pilot/config.toml: never load a skill with this name, whatever its source
 disabled_skills = ["team-noisy-skill"]
 ```
 
@@ -74,11 +74,11 @@ Filtering happens after the merge, so project-level, user-level, extra-directory
 
 ## Plugins
 
-A plugin is a mechanism for packaging and distributing extensions: a directory that declares which capabilities it provides, with the host never executing the plugin's own code. Place it under `~/.step-pi/plugins/<plugin-name>/`:
+A plugin is a mechanism for packaging and distributing extensions: a directory that declares which capabilities it provides, with the host never executing the plugin's own code. Place it under `~/.step-pilot/plugins/<plugin-name>/`:
 
 ```
 my-plugin/
-└── .step-pi-plugin/
+└── .step-pilot-plugin/
     └── plugin.json     # plugin manifest
 ```
 
@@ -90,7 +90,7 @@ Beyond `name` / `version` / `description`, `plugin.json` can declare four kinds 
 |------|------|----------|
 | `skills` | Skill directory | Merged into skill loading at the highest precedence |
 | `mcpServers` | MCP server config (stdio, same schema as mcp.json) | Merged into MCP loading; runtime names are force-prefixed with `<pluginId>:<server>` for isolation |
-| `hooks` | Hooks config (the same four fields as `[[hooks]]`) | Merged into the hooks engine; the command's working directory is fixed to the plugin root and `STEP_PI_PLUGIN_ROOT` is injected |
+| `hooks` | Hooks config (the same four fields as `[[hooks]]`) | Merged into the hooks engine; the command's working directory is fixed to the plugin root and `STEP_PILOT_PLUGIN_ROOT` is injected |
 | `commands` | Markdown prompt templates (frontmatter can override name/description, the body supports `$ARGUMENTS`) | Registered as slash commands under the forced namespace `<pluginId>:<command-name>` |
 
 Executable fields (tools/apps/bootstrap and similar) are recognized and ignored: a plugin does not create new capability types, it only packages and distributes existing ones. All relative paths are validated to stay inside the plugin root, and an MCP `command` must be either a PATH command or a `./`-relative path; absolute paths are rejected.
@@ -108,16 +108,16 @@ Use the `/plugin` command (see also [Interactive use](./interactive.md)):
 /plugin info <id>            # show details
 ```
 
-Enabled/disabled state is recorded in `~/.step-pi/plugins.json` (which stores the disabled set). A broken plugin whose manifest fails to parse is listed with an error state but does not break startup. Enable/disable changes take effect after `/new` or a restart, as prompted.
+Enabled/disabled state is recorded in `~/.step-pilot/plugins.json` (which stores the disabled set). A broken plugin whose manifest fails to parse is listed with an error state but does not break startup. Enable/disable changes take effect after `/new` or a restart, as prompted.
 
 Installation copies rather than symlinks, so moving or deleting the plugin source directory does not affect the installed copy; the trade-off is that updating means reinstalling.
 
 ## MCP
 
-Connect to external MCP servers (over stdio) to bring external tools into Step Pi:
+Connect to external MCP servers (over stdio) to bring external tools into Step Pilot:
 
 ```json
-// ~/.step-pi/mcp.json
+// ~/.step-pilot/mcp.json
 {
   "mcpServers": {
     "my-server": {

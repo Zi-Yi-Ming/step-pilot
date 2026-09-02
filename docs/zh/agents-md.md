@@ -1,6 +1,6 @@
 # AGENTS.md 机制
 
-AGENTS.md 是给模型看的项目/个人规范文件。Step Pi 启动会话时自动收集相关 AGENTS.md，拼到 system prompt 尾部。本页讲清三个问题：默认从哪加载、怎么覆盖某一层、怎么完全自定义来源。
+AGENTS.md 是给模型看的项目/个人规范文件。Step Pilot 启动会话时自动收集相关 AGENTS.md，拼到 system prompt 尾部。本页讲清三个问题：默认从哪加载、怎么覆盖某一层、怎么完全自定义来源。
 
 ## 默认收集路径
 
@@ -8,15 +8,15 @@ AGENTS.md 是给模型看的项目/个人规范文件。Step Pi 启动会话时�
 
 | 目录 | 回落顺序 |
 |------|----------|
-| `~/.step-pi/` | `AGENTS.override.md` → `AGENTS.md` |
+| `~/.step-pilot/` | `AGENTS.override.md` → `AGENTS.md` |
 | `~/.agents/` | `AGENTS.override.md` → `AGENTS.md` → `agents.md` |
 
-`~/.agents/` 是跨工具共享目录，同一份规范可被多个 agent 工具读取，因此这里多认一层小写 `agents.md` 以兼容各家写法；`~/.step-pi/` 是本工具专属目录，只认规范化的两个名字。
+`~/.agents/` 是跨工具共享目录，同一份规范可被多个 agent 工具读取，因此这里多认一层小写 `agents.md` 以兼容各家写法；`~/.step-pilot/` 是本工具专属目录，只认规范化的两个名字。
 
 **项目级**：从当前目录向上找到含 `.git` 的项目根，然后从根逐层向下到当前目录，每层取第一个命中的文件：
 
 ```
-.step-pi/AGENTS.md  →  AGENTS.override.md  →  AGENTS.md  →  agents.md
+.step-pilot/AGENTS.md  →  AGENTS.override.md  →  AGENTS.md  →  agents.md
 ```
 
 所有命中的文件按「用户级在前、项目级从根到叶」的顺序拼接，每份前加 `<!-- From: <绝对路径> -->` 注释头。越靠近当前目录的文件位置越靠后，模型视角下更具体的规范优先。总量预算默认 32KB（`agents_md_max_bytes` 可调，`0` = 禁用加载），超出时叶子优先分配、UTF-8 安全截断；发生截断或整篇丢弃时，启动后会在转录区一次性提示哪些文件受影响、原始多大。
@@ -29,7 +29,7 @@ AGENTS.md 是给模型看的项目/个人规范文件。Step Pi 启动会话时�
 
 ## 整体覆盖：agents_paths
 
-`~/.step-pi/config.toml` 配置后，默认收集**全部关闭**，只按清单加载：
+`~/.step-pilot/config.toml` 配置后，默认收集**全部关闭**，只按清单加载：
 
 ```toml
 agents_paths = ["~/my-rules/AGENTS.md", "./team-docs"]
@@ -44,12 +44,12 @@ agents_paths = ["~/my-rules/AGENTS.md", "./team-docs"]
 
 ## 跨工具共享
 
-`~/.agents/AGENTS.md` 放在一个工具中立的目录下，不带 Step Pi 的私有路径前缀。把「我是谁、我怎么工作、我的技术偏好」这类不依赖具体工具的规范写在这里，多个 agent 工具可以共用同一份，不必逐个维护。
+`~/.agents/AGENTS.md` 放在一个工具中立的目录下，不带 Step Pilot 的私有路径前缀。把「我是谁、我怎么工作、我的技术偏好」这类不依赖具体工具的规范写在这里，多个 agent 工具可以共用同一份，不必逐个维护。
 
-工具专属的指令（只对 Step Pi 生效的约定）放 `~/.step-pi/AGENTS.md` 或项目内 `.step-pi/AGENTS.md`，与共享层分开，避免把本工具的实现细节泄漏给其他工具读取。
+工具专属的指令（只对 Step Pilot 生效的约定）放 `~/.step-pilot/AGENTS.md` 或项目内 `.step-pilot/AGENTS.md`，与共享层分开，避免把本工具的实现细节泄漏给其他工具读取。
 
 ## 维护建议
 
 - 团队规范入库放项目根 `AGENTS.md`，保持精简，只写对协作者普遍适用的内容
-- 个人规范放 `~/.step-pi/AGENTS.md`（全局）或项目内 `AGENTS.override.md`（单项目）
-- `.step-pi/AGENTS.md` 优先级最高，适合放工具专属的指令（比如只对 Step Pi 生效的约定）
+- 个人规范放 `~/.step-pilot/AGENTS.md`（全局）或项目内 `AGENTS.override.md`（单项目）
+- `.step-pilot/AGENTS.md` 优先级最高，适合放工具专属的指令（比如只对 Step Pilot 生效的约定）

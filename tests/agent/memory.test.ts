@@ -47,11 +47,11 @@ function writeMemory(root: string, rel: string, title: string, body: string, fie
 }
 
 function globalRoot(): string {
-  return join(home, '.step-pi', 'memory');
+  return join(home, '.step-pilot', 'memory');
 }
 
 function projectRoot(): string {
-  return join(cwd, '.step-pi', 'memory');
+  return join(cwd, '.step-pilot', 'memory');
 }
 
 describe('parseMemoryFile', () => {
@@ -212,7 +212,7 @@ describe('formatMemoryEntryLine / measureMemoryIndex', () => {
     topic: '提交风格',
     summary: '中文 subject 带根因',
     relPath: 'preferences/commit.md',
-    absPath: '/home/.step-pi/memory/preferences/commit.md',
+    absPath: '/home/.step-pilot/memory/preferences/commit.md',
     occurrences: 2,
     version: 2,
     updatedAt: '2026-08-10T11:20:00+08:00',

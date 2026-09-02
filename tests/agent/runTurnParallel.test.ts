@@ -88,7 +88,7 @@ describe('runTurn 并行工具执行', () => {
   });
 
   it('写读同路径冲突 → 串行；不同路径的读不被拖住', async () => {
-    const tmp = join(tmpdir(), 'step-code-parallel-test.txt');
+    const tmp = join(tmpdir(), 'step-pilot-parallel-test.txt');
     const { provider } = makeFakeProvider([
       {
         textChunks: [],

@@ -5,14 +5,14 @@ import { loadPlugin } from './manager.js';
 
 /**
  * plugin 安装与启停管理：
- * - 安装 = 本地目录复制到 ~/.step-pi/plugins/<id>/（staging + rename 原子替换，重装同 id = 覆盖更新）。
- * - 启停 = ~/.step-pi/plugins.json 记录 disabled 集合（不在集合即启用）。
+ * - 安装 = 本地目录复制到 ~/.step-pilot/plugins/<id>/（staging + rename 原子替换，重装同 id = 覆盖更新）。
+ * - 启停 = ~/.step-pilot/plugins.json 记录 disabled 集合（不在集合即启用）。
  * 能力合流仍在启动时经 discoverPlugins 重解析清单物化，install/enable/disable 变更需 /new 或重启生效。
  */
 
-/** ~/.step-pi/plugins.json 的路径。 */
+/** ~/.step-pilot/plugins.json 的路径。 */
 export function pluginsStatePath(): string {
-  return join(homedir(), '.step-pi', 'plugins.json');
+  return join(homedir(), '.step-pilot', 'plugins.json');
 }
 
 export interface PluginsState {
@@ -67,7 +67,7 @@ export function installPlugin(srcDir: string, pluginsDir: string): PluginOpResul
   const src = resolve(srcDir);
   if (!existsSync(src)) return { ok: false, error: `目录不存在：${src}` };
   const plugin = loadPlugin(src);
-  if (plugin === null) return { ok: false, error: '缺少 .step-pi-plugin/plugin.json 或 manifest 非法' };
+  if (plugin === null) return { ok: false, error: '缺少 .step-pilot-plugin/plugin.json 或 manifest 非法' };
   const id = plugin.manifest.name;
   const dest = join(pluginsDir, id);
   const staging = join(pluginsDir, `.staging-${id}-${process.pid}-${Date.now()}`);

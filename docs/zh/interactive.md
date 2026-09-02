@@ -226,7 +226,7 @@ Step 3.x 系列是恒思考模型，响应会带思考过程。TUI 无条件渲�
 
 ## 插件管理
 
-`/plugin` 管理 `~/.step-pi/plugins/` 下的插件：
+`/plugin` 管理 `~/.step-pilot/plugins/` 下的插件：
 
 | 子命令 | 作用 |
 |--------|------|

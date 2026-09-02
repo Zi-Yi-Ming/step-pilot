@@ -8,7 +8,7 @@ import { t, type Locale } from '../i18n.js';
 
 /**
  * 子 agent 限制。设计三件套：可配 + 硬编码默认 + clamp 上限。
- * 深度用 clamp 封顶防 fork-bomb；并发维度不设——step-code 顺序执行，无并发概念。
+ * 深度用 clamp 封顶防 fork-bomb；并发维度不设——step-pilot 顺序执行，无并发概念。
  */
 export interface SubagentLimits {
   /** 嵌套深度上限（父=0）。硬顶封 2。 */
@@ -261,12 +261,12 @@ export interface TuiConfig {
 }
 
 /**
- * step-code 运行时配置。
+ * step-pilot 运行时配置。
  *
  * StepFun 服务端走 Anthropic Messages 协议，有几条硬约束（见 provider 层）：
  * base_url 不带 /v1（SDK 自动拼），仅支持 base64 图片。
  */
-export interface StepCodeConfig {
+export interface StepPilotConfig {
   /** 服务商标识（如 'stepfun' | 'anthropic'）。决定预设默认与 provider 工厂分发。 */
   provider: string;
   /**
@@ -565,12 +565,12 @@ interface TomlConfigShape {
 /**
  * 逃生舱环境变量：配置文件语法错误时以内置默认配置启动。
  *
- * 为什么必须有这个开关：config.toml 在 home 目录，而用户常用 step-code 自己修改它
+ * 为什么必须有这个开关：config.toml 在 home 目录，而用户常用 step-pilot 自己修改它
  *（内置 update-config skill 就是干这个的）。若语法错误一律 exit，就出现「起不来 →
- * 无法用 step-code 修 step-code 的配置」的死锁。设为 1 时整份配置不生效，调用方
+ * 无法用 step-pilot 修 step-pilot 的配置」的死锁。设为 1 时整份配置不生效，调用方
  * 负责持续告知用户（不能悄悄用默认配置跑，那正是本机制要消灭的行为）。
  */
-export const IGNORE_BAD_CONFIG_ENV = 'STEP_PI_IGNORE_BAD_CONFIG';
+export const IGNORE_BAD_CONFIG_ENV = 'STEP_PILOT_IGNORE_BAD_CONFIG';
 
 /** 语法错误被逃生舱忽略时的现场信息（整份配置未生效）。 */
 export interface IgnoredBadConfigFile {
@@ -596,7 +596,7 @@ export interface ConfigLoadDiagnostics {
 export type ConfigDiagnosticsSink = (diagnostics: ConfigLoadDiagnostics) => void;
 
 /**
- * 从 ~/.step-pi/config.toml 读取配置（若存在）。
+ * 从 ~/.step-pilot/config.toml 读取配置（若存在）。
  *
  * 解析失败**抛错**而非返回 {}：静默回落等于「用一份用户从未写过的配置跑」——所有渠道、
  * 别名、语言、权限模式全部消失，随后的报错（api key 缺失、陌生端点 404）与真实病因
@@ -620,7 +620,7 @@ export class TomlParseError extends Error {
 }
 
 function loadTomlConfig(): { toml: TomlConfigShape; ignoredBadFile?: IgnoredBadConfigFile } {
-  const tomlPath = join(homedir(), '.step-pi', 'config.toml');
+  const tomlPath = join(homedir(), '.step-pilot', 'config.toml');
   if (!existsSync(tomlPath)) return { toml: {} };
   try {
     return { toml: parseToml(readFileSync(tomlPath, 'utf8')) as TomlConfigShape };
@@ -1125,7 +1125,7 @@ export function resolveHooks(raw: unknown): HookConfigEntry[] | undefined {
  * 注意：config.apiKey 来自环境变量，作为最后回落意味着「渠道没配 key 时会把它发给该渠道
  * 端点」；跨服务商混用时务必给每个渠道单独配 apiKey 或 apiKeyEnv。
  */
-export function resolveModelEntry(config: StepCodeConfig, name: string): StepCodeConfig | null {
+export function resolveModelEntry(config: StepPilotConfig, name: string): StepPilotConfig | null {
   const entry = config.models?.[name];
   if (entry === undefined) return null;
 
@@ -1148,7 +1148,7 @@ export function resolveModelEntry(config: StepCodeConfig, name: string): StepCod
       // config.apiKey 有两种归属，跨渠道借用的危险性不同，分开处理：
       // - 若它等于「顶层 provider 的惯例 env 值」→ 该 key 绑死顶层 type（如顶层 anthropic 的
       //   ANTHROPIC_API_KEY），借给别的 type 渠道 = 把 A 服务商的 key 发到 B 端点 = 泄露，拒绝；
-      // - 否则（通用 STEP_PI_API_KEY 或直接赋值的 key）→ 不绑单一 type，放行。
+      // - 否则（通用 STEP_PILOT_API_KEY 或直接赋值的 key）→ 不绑单一 type，放行。
       const conventionalKey = envValue(conventionalApiKeyEnvVar(config.provider));
       const boundToTopType = conventionalKey !== undefined && conventionalKey === config.apiKey;
       if (boundToTopType) {
@@ -1217,8 +1217,8 @@ export interface ConfigOverrides {
 /**
  * 解析配置，优先级：命令行覆盖 > 环境变量 > config.toml > provider 预设 > 内置默认。
  *
- * provider：`STEP_PI_PROVIDER` > TOML `provider` > 默认 'stepfun'（overrides.provider 最高优先）。
- * apiKey：隐式渠道只认 `STEP_PI_API_KEY`；anthropic/openai 协议另认各自的惯例环境变量
+ * provider：`STEP_PILOT_PROVIDER` > TOML `provider` > 默认 'stepfun'（overrides.provider 最高优先）。
+ * apiKey：隐式渠道只认 `STEP_PILOT_API_KEY`；anthropic/openai 协议另认各自的惯例环境变量
  * （见 {@link conventionalApiKeyEnvVar}）。config.toml 顶层不再支持 `api_key`；
  * 配置文件里的 key 只能配在 `[providers.<id>]` 渠道或 `[models.<别名>]` 上。
  * 不再强制：全部缺失时 apiKey 为 undefined 进 cfg，由 provider 工厂在构造前抛带指引的错误
@@ -1229,7 +1229,7 @@ export function loadConfig(
   cwd: string = process.cwd(),
   overrides: ConfigOverrides = {},
   onDiagnostics?: ConfigDiagnosticsSink,
-): StepCodeConfig {
+): StepPilotConfig {
   loadDotEnv(cwd);
   const { toml, ignoredBadFile } = loadTomlConfig();
   if (onDiagnostics !== undefined) {
@@ -1240,7 +1240,7 @@ export function loadConfig(
 
   const provider =
     overrides.provider ??
-    process.env['STEP_PI_PROVIDER'] ??
+    process.env['STEP_PILOT_PROVIDER'] ??
     asString(toml.provider) ??
     DEFAULT_PROVIDER;
   const preset: ProviderPreset = PROVIDER_PRESETS[provider] ?? { protocol: 'anthropic', sendThinking: false };
@@ -1249,22 +1249,22 @@ export function loadConfig(
   //（顶层没有渠道归属、不知该发给谁）。这里的两级是「隐式渠道」的凭据来源——
   // 不配任何 [providers] 时，内置预设充当渠道，key 由环境变量提供，保证零配置可用。
   // 命中 [models.<别名>] 时会经 resolveModelEntry 的渠道/别名链重新解析，此值仅作最后回落。
-  const apiKey = envValue('STEP_PI_API_KEY') ?? envValue(conventionalApiKeyEnvVar(provider));
+  const apiKey = envValue('STEP_PILOT_API_KEY') ?? envValue(conventionalApiKeyEnvVar(provider));
 
   // 用户显式配置（override > env > toml）永远优先；未配才落 provider 预设默认。
   const model =
     overrides.model ??
-    process.env['STEP_PI_MODEL'] ??
+    process.env['STEP_PILOT_MODEL'] ??
     asString(toml.model) ??
     preset.model ??
     '';
   const baseUrl =
-    process.env['STEP_PI_BASE_URL'] ??
+    process.env['STEP_PILOT_BASE_URL'] ??
     asString(toml.base_url) ??
     preset.baseUrl ??
     DEFAULT_BASE_URL;
 
-  const cfg: StepCodeConfig = {
+  const cfg: StepPilotConfig = {
     provider,
     apiKey,
     baseUrl,
@@ -1367,7 +1367,7 @@ export function resolveProxy(raw: unknown): string | undefined {
 }
 
 /**
- * 改写/追加 ~/.step-pi/config.toml 的 `[providers.<providerName>]` section 内的一个字段。
+ * 改写/追加 ~/.step-pilot/config.toml 的 `[providers.<providerName>]` section 内的一个字段。
  * 只动目标那一行，其余内容（注释、其他字段、其他 section）原样保留，不做整文件重序列化。
  * 文件不存在时创建最小内容。保留原文件的换行风格（CRLF/LF）。
  *
@@ -1378,7 +1378,7 @@ export function saveProviderKey(providerName: string, key: 'base_url' | 'api_key
   // 防御：base_url / api_key 是单行字段，任何来源（粘贴折行、程序拼接）混入的换行
   // 若写进 TOML 字符串即成非法控制字符、毁掉整文件解析。写入前一律剥掉。
   const safeValue = value.replace(/[\r\n]+/g, '');
-  const dir = join(homedir(), '.step-pi');
+  const dir = join(homedir(), '.step-pilot');
   const tomlPath = join(dir, 'config.toml');
   const sectionHeader = `[providers.${providerName}]`;
   const line = `${key} = "${safeValue}"`;
@@ -1432,7 +1432,7 @@ export function saveProviderKey(providerName: string, key: 'base_url' | 'api_key
 }
 
 /**
- * 改写/追加 ~/.step-pi/config.toml 的 `[models.<alias>]` section 内的字段。
+ * 改写/追加 ~/.step-pilot/config.toml 的 `[models.<alias>]` section 内的字段。
  * 只动目标那一行，其余内容（注释、其他字段、其他 section）原样保留，不做整文件重序列化。
  * 文件不存在时创建最小内容。保留原文件的换行风格（CRLF/LF）。
  *
@@ -1448,7 +1448,7 @@ export function saveModelAlias(
   alias: string,
   fields: Record<string, string | number>,
 ): void {
-  const dir = join(homedir(), '.step-pi');
+  const dir = join(homedir(), '.step-pilot');
   const tomlPath = join(dir, 'config.toml');
   const sectionHeader = `[models.${alias}]`;
   const text = existsSync(tomlPath) ? readFileSync(tomlPath, 'utf8') : '';
@@ -1509,7 +1509,7 @@ export function saveModelAlias(
 }
 
 /**
- * 改写/追加 ~/.step-pi/config.toml 的一个顶层字符串键：只动目标那一行，
+ * 改写/追加 ~/.step-pilot/config.toml 的一个顶层字符串键：只动目标那一行，
  * 其余内容（注释、其他字段、[section]）原样保留，不做整文件重序列化。
  * 文件不存在时创建最小内容。保留原文件的换行风格（CRLF/LF）。
  *
@@ -1518,7 +1518,7 @@ export function saveModelAlias(
  * 注释掉的行（`# key = ...`）不匹配，会在其上方新插一行，旧注释保留。
  */
 export function saveTopLevelKey(key: string, value: string): void {
-  const dir = join(homedir(), '.step-pi');
+  const dir = join(homedir(), '.step-pilot');
   const tomlPath = join(dir, 'config.toml');
   const line = `${key} = "${value}"`;
   const text = existsSync(tomlPath) ? readFileSync(tomlPath, 'utf8') : '';
@@ -1556,14 +1556,14 @@ export function saveTopLevelKey(key: string, value: string): void {
 }
 
 /**
- * 把界面语言写回 ~/.step-pi/config.toml 的顶层 `language`。
+ * 把界面语言写回 ~/.step-pilot/config.toml 的顶层 `language`。
  */
 export function saveLanguage(l: Locale): void {
   saveTopLevelKey('language', l);
 }
 
 /**
- * 把默认模型指针写回 ~/.step-pi/config.toml 的顶层 `model`，使下次启动的新会话沿用
+ * 把默认模型指针写回 ~/.step-pilot/config.toml 的顶层 `model`，使下次启动的新会话沿用
  * 用户最后一次 /model 选择，不必手改配置文件。
  *
  * 写入的是**别名**（`[models.<别名>]` 的 key）而非解析后的真实模型 id：别名承载
@@ -1579,7 +1579,7 @@ export function saveDefaultModel(modelOrAlias: string, current?: string): void {
 }
 
 /**
- * 改写/追加 ~/.step-pi/config.toml 指定 TOML section 内的一个字段。
+ * 改写/追加 ~/.step-pilot/config.toml 指定 TOML section 内的一个字段。
  * 只动目标那一行，其余内容（注释、其他字段、其他 section）原样保留。
  * 文件不存在时创建最小内容。保留原文件的换行风格（CRLF/LF）。
  *
@@ -1593,7 +1593,7 @@ export function saveDefaultModel(modelOrAlias: string, current?: string): void {
  * @param value 字段值（数字或字符串）
  */
 function saveSectionKey(sectionHeader: string, key: string, value: string | number | boolean): void {
-  const dir = join(homedir(), '.step-pi');
+  const dir = join(homedir(), '.step-pilot');
   const tomlPath = join(dir, 'config.toml');
   const safeValue =
     typeof value === 'number' ? String(value) : String(value).replace(/[\r\n]+/g, '');
@@ -1645,7 +1645,7 @@ function saveSectionKey(sectionHeader: string, key: string, value: string | numb
 }
 
 /**
- * 把默认思考档位写回 ~/.step-pi/config.toml 的 [thinking] default_level。
+ * 把默认思考档位写回 ~/.step-pilot/config.toml 的 [thinking] default_level。
  *
  * 'off' 不写入——off 是会话级临时关闭，不应污染全局默认。
  * 幂等：与当前值相同则不写（省掉无谓的文件写入）。
@@ -1678,7 +1678,7 @@ export function saveDefaultThinkingLevel(level: ThinkingLevelName | 'off'): void
 }
 
 /**
- * 把默认服务商标识写回 ~/.step-pi/config.toml 的顶层 `provider`。
+ * 把默认服务商标识写回 ~/.step-pilot/config.toml 的顶层 `provider`。
  *
  * 幂等：与当前值相同则不写（省掉无谓的文件写入）。
  * 失败只提示不阻断——本次切换已在内存生效，配置写入只影响下次启动。

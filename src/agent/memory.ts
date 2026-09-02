@@ -7,7 +7,7 @@
  * 本模块只有**读侧**：扫描、解析、索引、system 段。写侧刻意不做专用工具——
  * agent 用既有 write_file / edit_file 直接维护记忆文件（轻量方向：不引入提取管线）。
  *
- * 存储两级：全局 <home>/.step-pi/memory/ 与项目 <cwd>/.step-pi/memory/，
+ * 存储两级：全局 <home>/.step-pilot/memory/ 与项目 <cwd>/.step-pilot/memory/，
  * 同主题（相对路径相同）时项目层优先——局部约定覆盖全局习惯，与 git config 语义一致。
  *
  * 文件格式：markdown 正文 + HTML 注释藏 JSON 字段（人可读可手改，机器可解析）：
@@ -155,8 +155,8 @@ function scanLayer(root: string, scope: 'global' | 'project'): { entries: Memory
  * 结果按 updatedAt 倒序（最近更新的在前——回顾时最活跃的观察最先被看到）。
  */
 export function scanMemory(cwd: string, home: string = homedir()): MemoryScan {
-  const globalLayer = scanLayer(join(home, '.step-pi', 'memory'), 'global');
-  const projectLayer = scanLayer(join(cwd, '.step-pi', 'memory'), 'project');
+  const globalLayer = scanLayer(join(home, '.step-pilot', 'memory'), 'global');
+  const projectLayer = scanLayer(join(cwd, '.step-pilot', 'memory'), 'project');
 
   const merged = new Map<string, MemoryEntry>();
   for (const e of globalLayer.entries) merged.set(e.relPath, e);
@@ -221,7 +221,7 @@ export function memorySection(scan: MemoryScan, mode: 'full' | 'readonly' = 'ful
       ? '  （暂无观察）'
       : lines.map((l) => `  ${l}`).join('\n') + (omitted > 0 ? `\n  （另有 ${omitted} 条因篇幅省略，\`/memory\` 可查看全量）` : '');
   return `## 记忆
-- 你有两个长期记忆目录：全局 ~/.step-pi/memory/（跨项目偏好观察）、项目 .step-pi/memory/（本项目约定观察）。
+- 你有两个长期记忆目录：全局 ~/.step-pilot/memory/（跨项目偏好观察）、项目 .step-pilot/memory/（本项目约定观察）。
 - 里面是你自己积累的**观察**，未经用户确认，不视为约束。可以参考（比如避免重复犯被纠正过的错），但与 AGENTS.md 等已确认规范冲突时，以规范为准。
 - 当前索引：
 ${indexPart}
@@ -232,6 +232,6 @@ ${mode === 'readonly' ? `- 你是子 agent：记忆**只读**。发现值得记�
 
 /** /memory on 中途开启时的回看引导（注入 messages，origin: injection）。 */
 export const MEMORY_ONBOARDING_INJECTION =
-  '记忆功能刚开启。记忆目录：~/.step-pi/memory/ 与 .step-pi/memory/。\n' +
+  '记忆功能刚开启。记忆目录：~/.step-pilot/memory/ 与 .step-pilot/memory/。\n' +
   '请回看本次会话到目前为止的对话：如果出现过「用户纠正你」「用户明确要求记住」「反复出现的约定」，' +
   '现在补沉淀到对应目录；没有则不用写。之后的对话按 system 里的记忆说明正常积累。';

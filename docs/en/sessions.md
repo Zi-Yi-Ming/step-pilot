@@ -9,7 +9,7 @@ This page covers saving, resuming, forking, compacting, and reviewing sessions, 
 
 ## Persistence
 
-Every conversation is automatically saved as a snapshot under `~/.step-pi/sessions/`, bucketed by working directory: when you start in project A's directory, you only see project A's sessions. The session title is initially derived from the first message; after the first complete answer, a semantic title is generated once asynchronously with the current model, replacing the derived value (on failure the derived value is kept and the session is unaffected). Sessions that have been renamed (`r`) or whose title was changed externally are never overwritten.
+Every conversation is automatically saved as a snapshot under `~/.step-pilot/sessions/`, bucketed by working directory: when you start in project A's directory, you only see project A's sessions. The session title is initially derived from the first message; after the first complete answer, a semantic title is generated once asynchronously with the current model, replacing the derived value (on failure the derived value is kept and the session is unaffected). Sessions that have been renamed (`r`) or whose title was changed externally are never overwritten.
 
 ## Continuing and resuming
 
@@ -100,7 +100,7 @@ Inside the TUI, the `/resume` picker shows main sessions only; selecting one res
 
 **Crash safety**: if the previous run died in the middle of a tool call (the last assistant message contains a tool call with no result), resuming first appends a synthetic "previous execution was interrupted" tool result so the replayed history is safe to send to the model.
 
-**Retention** (`~/.step-pi/config.toml`):
+**Retention** (`~/.step-pilot/config.toml`):
 
 ```toml
 [subagent.retention]

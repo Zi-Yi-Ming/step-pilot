@@ -103,7 +103,7 @@ describe('exportDebugBundle', () => {
     const { zipPath } = await exportDebugBundle({ store, cwd, sessionId: id, model: 'step-3.7-flash', dataDir });
     const manifest = JSON.parse(entriesOf(zipPath).read('manifest.json'));
 
-    expect(manifest.app.name).toBe('steppi');
+    expect(manifest.app.name).toBe('step-pilot');
     expect(manifest.app.version).toBe(VERSION); // 来自 package.json（经 src/version.ts 单一来源）
     expect(manifest.os.platform).toBeTruthy();
     expect(manifest.os.arch).toBeTruthy();

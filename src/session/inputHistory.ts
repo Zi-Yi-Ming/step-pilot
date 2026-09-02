@@ -18,7 +18,7 @@ export class InputHistoryStore {
   private entriesArr: string[] = [];
 
   constructor(cwd: string, baseDir?: string) {
-    const base = baseDir ?? join(homedir(), '.step-pi', 'input-history');
+    const base = baseDir ?? join(homedir(), '.step-pilot', 'input-history');
     this.file = join(base, `${workdirKey(cwd)}.jsonl`);
   }
 

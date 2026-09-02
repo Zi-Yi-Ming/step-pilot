@@ -47,7 +47,7 @@ async function testImageInCapability(
   entry: ModelEntry,
   channel: ProviderEntry,
 ): Promise<{ supported: boolean; error?: string }> {
-  const apiKey = channel.apiKey ?? process.env['STEP_PI_API_KEY'];
+  const apiKey = channel.apiKey ?? process.env['STEP_PILOT_API_KEY'];
   if (apiKey === undefined || apiKey === '') {
     return { supported: false, error: 'no_api_key' };
   }
@@ -224,14 +224,14 @@ function formatBytes(bytes: number): string {
 /**
  * 校验一份 config.toml：语法错误 / thinking 语义错误 → code 1；
  * 未知顶层键、非法渠道 type、hooks 非法 event 等 → 警告（code 0，逐条列出）。
- * @param path 要校验的文件路径；缺省为 ~/.step-pi/config.toml
+ * @param path 要校验的文件路径；缺省为 ~/.step-pilot/config.toml
  * @param options.testCapabilities 是否实测 capabilities（发真实请求，需要 API key 和网络）
  */
 export async function runDoctorConfig(
   path?: string,
   options?: { testCapabilities?: boolean },
 ): Promise<DoctorConfigResult> {
-  const target = path ?? join(homedir(), '.step-pi', 'config.toml');
+  const target = path ?? join(homedir(), '.step-pilot', 'config.toml');
   if (!existsSync(target)) {
     return { code: 1, stderr: `error: 配置文件不存在：${target}\n` };
   }

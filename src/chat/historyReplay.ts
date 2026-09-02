@@ -7,7 +7,7 @@ import type { DisplayItem } from './types.js';
 /**
  * 会话回放：把恢复的历史消息（StoredMessage[]）投影成可渲染的 DisplayItem[]。
  *
- * 适配 Step Code 的数据驱动 UI：DisplayItem 是静态数据结构，
+ * 适配 Step Pilot 的数据驱动 UI：DisplayItem 是静态数据结构，
  * 故直接构造与实时 applyEvent 结构一致的 DisplayItem，无需模拟流式管线。
  * 产物走同一个 MessageItem 组件渲染，保证回放与实时逐像素一致。
  *

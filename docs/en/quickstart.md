@@ -5,20 +5,20 @@
 
 # Quick start
 
-By the end of this page you will have installed Step Pi, configured an API key, and completed your first conversation.
+By the end of this page you will have installed Step Pilot, configured an API key, and completed your first conversation.
 
 ## 1. Install
 
 The fastest path (requires Node.js >= 22):
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/steppi.tgz
+npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot.tgz
 ```
 
 This installs a pre-built package: nothing is compiled locally and no dependencies are fetched, and the link always points to the latest Release. Without a Node environment, download the standalone executable for your platform from [Releases](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest). To contribute, clone the repository and build it yourself:
 
 ```bash
-git clone https://github.com/Zi-Yi-Ming/step-pi.git
+git clone https://github.com/Zi-Yi-Ming/step-pilot.git
 cd Step-Realtime-CLI
 pnpm install
 pnpm build
@@ -33,9 +33,9 @@ Get an API key for the Step models from the [StepFun open platform](https://plat
 
 ```bash
 # Option 1: environment variable
-export STEP_PI_API_KEY=<your-key>
+export STEP_PILOT_API_KEY=<your-key>
 
-# Option 2: write it into ~/.step-pi/config.toml
+# Option 2: write it into ~/.step-pilot/config.toml
 #   [providers.stepfun]
 #   type = "stepfun"
 #   api_key = "<your-key>"

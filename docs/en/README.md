@@ -3,9 +3,9 @@
   <a href="../zh/README.md">简体中文</a>
 </p>
 
-# Step Code User Guide
+# Step Pilot User Guide
 
-Step Code is a coding agent CLI for the terminal, powered by StepFun's Step model family. The model uses tools to read and write real files and run real commands; results are fed back and the loop continues until the task is done.
+Step Pilot is a coding agent CLI for the terminal, powered by StepFun's Step model family. The model uses tools to read and write real files and run real commands; results are fed back and the loop continues until the task is done.
 
 This guide follows the order you are likely to need things in. If you are new, start with Quick start.
 

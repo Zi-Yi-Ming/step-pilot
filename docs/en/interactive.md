@@ -231,7 +231,7 @@ Whether the model **actively sends** the thinking request field, and the thinkin
 
 ## Plugin management
 
-`/plugin` manages the plugins under `~/.step-pi/plugins/`:
+`/plugin` manages the plugins under `~/.step-pilot/plugins/`:
 
 | Subcommand | What it does |
 |--------|------|

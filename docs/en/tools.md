@@ -5,7 +5,7 @@
 
 # Tools
 
-This page is the reference manual for Step Code's built-in tools: the full list of 29 tools, the parameters and behavioral limits of the file, multimodal, command, network, interaction, and orchestration tools, and the general mechanisms that run through all of them (validation, result feedback, parallel scheduling, permission gating).
+This page is the reference manual for Step Pilot's built-in tools: the full list of 29 tools, the parameters and behavioral limits of the file, multimodal, command, network, interaction, and orchestration tools, and the general mechanisms that run through all of them (validation, result feedback, parallel scheduling, permission gating).
 
 Tools are invoked by the model itself; you never write call syntax by hand. The point of this document is to let you know what the model has at its disposal, where each tool's limits are, and which layer to suspect when something goes wrong.
 

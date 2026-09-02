@@ -165,7 +165,7 @@ describe('withHistoryNormalization 装饰器', () => {
     expect(sent.filter((m) => m.role === 'user')).toHaveLength(1);
   });
 
-  it('STEP_PI_STRICT_HISTORY=1 时抛错；未设时只 warn 不抛', async () => {
+  it('STEP_PILOT_STRICT_HISTORY=1 时抛错；未设时只 warn 不抛', async () => {
     const fakeInner = {
       maxTokens: 1024,
       stream() {
@@ -186,19 +186,19 @@ describe('withHistoryNormalization 装饰器', () => {
       { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'ghost', content: 'r' }] },
     ];
     // 未设环境变量：不抛
-    const prev = process.env['STEP_PI_STRICT_HISTORY'];
-    process.env['STEP_PI_STRICT_HISTORY'] = '';
+    const prev = process.env['STEP_PILOT_STRICT_HISTORY'];
+    process.env['STEP_PILOT_STRICT_HISTORY'] = '';
     try {
       await provider.stream({ system: '', tools: [], messages }).finalMessage();
     } finally {
-      process.env['STEP_PI_STRICT_HISTORY'] = prev ?? '';
+      process.env['STEP_PILOT_STRICT_HISTORY'] = prev ?? '';
     }
     // 设环境变量：抛错
-    process.env['STEP_PI_STRICT_HISTORY'] = '1';
+    process.env['STEP_PILOT_STRICT_HISTORY'] = '1';
     try {
       expect(() => provider.stream({ system: '', tools: [], messages })).toThrow('历史不变量被破坏');
     } finally {
-      process.env['STEP_PI_STRICT_HISTORY'] = prev ?? '';
+      process.env['STEP_PILOT_STRICT_HISTORY'] = prev ?? '';
     }
   });
 });

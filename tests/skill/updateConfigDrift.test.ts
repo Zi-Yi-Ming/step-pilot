@@ -56,10 +56,10 @@ describe('update-config skill 防漂移', () => {
 
   it('skill 记录配置相关环境变量', () => {
     for (const env of [
-      'STEP_PI_API_KEY',
-      'STEP_PI_PROVIDER',
-      'STEP_PI_MODEL',
-      'STEP_PI_BASE_URL',
+      'STEP_PILOT_API_KEY',
+      'STEP_PILOT_PROVIDER',
+      'STEP_PILOT_MODEL',
+      'STEP_PILOT_BASE_URL',
       'ANTHROPIC_API_KEY',
       'OPENAI_API_KEY',
     ]) {

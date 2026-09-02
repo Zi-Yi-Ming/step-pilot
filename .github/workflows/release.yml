@@ -41,13 +41,13 @@ jobs:
         include:
           - os: windows-latest
             target: win32-x64
-            asset: steppi-win32-x64.exe
+            asset: step-pilot-win32-x64.exe
           - os: macos-latest
             target: darwin-arm64
-            asset: steppi-darwin-arm64
+            asset: step-pilot-darwin-arm64
           - os: ubuntu-latest
             target: linux-x64
-            asset: steppi-linux-x64
+            asset: step-pilot-linux-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -110,30 +110,30 @@ jobs:
         run: npm pack
 
       - name: Checksum
-        run: sha256sum steppi-*.tgz > "$(ls steppi-*.tgz).sha256"
+        run: sha256sum step-pilot-*.tgz > "$(ls step-pilot-*.tgz).sha256"
 
       # 额外复制一份不带版本号的固定名资产，让
-      # releases/latest/download/steppi.tgz 成为永久安装链接，
+      # releases/latest/download/step-pilot.tgz 成为永久安装链接，
       # 文档与安装脚本不必随版本号逐个更新。
       - name: Stable-name copy for latest/download permalink
         run: |
-          cp "$(ls steppi-*.tgz)" steppi.tgz
-          cp "$(ls steppi-*.tgz).sha256" steppi.tgz.sha256
+          cp "$(ls step-pilot-*.tgz)" step-pilot.tgz
+          cp "$(ls step-pilot-*.tgz).sha256" step-pilot.tgz.sha256
 
       # 装一遍自己打出来的包：tarball 里缺 dist/ 或 bin 指向错误都会在这里暴露
       - name: Verify tarball installs
         run: |
-          npm i -g ./"$(ls steppi-*.tgz)"
-          steppi --version
+          npm i -g ./"$(ls step-pilot-*.tgz)"
+          step-pilot --version
 
       - uses: actions/upload-artifact@v4
         with:
           name: tarball
           path: |
-            steppi-*.tgz
-            steppi-*.tgz.sha256
-            steppi.tgz
-            steppi.tgz.sha256
+            step-pilot-*.tgz
+            step-pilot-*.tgz.sha256
+            step-pilot.tgz
+            step-pilot.tgz.sha256
           if-no-files-found: error
 
   release:
@@ -151,19 +151,19 @@ jobs:
           TAG: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
         run: |
-          TGZ="$(cd artifacts && ls steppi-*.tgz)"
+          TGZ="$(cd artifacts && ls step-pilot-*.tgz)"
           cat > notes.md <<EOF
           ## 安装
 
           ### 单文件可执行（无需 Node 环境）
 
-          下载对应平台的产物，重命名为 \`steppi\`（Windows 为 \`steppi.exe\`）后放进 PATH：
+          下载对应平台的产物，重命名为 \`step-pilot\`（Windows 为 \`step-pilot.exe\`）后放进 PATH：
 
           | 平台 | 产物 |
           |------|------|
-          | Windows x64 | \`steppi-win32-x64.exe\` |
-          | macOS Apple Silicon | \`steppi-darwin-arm64\` |
-          | Linux x64 | \`steppi-linux-x64\` |
+          | Windows x64 | \`step-pilot-win32-x64.exe\` |
+          | macOS Apple Silicon | \`step-pilot-darwin-arm64\` |
+          | Linux x64 | \`step-pilot-linux-x64\` |
 
           每个产物附带同名 \`.sha256\` 校验文件。macOS 与 Linux 产物下载后需要 \`chmod +x\`。
 
@@ -171,7 +171,7 @@ jobs:
 
           \`\`\`bash
           # latest/download 永久链接：始终装最新 Release 的 tarball，不随版本号失效
-          npm i -g https://github.com/${REPO}/releases/latest/download/steppi.tgz
+          npm i -g https://github.com/${REPO}/releases/latest/download/step-pilot.tgz
 
           # 或锁定本次发布的 tarball
           npm i -g https://github.com/${REPO}/releases/download/${TAG}/${TGZ}

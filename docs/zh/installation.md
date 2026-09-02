@@ -1,6 +1,6 @@
 # 安装
 
-> 手上已有别的 AI agent 的话，仓库里的 [`skills/steppi-install/`](../../skills/steppi-install/SKILL.md) 是一份安装说明技能，让你的 agent 读它即可代你完成本页的步骤。
+> 手上已有别的 AI agent 的话，仓库里的 [`skills/step-pilot-install/`](../../skills/step-pilot-install/SKILL.md) 是一份安装说明技能，让你的 agent 读它即可代你完成本页的步骤。
 
 ## 环境要求
 
@@ -25,9 +25,9 @@
 
 | 平台 | 下载 |
 |------|------|
-| Windows x64 | [steppi-win32-x64.exe](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/steppi-win32-x64.exe) |
-| macOS Apple Silicon | [steppi-darwin-arm64](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/steppi-darwin-arm64) |
-| Linux x64 | [steppi-linux-x64](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/steppi-linux-x64) |
+| Windows x64 | [step-pilot-win32-x64.exe](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot-win32-x64.exe) |
+| macOS Apple Silicon | [step-pilot-darwin-arm64](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot-darwin-arm64) |
+| Linux x64 | [step-pilot-linux-x64](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot-linux-x64) |
 
 每个产物附带同名 `.sha256` 校验文件（同路径加 `.sha256` 后缀）。下载后重命名为 `step`（Windows 为 `step.exe`）放进 PATH 即可。
 
@@ -44,7 +44,7 @@ xattr -d com.apple.quarantine step 2>/dev/null || true
 一条命令装最新版（永久链接，始终解析到最新 Release 的 tarball）：
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/steppi.tgz
+npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot.tgz
 step --version
 ```
 
@@ -53,7 +53,7 @@ tarball 内含预编译的 `dist/`，`npm i -g <url>` 只解包并链接 `bin.st
 要锁定某个版本、可复现安装时，把 URL 换成该 tag 的带版本号资产，例如：
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/download/v0.1.2/steppi-0.1.2.tgz
+npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/download/v0.1.2/step-pilot-0.1.2.tgz
 ```
 
 ## npm 装源码分支（跟随最新主干）
@@ -97,7 +97,7 @@ pnpm install && pnpm build
 
 ## npm 公共 registry（暂不提供）
 
-`step-code` 没有发布到 npm 公共 registry，因此 `npm install -g step-code` 不可用，也没有 `npm update -g step-code`。
+`step-pilot` 没有发布到 npm 公共 registry，因此 `npm install -g step-pilot` 不可用，也没有 `npm update -g step-pilot`。
 
 这是当前阶段的选择而非遗漏：上面几种方式已经覆盖「要不要 Node 环境」「跟版本还是跟主干」的全部组合，而 registry 发布会额外引入账号、发布权限与版本不可撤回等长期承诺。等分发形态稳定后再评估注册。
 
@@ -112,11 +112,11 @@ pnpm install && pnpm build
 重新执行原来那条安装命令，npm 会重新解析 URL 或 git 引用并覆盖安装：
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/steppi.tgz  # 最新 Release tarball
+npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot.tgz  # 最新 Release tarball
 npm i -g github:Zi-Yi-Ming/Step-Realtime-CLI#main                                  # 源码分支
 ```
 
-`npm update -g step-code` 对这几种形态不生效——它面向 registry 包，而这里的来源是 git 引用或 URL。
+`npm update -g step-pilot` 对这几种形态不生效——它面向 registry 包，而这里的来源是 git 引用或 URL。
 
 ### 源码安装升级
 
@@ -138,7 +138,7 @@ pnpm build
 ### npm 装的两种形态
 
 ```bash
-npm uninstall -g step-code
+npm uninstall -g step-pilot
 ```
 
 ### 源码安装卸载
@@ -148,7 +148,7 @@ cd Step-Realtime-CLI
 pnpm unlink --global   # 移除全局 step 命令
 ```
 
-配置、会话记录等数据在 `~/.step-pi/`，卸载命令不会动它；要彻底清理手动删除该目录。
+配置、会话记录等数据在 `~/.step-pilot/`，卸载命令不会动它；要彻底清理手动删除该目录。
 
 ## 常见问题
 

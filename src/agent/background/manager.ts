@@ -207,7 +207,7 @@ export class BackgroundManager {
         buf = buf.subarray(buf.length - keep);
         task.outputTruncated = true;
         const note = Buffer.from(
-          `\n[... steppi 滚动截断：单批输出超保留量，仅留尾部 ${keep} 字节 ...]\n`,
+          `\n[... step-pilot 滚动截断：单批输出超保留量，仅留尾部 ${keep} 字节 ...]\n`,
           'utf8',
         );
         buf = Buffer.concat([note, buf]);
@@ -222,7 +222,7 @@ export class BackgroundManager {
         }
         const tail = existing.subarray(Math.max(0, existing.length - keep));
         const marker =
-          `\n[... steppi 滚动截断：已省略前 ${(task.outputTotalBytes ?? 0) - tail.length} 字节` +
+          `\n[... step-pilot 滚动截断：已省略前 ${(task.outputTotalBytes ?? 0) - tail.length} 字节` +
           `（总产出 ${task.outputTotalBytes} 字节）。单任务 output.log 上限 ${max} 字节，` +
           `防失控进程写满磁盘；需完整输出请让命令自行重定向到文件 ...]\n`;
         writeFileSync(task.outputPath, Buffer.concat([Buffer.from(marker, 'utf8'), tail]));

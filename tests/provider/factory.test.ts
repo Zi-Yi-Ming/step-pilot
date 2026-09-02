@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_THINKING_LEVELS, type StepCodeConfig } from '../../src/config/config.js';
+import { DEFAULT_THINKING_LEVELS, type StepPilotConfig } from '../../src/config/config.js';
 import { createProvider } from '../../src/provider/factory.js';
 import { StepfunAdapter } from '../../src/provider/adapter.js';
 import { AnthropicMessagesProvider } from '../../src/provider/anthropicMessages.js';
@@ -7,7 +7,7 @@ import { OpenAiChatProvider } from '../../src/provider/openaiChat.js';
 import type { NormalizedChatProvider } from '../../src/provider/normalizedProvider.js';
 import { OpenAiResponsesProvider } from '../../src/provider/openaiResponses.js';
 
-function baseConfig(overrides: Partial<StepCodeConfig> = {}): StepCodeConfig {
+function baseConfig(overrides: Partial<StepPilotConfig> = {}): StepPilotConfig {
   return {
     provider: 'stepfun',
     apiKey: 'k',
@@ -144,7 +144,7 @@ describe('createProvider 缺失 API key 守卫', () => {
     } catch (e) {
       message = (e as Error).message;
     }
-    expect(message).toContain('STEP_PI_API_KEY');
+    expect(message).toContain('STEP_PILOT_API_KEY');
     expect(message).toContain('[providers]');
     expect(message).toContain('api_key_env');
   });

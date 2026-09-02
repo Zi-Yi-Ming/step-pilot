@@ -2,8 +2,8 @@
 
 > 终端编码 agent CLI · 由阶跃星辰 Step 系列模型驱动 · **主维护版本（pi-tui 渲染层）**
 >
-> **本仓定位**：`steppi` 是 Step Code 的主维护版本，前端用 pi-tui 差分渲染。
-> Ink 版（React 终端框架）已归档至 `step-code-design-draft/step-code-ink/`，仅作设计参考。
+> **本仓定位**：`step-pilot` 是 Step Code 的主维护版本，前端用 pi-tui 差分渲染。
+> Ink 版（React 终端框架）已归档至 `step-pilot-design-draft/step-pilot-ink/`，仅作设计参考。
 >
 > **归档版本同步（历史记录）**：两仓同步规则归档在产品设计仓 `两仓关系与差异.md`。
 > Ink 版已停止维护，L2 共享层不再需要双向同步。L3 TUI 层（`src/tui-pi/`）是本仓的唯一前端实现。
@@ -30,7 +30,7 @@ src/
 ├── cli.tsx               # CLI 主入口：commander 参数/子命令，交互 render(<App/>) + -p 非交互
 ├── i18n.ts               # 中英文案表
 ├── version.ts            # 版本号单一来源（与 package.json 对齐，有测试断言）
-├── config/config.ts      # 读 env / .env / ~/.step-pi/config.toml；协议预设、渠道与模型别名解析
+├── config/config.ts      # 读 env / .env / ~/.step-pilot/config.toml；协议预设、渠道与模型别名解析
 ├── provider/
 │   ├── step/                 # 阶跃专属协议适配（三接口参数语义不互通，无法靠协议族推导）
 │   │   ├── stepCommon.ts     #   档位折算（budgetToEffort）+ 三通道 effort 参数形态（messages 走 output_config.effort）+ 三套结束原因归一
@@ -118,7 +118,7 @@ tests/                    # vitest 单元 + 集成测试
 - **模型与协议不是自由组合**：个别模型只在特定接口开放，配错渠道由服务端返回 400 并指明应改用的接口。配置层目前不做前置校验。
 - `ChatProvider` 统一产出 Anthropic 形状的事件流与 `finalMessage()`，OpenAI 协议在 provider 内部翻译，消费方（runTurn/loop/compaction/TUI）零感知；新增协议在 `src/provider/` 加适配器 + `PROVIDER_PRESETS` 注册 type。
 - 多模态：支持 base64 图片理解（`image/png`|`jpeg`|`gif`|`webp`），不支持音视频；TUI 里 Alt+V 从剪贴板粘贴图片。
-- API key 优先级：`STEP_PI_API_KEY` > `~/.step-pi/config.toml` 的 `api_key`（anthropic/openai 协议另认 `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` 惯例变量）；`STEP_PI_PROVIDER`/`BASE_URL`/`MODEL` 可经环境变量覆盖。多渠道多模型经 `[providers.<id>]` + `[models.<别名>]` 配置。
+- API key 优先级：`STEP_PILOT_API_KEY` > `~/.step-pilot/config.toml` 的 `api_key`（anthropic/openai 协议另认 `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` 惯例变量）；`STEP_PILOT_PROVIDER`/`BASE_URL`/`MODEL` 可经环境变量覆盖。多渠道多模型经 `[providers.<id>]` + `[models.<别名>]` 配置。
 
 ## 破坏性迭代与兼容判据
 
@@ -134,7 +134,7 @@ tests/                    # vitest 单元 + 集成测试
 - 每次改完跑 `pnpm typecheck`（tsc 严格模式全开）与 `pnpm test`（vitest）
 - 新增工具：在 `src/tools/` 下写单文件（zod schema + execute，返回 `ok()`/`fail()`），再注册进 `src/tools/index.ts` 的 `ALL_TOOLS`；工具报错返回 `fail()` 不抛异常（循环会回灌给模型自纠）
 - 权限判定改 `agent/permission/mode.ts` 的 `decide`；斜杠命令改 `tui/commands.ts` 注册表 + `App` 分发；横切逻辑走 `agent/hooks.ts` 的 `LoopHooks` 缝，不要塞进 `runTurn` 核心
-- 子 agent：角色定义在 `agent/subagent/registry.ts`（内置）或 `.step-pi/agents/*.md`（frontmatter：description/tools/model/maxSteps + 正文=system prompt）；派生走 `spawn_agent` 工具 → `runSubagent`。递归防护双保险：子 agent 工具集永不含 spawn_agent + `ToolContext.depth` 上限。限制走 `~/.step-pi/config.toml` 的 `[subagent]` 段（`max_depth` / `max_steps` / `max_concurrent`，「可配 + 默认 + clamp」，见 `config.ts` 的 `resolveSubagentLimits`）
+- 子 agent：角色定义在 `agent/subagent/registry.ts`（内置）或 `.step-pilot/agents/*.md`（frontmatter：description/tools/model/maxSteps + 正文=system prompt）；派生走 `spawn_agent` 工具 → `runSubagent`。递归防护双保险：子 agent 工具集永不含 spawn_agent + `ToolContext.depth` 上限。限制走 `~/.step-pilot/config.toml` 的 `[subagent]` 段（`max_depth` / `max_steps` / `max_concurrent`，「可配 + 默认 + clamp」，见 `config.ts` 的 `resolveSubagentLimits`）
 - 跨平台优先：文件操作用 `node:fs` 原生 API 而非 shell；bash 工具在 Windows 下已封装 Git Bash 探测
 - 跨平台路径拼接：只要处理的是 Windows 风格路径（包括只在 `process.platform === 'win32'` 分支内使用的函数、以及被 mock 成 `'win32'` 的单测），必须显式用 `path.win32`（或 `path.posix`），禁止直接使用默认的 `path.join`。默认 `join` 在 POSIX 机器上会把反斜杠当成普通字符，拼出 `D:\Tools\Git/bin/bash.exe` 这类混合分隔符，导致路径匹配失败。
 - pnpm 配置改动写在 `pnpm-workspace.yaml`（pnpm 10+ 不再读 package.json 的 `pnpm` 字段）
@@ -224,7 +224,7 @@ npx vitest run tests/session/streamJson.test.ts   # vitest 按需编译，无关
 worktree 用于**开工前**就知道要长期并行的场景，不是用来救场的：
 
 ```bash
-git worktree add ../step-code-worktrees/<名字> -b wt/<名字>
+git worktree add ../step-pilot-worktrees/<名字> -b wt/<名字>
 ```
 
 改动已经铺开后再建 worktree 是负收益（要么搬运有风险，要么空着没用）。
@@ -244,7 +244,7 @@ git worktree add ../step-code-worktrees/<名字> -b wt/<名字>
 
 ## 已具备能力
 
-工具循环 + 错误回灌、权限系统（manual/auto/yolo + 审批）、计划模式（`/plan`）、Esc 中断、指数退避重试（`Retry-After` 优先 + 并行子 agent 429 重排队）、Anthropic prompt cache 注入、会话持久化（`--continue` / `--session` / `--resume` / `/fork`）、上下文压缩（micro / full 两级 + `/compact`）、斜杠命令、`--output-format stream-json`、内置联网搜索（`web_search` + `web_image_search`）、markdown 终端渲染、发送缓冲队列、斜杠命令补全、输入框按键导航（Home/End、Ctrl+A/E/W/U/K、词移动）、图片粘贴输入（Alt+V）、thinking 推理过程呈现（流式暗色预览 + 完成折叠）、动态区视口化（防长输出滚动跳顶）、子 agent（`spawn_agent`，内置 general/explore + `.step-pi/agents/*.md` 自定义）、并行工具执行（资源冲突驱动）+ 子 agent 并发上限、动态工作流（`dynamic_workflow`，模型写 JS 脚本编排子 agent，TUI 实时显示 phase 阶段）、任务清单（`todo_list`）、自主目标（`create_goal` 等，轮次 + token 双预算、随会话持久化）、后台任务（`bash run_in_background` + `task_*`，step 边界注入通知）、定时任务（`cron_*`，按 cwd 持久化 + 恢复）、技能懒加载（`skill`）、插件（`~/.step-pi/plugins/`，skills + mcpServers + hooks + 命令 + `/plugin` 管理）、用户可配置 hooks（`[[hooks]]`，5 事件）、外部工具懒加载（`tool_search`）、MCP 接入（stdio）、多协议 provider（anthropic / openai / openai_responses）与多渠道多模型（`[providers]` + `[models]` + `/model` 选择器）、子 agent 角色模型按别名跨渠道解析、自定义子 agent 角色进入主 agent system prompt、恢复会话时模型别名失效自动回退默认模型、工具调用通道退化检测（模型把调用打成纯文本时发 notice，不静默）、国际化（中 / 英）、启动期 config.toml 轻量自检（语法错误 fail-fast + 语义错误警告 + 别名引用检查，与 `step doctor config` 共用规则）。
+工具循环 + 错误回灌、权限系统（manual/auto/yolo + 审批）、计划模式（`/plan`）、Esc 中断、指数退避重试（`Retry-After` 优先 + 并行子 agent 429 重排队）、Anthropic prompt cache 注入、会话持久化（`--continue` / `--session` / `--resume` / `/fork`）、上下文压缩（micro / full 两级 + `/compact`）、斜杠命令、`--output-format stream-json`、内置联网搜索（`web_search` + `web_image_search`）、markdown 终端渲染、发送缓冲队列、斜杠命令补全、输入框按键导航（Home/End、Ctrl+A/E/W/U/K、词移动）、图片粘贴输入（Alt+V）、thinking 推理过程呈现（流式暗色预览 + 完成折叠）、动态区视口化（防长输出滚动跳顶）、子 agent（`spawn_agent`，内置 general/explore + `.step-pilot/agents/*.md` 自定义）、并行工具执行（资源冲突驱动）+ 子 agent 并发上限、动态工作流（`dynamic_workflow`，模型写 JS 脚本编排子 agent，TUI 实时显示 phase 阶段）、任务清单（`todo_list`）、自主目标（`create_goal` 等，轮次 + token 双预算、随会话持久化）、后台任务（`bash run_in_background` + `task_*`，step 边界注入通知）、定时任务（`cron_*`，按 cwd 持久化 + 恢复）、技能懒加载（`skill`）、插件（`~/.step-pilot/plugins/`，skills + mcpServers + hooks + 命令 + `/plugin` 管理）、用户可配置 hooks（`[[hooks]]`，5 事件）、外部工具懒加载（`tool_search`）、MCP 接入（stdio）、多协议 provider（anthropic / openai / openai_responses）与多渠道多模型（`[providers]` + `[models]` + `/model` 选择器）、子 agent 角色模型按别名跨渠道解析、自定义子 agent 角色进入主 agent system prompt、恢复会话时模型别名失效自动回退默认模型、工具调用通道退化检测（模型把调用打成纯文本时发 notice，不静默）、国际化（中 / 英）、启动期 config.toml 轻量自检（语法错误 fail-fast + 语义错误警告 + 别名引用检查，与 `step doctor config` 共用规则）。
 
 ## 尚未实现（后续迭代）
 
@@ -323,5 +323,5 @@ Step 对未知参数一律静默忽略，因此**「发了不报错」永远不�
 
   **不写特例代码的理由**：首要一条是 **router 自身变更频率高**（项目方确认）——它的路由策略与后端模型池会持续调整，针对某次观测分布写出的适配逻辑会在下次调整后失效甚至反向生效；即使 API 愿意暴露子模型信息，适配也会过期。其次，为多峰分布做客户端适配需要先识别每次请求路由到了哪个子模型，而 API 不暴露该信息。通用健壮性处理（429 退避重试、空响应诊断分型、截断判定）本来就覆盖它。**适配工作优先投给行为稳定的模型。**
   上述观测数据的定位是**排查时对号用**，不作为适配依据，且有时效性——router 侧调整后需重新观测。
-- **chat / responses 两通道的 effort 生效性未验证**：写法有官方文档背书，但未做过与 messages 同等强度的并发配对实测。曾据单次采样断言「三协议都支持且单调生效」，重跑即翻转，该断言已撤回。实验方法见 `step-code-labs/api-param-semantics/README.md` 的 1.3 与第二节。
+- **chat / responses 两通道的 effort 生效性未验证**：写法有官方文档背书，但未做过与 messages 同等强度的并发配对实测。曾据单次采样断言「三协议都支持且单调生效」，重跑即翻转，该断言已撤回。实验方法见 `step-pilot-labs/api-param-semantics/README.md` 的 1.3 与第二节。
 - **effort 效应只在难任务上可观测**：简单任务（模型自主思考量 200~500tok）下三档无差异，包括已证生效的 `output_config.effort`。任何「档位是否生效」的验证都必须用会引发长推理的任务，否则会得出假阴性结论。

@@ -2,16 +2,16 @@
  * 运行日志（诊断通道）。会话记录走 SessionStore 的 `.wire.jsonl`，与此无关。
  *
  * 设计：
- * - 一条通道，同时写全局文件 `~/.step-pi/logs/steppi.log` 和进程内环形缓冲。
+ * - 一条通道，同时写全局文件 `~/.step-pilot/logs/step-pilot.log` 和进程内环形缓冲。
  * - TUI 交互模式：只进文件 + 缓冲，绝不写 stderr/stdout（Ink 独占终端，写终端会打乱渲染）。
  * - headless（`-p` 一次性执行）模式：才允许写 stderr，默认只 error 级。
- * - 级别沿用 STEP_PI_DEBUG：默认记 info 及以上，=1 时降到 debug。
+ * - 级别沿用 STEP_PILOT_DEBUG：默认记 info 及以上，=1 时降到 debug。
  * - 启动轮转：文件超阈值则重命名为 `.log.old`，不引入日志库。
  * - 写入前做 best-effort 脱敏（redactSecrets）。
  * - 环形缓冲经 dumpLogBuffer() 导出，供 debug-zip 取最近现场。
  *
  * logDebug/logError 的签名与行为向后兼容：headless 下仍写 stderr（logError 无条件、
- * logDebug 仅 STEP_PI_DEBUG=1 时），TUI 下改为只进文件 + 缓冲。
+ * logDebug 仅 STEP_PILOT_DEBUG=1 时），TUI 下改为只进文件 + 缓冲。
  */
 import { appendFileSync, chmodSync, existsSync, mkdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -23,8 +23,8 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const LEVEL_RANK: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
 
-const DEBUG = process.env['STEP_PI_DEBUG'] === '1';
-/** 记录阈值：低于此级别的日志既不进文件也不进缓冲。STEP_PI_DEBUG=1 时放宽到 debug。 */
+const DEBUG = process.env['STEP_PILOT_DEBUG'] === '1';
+/** 记录阈值：低于此级别的日志既不进文件也不进缓冲。STEP_PILOT_DEBUG=1 时放宽到 debug。 */
 const RECORD_THRESHOLD: number = DEBUG ? LEVEL_RANK.debug : LEVEL_RANK.info;
 
 /** 环形缓冲容量（条）。 */
@@ -34,9 +34,9 @@ const ROTATE_BYTES = 5 * 1024 * 1024;
 
 /** 默认 headless：进程早期（配置/provider 加载失败）尚未 configure 时，错误应能进 stderr。 */
 let mode: LogMode = 'headless';
-/** 日志目录（默认 ~/.step-pi/logs）。测试可通过 configureLogger 覆盖。 */
-let logDir: string = join(homedir(), '.step-pi', 'logs');
-let logFile: string = join(logDir, 'steppi.log');
+/** 日志目录（默认 ~/.step-pilot/logs）。测试可通过 configureLogger 覆盖。 */
+let logDir: string = join(homedir(), '.step-pilot', 'logs');
+let logFile: string = join(logDir, 'step-pilot.log');
 
 /** 环形缓冲：定容数组，满了丢最旧。 */
 let buffer: string[] = [];
@@ -51,7 +51,7 @@ export function configureLogger(opts: { mode?: LogMode; dir?: string }): void {
   if (opts.mode !== undefined) mode = opts.mode;
   if (opts.dir !== undefined) {
     logDir = opts.dir;
-    logFile = join(logDir, 'steppi.log');
+    logFile = join(logDir, 'step-pilot.log');
     fileReady = false; // 新目录需要重新初始化 + 轮转
   }
 }
@@ -126,7 +126,7 @@ function writeFile(line: string): void {
   }
 }
 
-/** headless 下是否把该级别写到 stderr：error 恒写；STEP_PI_DEBUG=1 时放宽到全部已记录级别。 */
+/** headless 下是否把该级别写到 stderr：error 恒写；STEP_PILOT_DEBUG=1 时放宽到全部已记录级别。 */
 function shouldWriteStderr(level: LogLevel): boolean {
   if (mode !== 'headless') return false;
   if (level === 'error') return true;
@@ -141,7 +141,7 @@ function log(level: LogLevel, args: unknown[]): void {
   pushBuffer(line);
   writeFile(line);
   if (shouldWriteStderr(level)) {
-    process.stderr.write(`[steppi${level === 'error' ? ':error' : ''}] ${msg}\n`);
+    process.stderr.write(`[step-pilot${level === 'error' ? ':error' : ''}] ${msg}\n`);
   }
 }
 

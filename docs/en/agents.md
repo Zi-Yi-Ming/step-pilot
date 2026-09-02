@@ -12,7 +12,7 @@ This page covers the mechanisms that let the model work in parallel, on a schedu
 The model can spawn sub-agents: a fresh context, a role-scoped tool allowlist, and only a summary fed back into the main session when done. This fits the case of "let it handle one thing independently without polluting the main conversation".
 
 - **Two built-in types**: `general` (the full tool set, can read, write, and run commands) and `explore` (read-only investigation, with a tool allowlist of `read_file`/`read_media`/`list_dir`/`glob`/`grep`/`web_search`/`web_fetch`/`web_image_search`/`skill`)
-- **Custom**: write an agent definition in `.step-pi/agents/<name>.md` (project level) or `~/.step-pi/agents/<name>.md` (user level)
+- **Custom**: write an agent definition in `.step-pilot/agents/<name>.md` (project level) or `~/.step-pilot/agents/<name>.md` (user level)
 - **Precedence**: built-in < user level < project level; for the same name, the later one wins
 - **Guardrails**: the per-session spawn limit, the nesting depth limit, the per-agent turn limit, and the parallel concurrency limit are all configurable in the `[subagent]` section (see [Configuration](./configuration.md))
 
@@ -32,7 +32,7 @@ The sub-agent's result string carries its session id — pass that id to `resume
 
 ### Custom agent definition format
 
-Sub-agent definitions can live in two places: project-level `<cwd>/.step-pi/agents/<name>.md` and user-level `~/.step-pi/agents/<name>.md`. The loading priority is **built-in < user-level < project-level**, and a same-name definition from a later source **fully overrides** the earlier one — it is not a field merge. So if you create an `explore.md` in your project, it completely replaces the built-in `explore`.
+Sub-agent definitions can live in two places: project-level `<cwd>/.step-pilot/agents/<name>.md` and user-level `~/.step-pilot/agents/<name>.md`. The loading priority is **built-in < user-level < project-level**, and a same-name definition from a later source **fully overrides** the earlier one — it is not a field merge. So if you create an `explore.md` in your project, it completely replaces the built-in `explore`.
 
 YAML frontmatter plus a body, where the body is that agent's system prompt:
 
@@ -66,7 +66,7 @@ By default a sub-agent runs on the same model as the main session. The `model` f
 
 The typical use is downgrading read-only exploration work. Searching, locating, and summarizing do not demand deep reasoning, so a lightweight model is enough — and it is faster and cheaper. There are two ways to do it:
 
-**Add a lightweight role**, leaving the built-in `explore` untouched and selecting the type explicitly when spawning. Write `.step-pi/agents/explore-fast.md`:
+**Add a lightweight role**, leaving the built-in `explore` untouched and selecting the type explicitly when spawning. Write `.step-pilot/agents/explore-fast.md`:
 
 ```markdown
 ---
@@ -99,7 +99,7 @@ Quota accounting has its own subtlety: illegal requests of the two kinds, depth 
 
 ### Parallel execution
 
-The model can return multiple tool calls in a single turn, and Step Pi decides what may run in parallel by **resource conflict**: each tool declares its own access surface (no side effects / reads a path / writes a path / globally exclusive), non-conflicting ones run in parallel, conflicting ones run serially, and results are always fed back in call order.
+The model can return multiple tool calls in a single turn, and Step Pilot decides what may run in parallel by **resource conflict**: each tool declares its own access surface (no side effects / reads a path / writes a path / globally exclusive), non-conflicting ones run in parallel, conflicting ones run serially, and results are always fed back in call order.
 
 The access surface of `spawn_agent` depends on the type: `explore` declares no side effects (parallelizable), while `general` declares global exclusivity (serial by nature). So multiple explore sub-agents and multiple read-only read/grep calls run in parallel, while `general` sub-agents, file writes, and `bash` run serially.
 
@@ -176,7 +176,7 @@ What is kept: `new Date(timestamp)` with an argument, `Date.parse`, and `Date.UT
 | Parameter | Description |
 |------|------|
 | `script` | The JS orchestration script (an async function body, ending with `return <report>`). Give exactly one of this, `name`, and `script_path`; when both `script` and `name` are given, `script` wins |
-| `name` | Loads and runs the existing script at `.step-pi/workflows/<name>.js` by name. On a miss it errors out and lists the currently available script names |
+| `name` | Loads and runs the existing script at `.step-pilot/workflows/<name>.js` by name. On a miss it errors out and lists the currently available script names |
 | `save_as` | Saves this `script` as a named script (overwriting an existing one with the same name), so it can later be reused via `name`. Must be paired with `script` |
 | `script_path` | Reads the script from a file inside cwd and runs it; **a path outside cwd is rejected outright**. Giving it together with `script` or `name` is ambiguous and is rejected |
 | `args` | The parameter object passed to the script, accessed inside the sandbox as the global `args` |
@@ -196,7 +196,7 @@ When a script dies you do not have to start over. The failure result carries thr
 
 The typical fix combines both: edit the archive file to squash the bug, point `script_path` at it, and pass `resume_from_run_id` along to reuse the parts that already completed.
 
-Scripts can be saved under a name for reuse: `save_as` stores one at `.step-pi/workflows/<name>.js`, after which `name` invokes the script of that name, and a name that misses lists the available ones. Calling this tool with no parameters at all lists the currently available scripts (a discovery entry point).
+Scripts can be saved under a name for reuse: `save_as` stores one at `.step-pilot/workflows/<name>.js`, after which `name` invokes the script of that name, and a name that misses lists the available ones. Calling this tool with no parameters at all lists the currently available scripts (a discovery entry point).
 
 ## Autonomous goals (goal)
 

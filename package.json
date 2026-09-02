@@ -1,10 +1,10 @@
 {
-  "name": "steppi",
+  "name": "step-pilot",
   "version": "0.1.2",
-  "description": "Step Pi — 阶跃星辰 Step 系列模型驱动的终端编码 agent CLI。",
+  "description": "Step Pilot — 阶跃星辰 Step 系列模型驱动的终端编码 agent CLI。",
   "type": "module",
   "bin": {
-    "steppi": "dist/main.js"
+    "step-pilot": "dist/main.js"
   },
   "files": [
     "dist",
@@ -16,11 +16,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Zi-Yi-Ming/step-pi.git"
+    "url": "git+https://github.com/Zi-Yi-Ming/step-pilot.git"
   },
-  "homepage": "https://github.com/Zi-Yi-Ming/step-pi#readme",
+  "homepage": "https://github.com/Zi-Yi-Ming/step-pilot#readme",
   "bugs": {
-    "url": "https://github.com/Zi-Yi-Ming/step-pi/issues"
+    "url": "https://github.com/Zi-Yi-Ming/step-pilot/issues"
   },
   "publishConfig": {
     "access": "public"
@@ -37,8 +37,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "node dist/main.js",
-    "steppi": "node scripts/run-step.mjs",
-    "steppi:fresh": "node scripts/run-step.mjs --full",
+    "step-pilot": "node scripts/run-step.mjs",
+    "step-pilot:fresh": "node scripts/run-step.mjs --full",
     "prepare": "node scripts/prepare.mjs",
     "prepublishOnly": "npm run build",
     "prepack": "npm run build"
@@ -47,7 +47,7 @@
     "coding-agent",
     "cli",
     "stepfun",
-    "steppi",
+    "step-pilot",
     "pi-tui"
   ],
   "author": "li-xiu-qi <lixiuqixiaoke@qq.com>",

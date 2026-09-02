@@ -1,6 +1,6 @@
 # 技能、插件与 MCP
 
-本页讲三种扩展 Step Pi 能力的方式：技能（SKILL.md）、插件、外部 MCP server。
+本页讲三种扩展 Step Pilot 能力的方式：技能（SKILL.md）、插件、外部 MCP server。
 
 ## 技能（Skill）
 
@@ -29,16 +29,16 @@ when_to_use: 用户要求提交代码或生成 commit message 时
 按扫描顺序，同名后者覆盖（具体胜一般、原生胜兼容）：
 
 1. 内置（builtin）：随包发布，优先级最低（如 `update-config`）
-2. 用户级：`~/.step-pi/skills/`
+2. 用户级：`~/.step-pilot/skills/`
 3. 项目级（兼容目录）：`<项目>/.agents/skills/`——与其他 CLI 共享的目录约定
-4. 项目级（原生目录）：`<项目>/.step-pi/skills/`
+4. 项目级（原生目录）：`<项目>/.step-pilot/skills/`
 5. 追加目录：config.toml 的 `extra_skill_dirs`
 6. 插件提供：优先级最高
 
 同名 skill 只保留一份（清单不重复）；两个目录放了同名 skill 时，生效的是优先级高的那份。发生这种覆盖时，启动和重载后会明确提示冲突清单：哪个来源被采用、覆盖了谁，不会让旧版本悄悄遮蔽新版本。
 
 ```toml
-# ~/.step-pi/config.toml：追加你的私有技能目录，与默认路径共存
+# ~/.step-pilot/config.toml：追加你的私有技能目录，与默认路径共存
 extra_skill_dirs = ["~/my-private-skills"]
 ```
 
@@ -57,7 +57,7 @@ extra_skill_dirs = ["~/my-private-skills"]
 ### 按名排除
 
 ```toml
-# ~/.step-pi/config.toml：任何来源的同名 skill 都不加载
+# ~/.step-pilot/config.toml：任何来源的同名 skill 都不加载
 disabled_skills = ["team-noisy-skill"]
 ```
 
@@ -69,11 +69,11 @@ disabled_skills = ["team-noisy-skill"]
 
 ## 插件（Plugin）
 
-插件是把扩展能力打包分发的机制：一个目录，声明它提供哪些能力，宿主从不执行插件自己的代码。在 `~/.step-pi/plugins/<插件名>/` 下放置：
+插件是把扩展能力打包分发的机制：一个目录，声明它提供哪些能力，宿主从不执行插件自己的代码。在 `~/.step-pilot/plugins/<插件名>/` 下放置：
 
 ```
 my-plugin/
-└── .step-pi-plugin/
+└── .step-pilot-plugin/
     └── plugin.json     # 插件清单
 ```
 
@@ -85,7 +85,7 @@ my-plugin/
 |------|------|----------|
 | `skills` | skill 目录 | 并入 skill 加载，优先级最高 |
 | `mcpServers` | MCP server 配置（stdio，同 mcp.json schema） | 并入 MCP 加载，运行时名强制加 `<插件id>:<server>` 前缀隔离 |
-| `hooks` | hooks 配置（同 `[[hooks]]` 四字段） | 并入 hooks 引擎，command 的工作目录固定为插件根，注入 `STEP_PI_PLUGIN_ROOT` |
+| `hooks` | hooks 配置（同 `[[hooks]]` 四字段） | 并入 hooks 引擎，command 的工作目录固定为插件根，注入 `STEP_PILOT_PLUGIN_ROOT` |
 | `commands` | markdown 提示词模板（frontmatter 可覆盖 name/description，body 支持 `$ARGUMENTS`） | 注册为斜杠命令，强制命名空间 `<插件id>:<命令名>` |
 
 执行型字段（tools/apps/bootstrap 等）会被识别并忽略——插件不创造新能力类型，只打包分发已有能力。所有相对路径都做根内校验，MCP 的 command 必须是 PATH 命令或 `./` 相对路径，拒绝绝对路径。
@@ -103,16 +103,16 @@ my-plugin/
 /plugin info <id>            # 查看详情
 ```
 
-启停状态记在 `~/.step-pi/plugins.json`（记录 disabled 集合）。清单解析失败的坏插件会标为 error 列出，但不拖垮启动。启停变更后按提示 `/new` 或重启生效。
+启停状态记在 `~/.step-pilot/plugins.json`（记录 disabled 集合）。清单解析失败的坏插件会标为 error 列出，但不拖垮启动。启停变更后按提示 `/new` 或重启生效。
 
 安装即复制而非软链，所以插件源目录被移动或删除不影响已装插件；代价是更新要重装。
 
 ## MCP
 
-连接外部 MCP server（stdio 方式），把外部工具接进 Step Pi：
+连接外部 MCP server（stdio 方式），把外部工具接进 Step Pilot：
 
 ```json
-// ~/.step-pi/mcp.json
+// ~/.step-pilot/mcp.json
 {
   "mcpServers": {
     "my-server": {

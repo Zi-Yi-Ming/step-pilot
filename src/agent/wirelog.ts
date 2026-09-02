@@ -67,7 +67,7 @@ export function pendingDeliveredEvents(
 }
 
 /**
- * wire.jsonl 事件判别联合。只覆盖 step-code 状态机真实拥有的状态种类，
+ * wire.jsonl 事件判别联合。只覆盖 step-pilot 状态机真实拥有的状态种类，
  * 不预支用不到的事件类型（restore 分支随种类只增不减，种类越少兼容面越小）。
  */
 export type WireEvent =

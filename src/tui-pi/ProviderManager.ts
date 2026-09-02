@@ -11,13 +11,13 @@
  * 写盘走既有的 appendProviderConfig（备份 + doctor 校验 + 失败回滚），本文件不碰文件格式。
  */
 import type { TUI } from '@earendil-works/pi-tui';
-import { PROVIDER_PRESETS, type ProviderEntry, type StepCodeConfig } from '../config/config.js';
+import { PROVIDER_PRESETS, type ProviderEntry, type StepPilotConfig } from '../config/config.js';
 import { appendProviderConfig, removeProviderConfig, type ModelDraft, type ProviderDraft } from '../config/tomlAppend.js';
 import { askLine, askValidated, showPicker } from './pickers.js';
 import { t } from '../i18n.js';
 
 /** 列表项：自定义渠道 + 内置预设 + 新增入口。 */
-export function providerItems(config: StepCodeConfig): { value: string; label: string; description: string }[] {
+export function providerItems(config: StepPilotConfig): { value: string; label: string; description: string }[] {
   const providers = config.providers ?? {};
   const models = config.models ?? {};
   const items: { value: string; label: string; description: string }[] = [];
@@ -57,7 +57,7 @@ export interface ProviderPickResult {
  */
 export async function openProviderManager(
   tui: TUI,
-  config: StepCodeConfig,
+  config: StepPilotConfig,
   notify: (text: string) => void,
 ): Promise<ProviderPickResult> {
   const picked = await showPicker(tui, {
@@ -112,7 +112,7 @@ const PROTOCOL_DESC_KEY: Record<string, string> = {
  */
 export async function runProviderWizard(
   tui: TUI,
-  config: StepCodeConfig,
+  config: StepPilotConfig,
   notify: (text: string) => void,
 ): Promise<ProviderPickResult> {
   const existing = config.providers ?? {};

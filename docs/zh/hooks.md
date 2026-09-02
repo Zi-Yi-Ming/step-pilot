@@ -4,19 +4,19 @@ hooks 让你在不改代码的前提下，于生命周期事件点执行自己�
 
 ## 它和权限系统的关系
 
-Step Pi 内部已有一层程序内挂载点（授权、结果后处理、续接判定），权限系统就挂在上面。hooks 是**在这层之上开放给用户的一道口子**：用配置声明的 shell 命令参与同样的生命周期。
+Step Pilot 内部已有一层程序内挂载点（授权、结果后处理、续接判定），权限系统就挂在上面。hooks 是**在这层之上开放给用户的一道口子**：用配置声明的 shell 命令参与同样的生命周期。
 
 一条底线要先讲清楚：**hooks 不是安全边界**。命令超时、崩溃、返回非约定退出码时一律放行（fail-open），安全边界永远在权限系统。hooks 的定位是体验增强——记录日志、注入上下文、拦掉个别明显不该做的操作，不要指望它兜底安全。
 
 ## 配置
 
-在 `~/.step-pi/config.toml` 用 `[[hooks]]` 数组声明，每条四字段：
+在 `~/.step-pilot/config.toml` 用 `[[hooks]]` 数组声明，每条四字段：
 
 ```toml
 [[hooks]]
 event = "PreToolUse"                          # 事件名
 matcher = "^bash$"                             # 可选正则，匹配工具名/事件标识
-command = "python ~/.step-pi/hooks/guard.py" # 要执行的 shell 命令
+command = "python ~/.step-pilot/hooks/guard.py" # 要执行的 shell 命令
 timeout = 30                                   # 秒，可选，默认 30，硬顶 600
 ```
 
@@ -61,7 +61,7 @@ timeout = 30                                   # 秒，可选，默认 30，硬�
 
 ```python
 #!/usr/bin/env python3
-# ~/.step-pi/hooks/guard.py
+# ~/.step-pilot/hooks/guard.py
 import json, sys
 
 data = json.load(sys.stdin)
@@ -77,9 +77,9 @@ sys.exit(0)           # 放行
 [[hooks]]
 event = "PreToolUse"
 matcher = "^(write_file|edit_file)$"
-command = "python ~/.step-pi/hooks/guard.py"
+command = "python ~/.step-pilot/hooks/guard.py"
 ```
 
 ## 插件提供的 hooks
 
-插件也能声明 hooks（见[技能、插件与 MCP](./skills-and-mcp.md)）。插件 hook 复用同一套四字段与执行约定，区别在于 `command` 的工作目录固定为插件根目录，并注入 `STEP_PI_PLUGIN_ROOT` 环境变量，方便引用插件内的脚本。安全语义与用户 hooks 一致（fail-open）。
+插件也能声明 hooks（见[技能、插件与 MCP](./skills-and-mcp.md)）。插件 hook 复用同一套四字段与执行约定，区别在于 `command` 的工作目录固定为插件根目录，并注入 `STEP_PILOT_PLUGIN_ROOT` 环境变量，方便引用插件内的脚本。安全语义与用户 hooks 一致（fail-open）。

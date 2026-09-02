@@ -1,7 +1,7 @@
 import type { SkillDefinition } from '../registry.js';
 
 /**
- * 内置 skill「update-config」：step-code 对自身配置体系的一手知识（自包含，零联网）。
+ * 内置 skill「update-config」：step-pilot 对自身配置体系的一手知识（自包含，零联网）。
  *
  * 设计决策：skill 正文内嵌在本文件（模板字符串），不读外部 .md——tsc 构建不拷贝
  * 非 TS 资源，npm 分发的 dist/ 里不会有 .md 文件，内嵌字符串保证任何分发形态
@@ -14,17 +14,17 @@ import type { SkillDefinition } from '../registry.js';
  * 正文内不使用反引号与 ${ 序列：反引号会与外层模板字符串冲突，$ARGUMENTS/$0-$9
  * 会被 expandSkillContent 当占位符展开。代码标记用「」或直接裸写。
  */
-const UPDATE_CONFIG_BODY = `# update-config：step-code 自身配置的查询与变更
+const UPDATE_CONFIG_BODY = `# update-config：step-pilot 自身配置的查询与变更
 
-当用户问到 step-code 自己的配置（某个键是什么意思、当前配了多少、怎么改、改完怎么生效）时，
+当用户问到 step-pilot 自己的配置（某个键是什么意思、当前配了多少、怎么改、改完怎么生效）时，
 以本 skill 为唯一事实源直接回答，不要联网搜索，不要凭记忆猜键名。
 
 ## 一、配置根定位
 
-- 配置根目录：用户主目录下的 .step-pi/（Windows 即 C:\\Users\\<用户名>\\.step-pi\\，macOS/Linux 即 ~/.step-pi/）。没有环境变量可以覆盖这个根路径，它是固定的。
+- 配置根目录：用户主目录下的 .step-pilot/（Windows 即 C:\\Users\\<用户名>\\.step-pilot\\，macOS/Linux 即 ~/.step-pilot/）。没有环境变量可以覆盖这个根路径，它是固定的。
 - 主配置文件：配置根下的 config.toml（TOML 格式）。
 - 同目录其他内容：sessions/（会话存档）、skills/（用户级技能）、mcp.json（MCP server 配置）、AGENTS.md（个人指令）。
-- 项目级目录：<cwd>/.step-pi/（项目级 skills、AGENTS.md、agents 子 agent 定义），不进 config.toml。
+- 项目级目录：<cwd>/.step-pilot/（项目级 skills、AGENTS.md、agents 子 agent 定义），不进 config.toml。
 - 环境变量只覆盖单个配置值，不改配置根位置；启动时还会读 <cwd>/.env 填充尚未设置的环境变量。
 
 ## 二、config.toml schema 参考表
@@ -53,9 +53,9 @@ const UPDATE_CONFIG_BODY = `# update-config：step-code 自身配置的查询与
 | tools | table | 无 | 网页结果缓存配置（[tools.web] 段），未配置时使用内置默认值 |
 
 顶层没有 api_key 键。密钥只能配在 [providers.<id>] 渠道或 [models.<别名>] 上，或由环境变量提供
-（STEP_PI_API_KEY，或按 provider 类型的惯例变量：anthropic→ANTHROPIC_API_KEY、
-openai/openai_responses→OPENAI_API_KEY）。其他环境变量覆盖：STEP_PI_PROVIDER、STEP_PI_MODEL、
-STEP_PI_BASE_URL。
+（STEP_PILOT_API_KEY，或按 provider 类型的惯例变量：anthropic→ANTHROPIC_API_KEY、
+openai/openai_responses→OPENAI_API_KEY）。其他环境变量覆盖：STEP_PILOT_PROVIDER、STEP_PILOT_MODEL、
+STEP_PILOT_BASE_URL。
 
 ### [subagent] 子 agent 限制
 
@@ -123,7 +123,7 @@ STEP_PI_BASE_URL。
 
 | 键 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| enabled | boolean | false | 记忆观察池开关。开启后 system 注入记忆段（目录说明+索引），agent 可将观察沉淀到 ~/.step-pi/memory/ 与 .step-pi/memory/；关闭保留已有文件不删除 |
+| enabled | boolean | false | 记忆观察池开关。开启后 system 注入记忆段（目录说明+索引），agent 可将观察沉淀到 ~/.step-pilot/memory/ 与 .step-pilot/memory/；关闭保留已有文件不删除 |
 
 观察池定位：agent 写入的是**未经确认的观察**，不直接生效；定期回顾经用户确认后才晋升到 AGENTS.md / skills。/memory 命令查看与管理（on/off）。
 
@@ -192,7 +192,7 @@ Chat Completions / Responses（base_url 带 /v1）。当前已验证的渠道形
   调用会返回 400（提示 not enabled for the Chat Completions API），此类模型必须配 anthropic 渠道。
 - stepfun-plan（openai，api.stepfun.com/step_plan/v1）：Step Plan 的 Chat Completions 通道。
 - 第三方 OpenAI 兼容后端可以直接按 [providers.<id>] type = openai 接入（已实测可用）。
-  OpenAI 协议渠道自报 User-Agent（step-code/版本），不伪装其他客户端。
+  OpenAI 协议渠道自报 User-Agent（step-pilot/版本），不伪装其他客户端。
 - image_in 能力声明后，read_media 才会出现在工具表（按 capabilities 门控）；改完 capabilities
   用 /reload 即生效，不必切模型。注意：tool_result 内嵌图片目前仅 Anthropic 协议渠道端到端有效，
   openai 协议渠道声明了 image_in 也会丢图（协议翻译缺口，已登记）。
@@ -263,7 +263,7 @@ apiKey 回落链（渠道分支）：渠道 api_key → 渠道 api_key_env → �
 export const UPDATE_CONFIG_SKILL: SkillDefinition = {
   name: 'update-config',
   description:
-    '查询或修改 step-code 自身配置（~/.step-pi/config.toml）。内嵌完整 schema 参考表与变更协议（副本编辑 → doctor 校验 → 时间戳备份 → 覆盖 → /reload）。当用户问配置键含义、当前配置值、改模型/渠道/thinking/语言等自身配置时使用。',
+    '查询或修改 step-pilot 自身配置（~/.step-pilot/config.toml）。内嵌完整 schema 参考表与变更协议（副本编辑 → doctor 校验 → 时间戳备份 → 覆盖 → /reload）。当用户问配置键含义、当前配置值、改模型/渠道/thinking/语言等自身配置时使用。',
   content: UPDATE_CONFIG_BODY,
   dir: 'builtin://update-config',
   source: 'builtin',

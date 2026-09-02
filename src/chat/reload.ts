@@ -1,4 +1,4 @@
-import { resolveModelEntry, type StepCodeConfig } from '../config/config.js';
+import { resolveModelEntry, type StepPilotConfig } from '../config/config.js';
 import { createProvider } from '../provider/factory.js';
 import type { ChatProvider } from '../provider/types.js';
 
@@ -117,7 +117,7 @@ function diffNumberTable(
  * background.bash_task_timeout_s / permission_mode 属一次性固化字段，标 restart 供展示层追加「需重启生效」。
  * hooks 按规整后整体比较（matcher 取正则源码），只报条数变化不展开。
  */
-export function diffConfig(oldCfg: StepCodeConfig, newCfg: StepCodeConfig): ConfigChange[] {
+export function diffConfig(oldCfg: StepPilotConfig, newCfg: StepPilotConfig): ConfigChange[] {
   const out: ConfigChange[] = [];
   diffScalar(out, 'provider', oldCfg.provider, newCfg.provider);
   diffScalar(out, 'api_key', oldCfg.apiKey, newCfg.apiKey, { masked: true });
@@ -170,7 +170,7 @@ export function diffConfig(oldCfg: StepCodeConfig, newCfg: StepCodeConfig): Conf
   diffScalar(out, 'background.notify_on_complete', ob.notifyOnComplete, nb.notifyOnComplete);
   diffScalar(out, 'background.notify_terminal', ob.notifyTerminal, nb.notifyTerminal);
 
-  const normHooks = (cfg: StepCodeConfig): string =>
+  const normHooks = (cfg: StepPilotConfig): string =>
     JSON.stringify(
       (cfg.hooks ?? []).map((h) => ({ event: h.event, command: h.command, timeout: h.timeout, matcher: h.matcher?.source })),
     );
@@ -214,7 +214,7 @@ export type ProviderReloadPlan =
     };
 
 /** provider 构造输入切片：createProvider 只读这些字段，用于新旧一致判定（unchanged 短路）。 */
-function providerSlice(cfg: StepCodeConfig): string {
+function providerSlice(cfg: StepPilotConfig): string {
   return JSON.stringify({
     provider: cfg.provider,
     apiKey: cfg.apiKey,
@@ -231,7 +231,7 @@ function providerSlice(cfg: StepCodeConfig): string {
  * 不等下次 /model 切换。裸模型无别名绑定，返回 undefined（与原口径一致）。
  */
 export function resolveCapabilitiesOnReload(
-  cfg: StepCodeConfig,
+  cfg: StepPilotConfig,
   currentAlias: string | null,
 ): string[] | undefined {
   if (currentAlias === null) return undefined;
@@ -240,7 +240,7 @@ export function resolveCapabilitiesOnReload(
 
 /** 轻量刷新时按当前别名解析图片输入上限（别名语义同 {@link resolveCapabilitiesOnReload}）。 */
 export function resolveImageLimitsOnReload(
-  cfg: StepCodeConfig,
+  cfg: StepPilotConfig,
   currentAlias: string | null,
 ): { imageMaxEdgePx?: number; imageBudgetBytes?: number; videoBudgetBytes?: number } {
   const entry = currentAlias === null ? undefined : cfg.models?.[currentAlias];
@@ -252,7 +252,7 @@ export function resolveImageLimitsOnReload(
 }
 
 /** 状态栏展示名：别名路径取 displayName；裸 id 按「别名解析出的真实 id 命中」反查 displayName，无则用真实 id。 */
-function displayNameOf(cfg: StepCodeConfig, model: string, alias: string | null): string {
+function displayNameOf(cfg: StepPilotConfig, model: string, alias: string | null): string {
   if (alias !== null) {
     const entry = cfg.models?.[alias];
     if (entry?.displayName !== undefined) return entry.displayName;
@@ -273,12 +273,12 @@ function displayNameOf(cfg: StepCodeConfig, model: string, alias: string | null)
  * 短路：新旧 provider 构造输入一致时返回 keep/unchanged（重建是恒等操作）。
  */
 export function planProviderReload(
-  oldCfg: StepCodeConfig,
-  newCfg: StepCodeConfig,
+  oldCfg: StepPilotConfig,
+  newCfg: StepPilotConfig,
   currentModel: string,
   currentAlias: string | null,
 ): ProviderReloadPlan {
-  let nextCfg: StepCodeConfig;
+  let nextCfg: StepPilotConfig;
   let sliceOfOld: string;
   if (currentAlias !== null) {
     if (newCfg.models?.[currentAlias] === undefined) {

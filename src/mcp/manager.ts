@@ -50,7 +50,7 @@ export function mcpInputSchemaToZod(inputSchema: unknown): z.ZodTypeAny {
 
 /**
  * MCP（Model Context Protocol）接入：连接管理 + list_tools 注册 + call_tool。
- * 配置来源 ~/.step-pi/mcp.json 的 mcpServers 表（stdio transport）。
+ * 配置来源 ~/.step-pilot/mcp.json 的 mcpServers 表（stdio transport）。
  */
 
 export interface McpServerConfig {
@@ -152,7 +152,7 @@ export class McpManager {
       return false;
     }
     this.states.set(name, { name, status: 'pending', toolCount: 0 });
-    const client = new Client({ name: 'steppi', version: VERSION });
+    const client = new Client({ name: 'step-pilot', version: VERSION });
     try {
       const tools = await withTimeout(
         this.connectAndListTools(client, config),

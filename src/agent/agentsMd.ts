@@ -1,8 +1,8 @@
 /**
  * AGENTS.md 自动加载。
  *
- * 收集用户级（~/.step-pi、~/.agents）与项目级（.git 根到 cwd 逐层）的 AGENTS.md，
- * 每层候选优先级：.step-pi/AGENTS.md → AGENTS.override.md → AGENTS.md → agents.md
+ * 收集用户级（~/.step-pilot、~/.agents）与项目级（.git 根到 cwd 逐层）的 AGENTS.md，
+ * 每层候选优先级：.step-pilot/AGENTS.md → AGENTS.override.md → AGENTS.md → agents.md
  * （AGENTS.override.md 是个人本地覆盖约定，不入库即可压住同层团队规范）。
  * 每份前加 `<!-- From: <绝对路径> -->` 注释头后拼接，供 system prompt 尾部注入。
  * 总量预算默认 32KB（config.toml agents_md_max_bytes 可调，0 = 禁用加载），
@@ -63,23 +63,23 @@ function readEntry(path: string): AgentsMdEntry | null {
   }
 }
 
-/** 目录层内按优先级取第一个命中：.step-pi/AGENTS.md，再 AGENTS.override.md（个人本地覆盖约定），再 AGENTS.md / agents.md。 */
+/** 目录层内按优先级取第一个命中：.step-pilot/AGENTS.md，再 AGENTS.override.md（个人本地覆盖约定），再 AGENTS.md / agents.md。 */
 function readLayerEntry(dir: string): AgentsMdEntry | null {
   return (
-    readEntry(join(dir, '.step-pi', 'AGENTS.md')) ??
+    readEntry(join(dir, '.step-pilot', 'AGENTS.md')) ??
     readEntry(join(dir, 'AGENTS.override.md')) ??
     readEntry(join(dir, 'AGENTS.md')) ??
     readEntry(join(dir, 'agents.md'))
   );
 }
 
-/** 用户级条目（输出在最前）：~/.step-pi 与 ~/.agents 各取一个，override 优先，再 AGENTS.md（退 agents.md）。 */
+/** 用户级条目（输出在最前）：~/.step-pilot 与 ~/.agents 各取一个，override 优先，再 AGENTS.md（退 agents.md）。 */
 function userEntries(homeDir: string): AgentsMdEntry[] {
   const out: AgentsMdEntry[] = [];
-  const stepCode =
-    readEntry(join(homeDir, '.step-pi', 'AGENTS.override.md')) ??
-    readEntry(join(homeDir, '.step-pi', 'AGENTS.md'));
-  if (stepCode !== null) out.push(stepCode);
+  const stepPilot =
+    readEntry(join(homeDir, '.step-pilot', 'AGENTS.override.md')) ??
+    readEntry(join(homeDir, '.step-pilot', 'AGENTS.md'));
+  if (stepPilot !== null) out.push(stepPilot);
   const agents =
     readEntry(join(homeDir, '.agents', 'AGENTS.override.md')) ??
     readEntry(join(homeDir, '.agents', 'AGENTS.md')) ??

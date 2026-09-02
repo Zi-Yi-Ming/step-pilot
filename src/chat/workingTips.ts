@@ -1,6 +1,6 @@
 import { getLocale } from '../i18n.js';
 
-/** 忙碌态输入框下方随机提示的文案池（中文）。用 step-code 真实存在的命令/快捷键。 */
+/** 忙碌态输入框下方随机提示的文案池（中文）。用 step-pilot 真实存在的命令/快捷键。 */
 export const WORKING_TIPS: string[] = [
   '↑/↓ 回溯输入历史',
   '输入 / 唤起斜杠命令补全',

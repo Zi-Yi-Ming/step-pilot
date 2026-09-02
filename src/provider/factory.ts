@@ -2,7 +2,7 @@ import {
   DEFAULT_THINKING_LEVEL,
   DEFAULT_THINKING_LEVELS,
   PROVIDER_PRESETS,
-  type StepCodeConfig,
+  type StepPilotConfig,
 } from '../config/config.js';
 import { t } from '../i18n.js';
 import { StepfunAdapter } from './adapter.js';
@@ -32,7 +32,7 @@ import type { ChatProvider } from './types.js';
  * - stepfun 路径不包：`StepfunAdapter` 内部已调 `projectMessages`（含 normalizeHistory +
  *   ensureLeadingUser），且它还额外实现了 `send()`，用装饰器包装会丢掉那个方法。
  */
-export function createProvider(config: StepCodeConfig): ChatProvider {
+export function createProvider(config: StepPilotConfig): ChatProvider {
   const preset = PROVIDER_PRESETS[config.provider];
   if (preset === undefined) {
     throw new Error(

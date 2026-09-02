@@ -4,7 +4,7 @@
  */
 import { Container, Editor, SelectList, matchesKey, truncateToWidth, visibleWidth, type Component, type OverlayHandle, type SelectItem, type TUI } from '@earendil-works/pi-tui';
 import type { SessionMeta } from '../session/store.js';
-import type { StepCodeConfig } from '../config/config.js';
+import type { StepPilotConfig } from '../config/config.js';
 import { c, editorTheme, selectListTheme } from './theme.js';
 import { t } from '../i18n.js';
 
@@ -295,7 +295,7 @@ export function sessionItems(metas: readonly SessionMeta[], now = Date.now(), cu
  * 描述里带真实 id 与窗口大小。当前生效的别名标一个「当前」。
  * channel 传入且非 'all' 时只留该渠道条目（渠道 tab 的结构性预过滤）。
  */
-export function modelItems(config: StepCodeConfig, currentAlias?: string, channel?: string): SelectItem[] {
+export function modelItems(config: StepPilotConfig, currentAlias?: string, channel?: string): SelectItem[] {
   const entries = Object.entries(config.models ?? {});
   const byChannel = new Map<string, { alias: string; model: string; ctx?: number; display?: string }[]>();
   for (const [alias, entry] of entries) {
@@ -341,7 +341,7 @@ export function thinkItems(current?: string): SelectItem[] {
 }
 
 /** 模型选择器的渠道 tab 集合：'all' 恒第一，其余渠道按配置首现顺序（与 modelItems 分组同序）。 */
-export function modelTabs(config: StepCodeConfig): PickerTab[] {
+export function modelTabs(config: StepPilotConfig): PickerTab[] {
   const seen: string[] = [];
   for (const entry of Object.values(config.models ?? {})) {
     const channel = entry.provider ?? config.provider ?? 'default';

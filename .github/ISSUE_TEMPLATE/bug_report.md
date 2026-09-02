@@ -18,14 +18,14 @@ assignees: ''
 
 ## 环境
 
-- steppi 版本：`steppi --version` 的输出
+- step-pilot 版本：`step-pilot --version` 的输出
 - Node 版本：`node --version`
 - 操作系统：
 - 模型/渠道：
 
 ## 相关日志
 
-如果有，贴 `~/.step-pi/logs/steppi.log` 里的相关片段（脱敏后）。
+如果有，贴 `~/.step-pilot/logs/step-pilot.log` 里的相关片段（脱敏后）。
 
 ## 附加信息
 

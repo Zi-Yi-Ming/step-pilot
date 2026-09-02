@@ -215,7 +215,7 @@ describe('触顶溢出落盘', () => {
   });
 
   it('溢出文件数超上限时清理最旧的，不无限堆积', () => {
-    const outDir = join(dir, '.step-pi', 'tool-output');
+    const outDir = join(dir, '.step-pilot', 'tool-output');
     mkdirSync(outDir, { recursive: true });
     // 造 25 个旧文件，mtime 递增，便于确认删的是最旧那批
     for (let i = 0; i < 25; i++) {

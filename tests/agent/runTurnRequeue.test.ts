@@ -206,13 +206,13 @@ describe('runTurn 并行子 agent 的 429 重排队', () => {
 });
 
 describe('runTurn 错误码 → 建议用户动作文案', () => {
-  it('401 → error 事件附检查 STEP_PI_API_KEY / config.toml 的建议', async () => {
+  it('401 → error 事件附检查 STEP_PILOT_API_KEY / config.toml 的建议', async () => {
     const { provider } = makeFakeProvider([
       { throw: new AnthropicSDK.APIError(401, undefined, 'invalid api key', undefined) },
     ]);
     const events = await collect(runAgent(base(provider, [sm('hi')])));
     const err = events.find((e) => e.type === 'error') as { type: 'error'; message: string } | undefined;
-    expect(err?.message).toContain('STEP_PI_API_KEY');
+    expect(err?.message).toContain('STEP_PILOT_API_KEY');
     expect(err?.message).toContain('config.toml');
   });
 

@@ -99,7 +99,7 @@ function pathToFileURL(path) {
 main().then(
   (exitCode) => process.exit(exitCode),
   (error) => {
-    console.error(`steppi wrapper error: ${error.message}`);
+    console.error(`step-pilot wrapper error: ${error.message}`);
     process.exit(1);
   }
 );

@@ -10,7 +10,7 @@ import { TuiMainScreen, visibleWidth } from '@earendil-works/pi-tui';
 import type { Terminal } from '@earendil-works/pi-tui';
 import { PickerOverlay, askLine, askValidated, modelItems, relativeTime, sessionItems, thinkItems } from '../../src/tui-pi/pickers.js';
 import type { SessionMeta } from '../../src/session/store.js';
-import type { StepCodeConfig } from '../../src/config/config.js';
+import type { StepPilotConfig } from '../../src/config/config.js';
 
 function plain(lines: readonly string[]): string[] {
   // eslint-disable-next-line no-control-regex
@@ -85,7 +85,7 @@ describe('modelItems', () => {
       step35: { model: 'step-3.5-flash', provider: 'stepfun', maxContextSize: 262000, displayName: 'Step 3.5' },
       k3: { model: 'k3', provider: 'kimi', maxContextSize: 400000 },
     },
-  } as unknown as StepCodeConfig;
+  } as unknown as StepPilotConfig;
 
   it('按渠道分组，描述带渠道与真实 id 与窗口，当前别名标点', () => {
     const items = modelItems(config, 'k3');
@@ -99,7 +99,7 @@ describe('modelItems', () => {
   });
 
   it('没有别名时返回空列表（调用方据此提示直切）', () => {
-    expect(modelItems({} as StepCodeConfig)).toEqual([]);
+    expect(modelItems({} as StepPilotConfig)).toEqual([]);
   });
 });
 

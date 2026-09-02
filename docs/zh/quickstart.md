@@ -1,19 +1,19 @@
 # 快速开始
 
-读完本页你能完成：安装 Step Pi、配置 API key、跑通第一次对话。
+读完本页你能完成：安装 Step Pilot、配置 API key、跑通第一次对话。
 
 ## 1. 安装
 
 最快的方式（需要 Node.js >= 22）：
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/steppi.tgz
+npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot.tgz
 ```
 
 装的是预编译好的包，不在本机编译、不拉依赖；链接始终指向最新 Release。没有 Node 环境可从 [Releases](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest) 直接下载对应平台的单文件可执行；要参与开发则克隆仓库自行构建：
 
 ```bash
-git clone https://github.com/Zi-Yi-Ming/step-pi.git
+git clone https://github.com/Zi-Yi-Ming/step-pilot.git
 cd Step-Realtime-CLI
 pnpm install
 pnpm build
@@ -24,21 +24,21 @@ pnpm link --global   # 之后可直接用 step 命令
 
 ## 2. 配置 API key
 
-Step 模型的 API key 在[阶跃开放平台](https://platform.stepfun.com)获取。首次启动时如果未配置 key，Step Pi 会提示配置方式。
+Step 模型的 API key 在[阶跃开放平台](https://platform.stepfun.com)获取。首次启动时如果未配置 key，Step Pilot 会提示配置方式。
 
 任选一种方式配置：
 
 ```bash
 # 方式一：环境变量（推荐，立即可用）
-export STEP_PI_API_KEY=<your-key>
+export STEP_PILOT_API_KEY=<your-key>
 
-# 方式二：写入 ~/.step-pi/config.toml（持久化）
+# 方式二：写入 ~/.step-pilot/config.toml（持久化）
 #   [providers.stepfun]
 #   type = "stepfun"
 #   api_key = "<your-key>"
 ```
 
-> 提示：也可以启动后按提示粘贴 key，Step Pi 会自动写入配置文件。
+> 提示：也可以启动后按提示粘贴 key，Step Pilot 会自动写入配置文件。
 
 ## 3. 第一次对话
 

@@ -27,7 +27,7 @@ const schema = z.object({
   name: z
     .string()
     .optional()
-    .describe('按名加载 .step-pi/workflows/<name>.js 已存脚本执行（结构化重复性任务的复用入口）。未命中返回错误并列出当前可用脚本名。'),
+    .describe('按名加载 .step-pilot/workflows/<name>.js 已存脚本执行（结构化重复性任务的复用入口）。未命中返回错误并列出当前可用脚本名。'),
   save_as: z
     .string()
     .optional()
@@ -79,7 +79,7 @@ function formatScriptList(scripts: ScriptInfo[]): string {
 
 /**
  * 动态工作流：模型现写一段 JS 编排脚本，在零能力 wasm 沙箱（quickjs）里执行。
- * step-code 的编排收敛为两层：spawn_agent（直接派子 agent，简单批量用它）+
+ * step-pilot 的编排收敛为两层：spawn_agent（直接派子 agent，简单批量用它）+
  * 本工具（写 JS 脚本，需要条件分支、循环、由中间数据动态决定编排时用）。
  * 循环（loop-until-done）与分支无需专门原语——用原生 for/while/if 表达即可。
  */
@@ -110,7 +110,7 @@ export const dynamicWorkflowTool: ToolDef<z.infer<typeof schema>> = {
     '\n\nagent(prompt, {schema}) 拿结构化输出（校验失败自动纠正重试）；budget({agents, minutes}) 收紧预算；' +
     'phase(title) 标记阶段；agent(..., {phase: "阶段名"}) 给单个 agent 归属阶段——并行时用 opts 标阶段，不要为标阶段而顺序执行。' +
     'save_as 把本次 script 存为命名脚本（description 写成首行注释，列表按「名字 — 描述」展示），之后用 name 复用；' +
-    '查看已存脚本：列 <cwd>/.step-pi/workflows/ 目录，或不带参数调用本工具。' +
+    '查看已存脚本：列 <cwd>/.step-pilot/workflows/ 目录，或不带参数调用本工具。' +
     '每次运行脚本自动存档并在结果返回 script_path：失败后编辑该文件用 script_path 重跑（不重发全文），与 resume_from_run_id（已成功子任务走缓存）可叠加。' +
     'run_in_background=true 后台异步（立即返回 task_id，终态自动通知；v1 限制：task_stop 只标记 killed，不真正 abort 执行中的子 agent）。',
   schema,

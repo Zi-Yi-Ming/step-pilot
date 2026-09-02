@@ -21,8 +21,8 @@ afterEach(() => {
 });
 
 function makePlugin(root: string, manifest: object, skillFiles: Record<string, string> = {}): void {
-  mkdirSync(join(root, '.step-pi-plugin'), { recursive: true });
-  writeFileSync(join(root, '.step-pi-plugin', 'plugin.json'), JSON.stringify(manifest));
+  mkdirSync(join(root, '.step-pilot-plugin'), { recursive: true });
+  writeFileSync(join(root, '.step-pilot-plugin', 'plugin.json'), JSON.stringify(manifest));
   for (const [rel, content] of Object.entries(skillFiles)) {
     const p = join(root, rel);
     mkdirSync(join(p, '..'), { recursive: true });
@@ -186,7 +186,7 @@ describe('loadPlugin 能力面：MCP', () => {
 });
 
 describe('loadPlugin 能力面：hooks', () => {
-  it('合法 hook 并入：cwd 固定插件根、注入 STEP_PI_PLUGIN_ROOT、matcher 已编译', () => {
+  it('合法 hook 并入：cwd 固定插件根、注入 STEP_PILOT_PLUGIN_ROOT、matcher 已编译', () => {
     const root = join(dir, 'ph');
     makePlugin(root, {
       name: 'ph',
@@ -199,7 +199,7 @@ describe('loadPlugin 能力面：hooks', () => {
     expect(h.matcher).toBeInstanceOf(RegExp);
     expect(h.timeout).toBe(5);
     expect(h.cwd).toBe(realpathSync(root));
-    expect(h.env).toEqual({ STEP_PI_PLUGIN_ROOT: realpathSync(root) });
+    expect(h.env).toEqual({ STEP_PILOT_PLUGIN_ROOT: realpathSync(root) });
   });
 
   it('非法 event / 非法 matcher / 空 command 的 hook 整条跳过', () => {
@@ -308,8 +308,8 @@ describe('discoverPlugins disabled 过滤', () => {
 describe('discoverPluginEntries 坏插件诊断', () => {
   it('manifest 解析失败 → errors 列出，合法 plugin 不受影响（不拖垮启动）', () => {
     makePlugin(join(dir, 'good'), { name: 'good' });
-    mkdirSync(join(dir, 'bad', '.step-pi-plugin'), { recursive: true });
-    writeFileSync(join(dir, 'bad', '.step-pi-plugin', 'plugin.json'), 'not json');
+    mkdirSync(join(dir, 'bad', '.step-pilot-plugin'), { recursive: true });
+    writeFileSync(join(dir, 'bad', '.step-pilot-plugin', 'plugin.json'), 'not json');
     const { plugins, errors } = discoverPluginEntries(dir);
     expect(plugins.map((p) => p.id)).toEqual(['good']);
     expect(errors).toHaveLength(1);

@@ -11,7 +11,8 @@ dist-branch/
 !.env.example
 
 # 运行时与本地数据
-.step-pi/
+.step-pilot/
+tmp/
 .codegraph/
 mcp-test-server/
 

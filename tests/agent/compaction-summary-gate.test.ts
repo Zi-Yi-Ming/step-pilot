@@ -33,7 +33,7 @@ function goodSummary(marker: string): string {
 }
 
 /** 事故现场那条摘要的原文（56 字符，且含 serializeContent 的工具标记）。 */
-const GARBAGE_SUMMARY = '[早期对话摘要]\n[调用工具 bash] 搜索 step-code 项目中的配置文件，查找阶跃 API key。';
+const GARBAGE_SUMMARY = '[早期对话摘要]\n[调用工具 bash] 搜索 step-pilot 项目中的配置文件，查找阶跃 API key。';
 
 /** 构造一段「older 足够大 + 用户原话带关键事实」的历史。 */
 function historyWithFacts(): StoredMessage[] {
@@ -203,7 +203,7 @@ describe('fullCompact overflow / 媒体块自救', () => {
       { textChunks: [], finalContent: [textBlock(goodSummary('剥离媒体后成功'))] },
     ]);
     const msgs: StoredMessage[] = [
-      imageMsg('项目路径在 C:/step-code'),
+      imageMsg('项目路径在 C:/step-pilot'),
       bulkAssistant('A1'),
       stored({ role: 'user', content: '继续' }, { kind: 'user' }),
     ];

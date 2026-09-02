@@ -33,7 +33,7 @@ function renderRoleLine(role: SubagentRole, compact: boolean): string {
  * 拼可派生的子 agent 角色清单（含内置 general / explore）。
  *
  * 走 system prompt 追加而非 spawn_agent 的静态 description：角色来自运行时扫描 markdown，
- * 塞进工具描述会让每次 `.step-pi/agents/` 变动都 bust 整个 tools block 的 prompt cache。
+ * 塞进工具描述会让每次 `.step-pilot/agents/` 变动都 bust 整个 tools block 的 prompt cache。
  * 预算三级降级同 skillListing：全量 → 压缩描述 → 按预算截断并注明省略条数。
  */
 export function subagentListing(
@@ -74,7 +74,7 @@ export function buildSystemPrompt(cwd: string, options?: { pureMode?: boolean; n
   const shellHint = shellPromptHint(resolveShell().family);
   // now 允许注入：测试锁定时刻，避免用例随真实日期漂移。
   const now = options?.now ?? new Date();
-  return `你是 Step Pi，一个运行在用户终端里的编码 agent，由 Step 3.7 Flash 模型驱动。
+  return `你是 Step Pilot，一个运行在用户终端里的编码 agent，由 Step 3.7 Flash 模型驱动。
 
 # 工作环境
 - 当前工作目录：${cwd}

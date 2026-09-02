@@ -39,7 +39,7 @@ const distPkg = {
   version: pkg.version,
   description: pkg.description,
   type: 'module',
-  bin: { steppi: 'step.mjs' },
+  bin: { step-pilot: 'step.mjs' },
   files: ['step.mjs', 'licenses', 'LICENSE'],
   engines: pkg.engines,
   repository: pkg.repository,
@@ -58,7 +58,7 @@ if (existsSync(join(root, 'licenses'))) cpSync(join(root, 'licenses'), join(outD
 // 4. 分支说明：这个分支会出现在仓库分支列表里，进来的人得知道它不是开发分支
 writeFileSync(
   join(outDir, 'README.md'),
-  `# steppi · 预构建分发分支
+  `# step-pilot · 预构建分发分支
 
 本分支由 CI 在发布时自动生成，**内容会被整体覆盖，请勿在此分支提交代码**。
 源码与开发请回主分支。
@@ -67,7 +67,7 @@ writeFileSync(
 
 \`\`\`bash
 npm i -g github:${pkg.repository.url.replace(/^git\+https:\/\/github\.com\//, '').replace(/\.git$/, '')}#dist-npm
-steppi --version
+step-pilot --version
 \`\`\`
 
 装的是 \`step.mjs\`（打包好的单文件，零运行时依赖），不会在你机器上编译，也不会拉依赖。

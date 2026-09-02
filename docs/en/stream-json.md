@@ -86,7 +86,7 @@ Emitted when the main agent spawns sub-agents. **With parallel spawns, attribute
 {"type":"subagent.start","subagent_id":"1","subagent_type":"explore","description":"Read config file"}
 {"type":"subagent.tool","subagent_id":"1","name":"read_file"}
 {"type":"subagent.usage","subagent_id":"1","tokens":7068}
-{"type":"subagent.end","subagent_id":"1","is_error":false,"summary":"Config lives at ~/.step-pi/config.toml…","session_id":"f2c14fb3-…","tool_uses":1,"duration_ms":10153}
+{"type":"subagent.end","subagent_id":"1","is_error":false,"summary":"Config lives at ~/.step-pilot/config.toml…","session_id":"f2c14fb3-…","tool_uses":1,"duration_ms":10153}
 ```
 
 On `subagent.end`:

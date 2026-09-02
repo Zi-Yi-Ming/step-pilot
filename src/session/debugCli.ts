@@ -14,7 +14,7 @@ export interface RunExportDebugZipOptions {
   cwd: string;
   /** 显式会话 id；缺省时取该 cwd 下最近更新的会话。 */
   sessionId?: string;
-  /** ~/.step-pi 数据根覆盖（测试用），透传给 exportDebugBundle。 */
+  /** ~/.step-pilot 数据根覆盖（测试用），透传给 exportDebugBundle。 */
   dataDir?: string;
   /** 脱敏级别透传。缺省 vendor。 */
   level?: import('./debugBundle.js').RedactLevel;

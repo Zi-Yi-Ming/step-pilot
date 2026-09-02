@@ -29,7 +29,7 @@ const COMPACTION_SUMMARY_MIN_RATIO = 0.02;
 
 /**
  * 全量压缩摘要最大尝试次数。每次失败后收缩输入（丢弃最老消息 + 其后的孤儿 tool_result），
- * 按 empty/truncated 重试循环处理（同类实现常取 5 次；step-code 已有 user_verbatim
+ * 按 empty/truncated 重试循环处理（同类实现常取 5 次；step-pilot 已有 user_verbatim
  * 保真兜底，取 3 次够用且少烧摘要调用）。
  */
 const COMPACTION_MAX_RETRIES = 3;

@@ -1,6 +1,6 @@
 # Step 3.7 Flash 最佳实践
 
-steppi 针对 Step 3.7 Flash 做了多层优化，但模型本身的特性决定了它不适合照搬大模型的使用方式。本页讲清楚为什么要这么设计，以及你在日常使用中怎么配合。
+step-pilot 针对 Step 3.7 Flash 做了多层优化，但模型本身的特性决定了它不适合照搬大模型的使用方式。本页讲清楚为什么要这么设计，以及你在日常使用中怎么配合。
 
 ## 为什么 Flash 需要特别对待
 
@@ -11,9 +11,9 @@ Step 3.7 Flash 是稀疏 MoE 架构（198B 总参数 / 11B 激活参数），推
 - **单条工具结果过大**：一条 5000 行的 bash 输出会直接淹没后续指令
 - **压缩太懒**：等到上下文几乎满了才压缩，模型已经“忘了”最初的指令
 
-steppi 的设计哲学不是“让 Flash 表现得像 700B 模型”，而是“别在无关紧要的东西上浪费它的上下文”。
+step-pilot 的设计哲学不是“让 Flash 表现得像 700B 模型”，而是“别在无关紧要的东西上浪费它的上下文”。
 
-## steppi 做了什么
+## step-pilot 做了什么
 
 ### 1. 精简 system prompt
 
@@ -89,13 +89,13 @@ Flash 的 `high` 档思考量远低于大模型的 `high`，不要期待它能�
 
 ## 设计决策
 
-以下决策记录了 steppi 针对 Step 3.7 Flash 做优化时的关键 trade-off，方便后续维护者理解“为什么这么做”而不是“做了什么”。
+以下决策记录了 step-pilot 针对 Step 3.7 Flash 做优化时的关键 trade-off，方便后续维护者理解“为什么这么做”而不是“做了什么”。
 
 ### System prompt 为什么砍到 ~2000 字符
 
 小模型的注意力窗口有限，system prompt 里的每一条指令都在和用户消息、工具结果竞争位置。我们把 prompt 从 ~3500 字符砍到 ~2000，删除的是：
 
-- 冗余的自我描述（“我是 Step Code，一个运行在终端上的 TUI Agent”）
+- 冗余的自我描述（“我是 Step Pilot，一个运行在终端上的 TUI Agent”）
 - 模型训练截止日期提醒（改用实时搜索）
 - 可做可不做的工具建议（“需要为文档找配图时，用 web_image_search”）
 
@@ -129,4 +129,4 @@ Flash 的 `high` 档思考量远低于大模型的 `high`，不要期待它能�
 ## 参考
 
 - [Step 3.7 Flash 官方文档](https://platform.stepfun.com/docs/guides/model#step-3.7-flash)
-- steppi 源码中的优化实现：`src/agent/systemPrompt.ts`、`src/agent/toolResultLimit.ts`、`src/agent/compaction/compact.ts`
+- step-pilot 源码中的优化实现：`src/agent/systemPrompt.ts`、`src/agent/toolResultLimit.ts`、`src/agent/compaction/compact.ts`

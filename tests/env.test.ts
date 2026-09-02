@@ -70,7 +70,7 @@ describe('NODE_ENV 分流的加载结构约束', () => {
 
   it('package.json 的 bin 指向引导产物 dist/main.js', () => {
     const pkg = JSON.parse(read('package.json')) as { bin: Record<string, string> };
-    expect(pkg.bin['steppi']).toBe('dist/main.js');
+    expect(pkg.bin['step-pilot']).toBe('dist/main.js');
   });
 
   it('package.json 的 dev 脚本走引导入口而非 cli.ts', () => {

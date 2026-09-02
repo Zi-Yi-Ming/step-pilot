@@ -7,7 +7,7 @@ import type { HookEngineEntry } from '../agent/hooks/engine.js';
 import type { McpServerConfig } from '../mcp/manager.js';
 
 /**
- * step-code plugin：plugin = 目录 + `.step-pi-plugin/plugin.json`，纯声明式资源包，
+ * step-pilot plugin：plugin = 目录 + `.step-pilot-plugin/plugin.json`，纯声明式资源包，
  * 宿主从不执行插件代码。能力面：skills + MCP（mcpServers）+ hooks + markdown 命令（commands），
  * 全部复用各子系统已有机制合流；显式拒绝 tools/apps/inject/configFile/bootstrap 等执行型字段。
  * 路径安全：manifest 内相对路径强制 ./ 开头、realpath 后必须仍在 plugin root 内；
@@ -66,7 +66,7 @@ export interface LoadedPlugin {
   skillDirs: string[];
   /** 解析后的 MCP server 配置（key 已加 <pluginId>:<serverName> 前缀，command 已校验）。 */
   mcpServers: Record<string, McpServerConfig>;
-  /** 解析后的 hooks（matcher 已编译；cwd 固定插件根，env 注入 STEP_PI_PLUGIN_ROOT）。 */
+  /** 解析后的 hooks（matcher 已编译；cwd 固定插件根，env 注入 STEP_PILOT_PLUGIN_ROOT）。 */
   hooks: HookEngineEntry[];
   /** 解析后的命令模板（name 已加 <pluginId>: 前缀）。 */
   commands: PluginCommand[];
@@ -222,9 +222,9 @@ export function expandPluginCommand(content: string, args: string): string {
   return content.replace(/\$ARGUMENTS/g, () => args);
 }
 
-/** 从 plugin 根目录加载 plugin（读 .step-pi-plugin/plugin.json）。失败返回 null。 */
+/** 从 plugin 根目录加载 plugin（读 .step-pilot-plugin/plugin.json）。失败返回 null。 */
 export function loadPlugin(root: string): LoadedPlugin | null {
-  const manifestPath = join(root, '.step-pi-plugin', 'plugin.json');
+  const manifestPath = join(root, '.step-pilot-plugin', 'plugin.json');
   if (!existsSync(manifestPath)) return null;
   const manifest = parsePluginManifest(readFileSync(manifestPath, 'utf8'));
   if (manifest === null) return null;
@@ -256,14 +256,14 @@ export function loadPlugin(root: string): LoadedPlugin | null {
     if (cfg !== null) mcpServers[`${id}:${serverName}`] = cfg;
   }
 
-  // hooks：command 的 cwd 固定为插件根，注入 STEP_PI_PLUGIN_ROOT 环境变量
+  // hooks：command 的 cwd 固定为插件根，注入 STEP_PILOT_PLUGIN_ROOT 环境变量
   const realRoot = realpathSync(root);
   const hooks: HookEngineEntry[] = [];
   for (const rawHook of manifest.hooks ?? []) {
     const entry = resolveHook(rawHook);
     if (entry === null) continue;
     entry.cwd = realRoot;
-    entry.env = { STEP_PI_PLUGIN_ROOT: realRoot };
+    entry.env = { STEP_PILOT_PLUGIN_ROOT: realRoot };
     hooks.push(entry);
   }
 
@@ -289,10 +289,10 @@ export function loadPlugin(root: string): LoadedPlugin | null {
 
 /** 默认 plugin 目录。 */
 export function defaultPluginsDir(): string {
-  return join(homedir(), '.step-pi', 'plugins');
+  return join(homedir(), '.step-pilot', 'plugins');
 }
 
-/** 发现目录下所有 plugin（每个含 .step-pi-plugin/plugin.json 的子目录）。disabled 集合内的跳过。 */
+/** 发现目录下所有 plugin（每个含 .step-pilot-plugin/plugin.json 的子目录）。disabled 集合内的跳过。 */
 export function discoverPlugins(dir: string, disabled?: ReadonlySet<string>): LoadedPlugin[] {
   if (!existsSync(dir)) return [];
   const out: LoadedPlugin[] = [];
@@ -317,7 +317,7 @@ export function discoverPluginEntries(dir: string): { plugins: LoadedPlugin[]; e
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
     const root = join(dir, entry.name);
-    if (!existsSync(join(root, '.step-pi-plugin', 'plugin.json'))) continue;
+    if (!existsSync(join(root, '.step-pilot-plugin', 'plugin.json'))) continue;
     const plugin = loadPlugin(root);
     if (plugin !== null) plugins.push(plugin);
     else errors.push({ id: entry.name, root, reason: 'invalid-manifest' });

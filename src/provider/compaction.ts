@@ -20,7 +20,7 @@
  *
  * 纯装配，不做 I/O；构造失败只记日志不抛错——压缩是兜底路径，不该因配置问题掀翻会话。
  */
-import { DEFAULT_THINKING_LEVELS, resolveModelEntry, type StepCodeConfig } from '../config/config.js';
+import { DEFAULT_THINKING_LEVELS, resolveModelEntry, type StepPilotConfig } from '../config/config.js';
 import { logError } from '../utils/logger.js';
 import { createProvider } from './factory.js';
 import type { ChatProvider } from './types.js';
@@ -43,7 +43,7 @@ export interface CompactionBinding {
  *   `config.compaction.model` 参与解析，解析规则与 config 来源完全一致（同一事实源）
  */
 export function resolveCompactionBinding(
-  config: StepCodeConfig,
+  config: StepPilotConfig,
   cache?: Map<string, ChatProvider>,
   override?: string,
 ): CompactionBinding {

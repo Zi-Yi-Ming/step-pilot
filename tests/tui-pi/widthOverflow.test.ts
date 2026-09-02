@@ -32,7 +32,7 @@ describe('block 渲染不得超宽', () => {
   });
 
   it('goalPanel：长 objective 不超宽', () => {
-    const longObj = '在 step-code-pi 实验仓完成 Ink → pi-tui 的 TUI 层迁移。'.repeat(10);
+    const longObj = '在 step-pilot-pi 实验仓完成 Ink → pi-tui 的 TUI 层迁移。'.repeat(10);
     checkNoOverflow('goalPanel', { kind: 'goalPanel', data: { id: '1', objective: longObj } }, widths);
   });
 

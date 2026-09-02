@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 /**
  * 文件级 checkpoint：edit_file / write_file 写文件前，把目标文件的原始内容备份到
- * `~/.step-pi/checkpoints/<cwdHash>/<fileHash>.json`，供 /restore 一键回滚。
+ * `~/.step-pilot/checkpoints/<cwdHash>/<fileHash>.json`，供 /restore 一键回滚。
  *
  * 与对话级 undo（backtrack，只回退对话历史、明确「代码改动不受影响」）互补——
  * 这条补的是「工具改的文件能撤回」的另一半。
@@ -44,12 +44,12 @@ function fileHash(absPath: string): string {
 }
 
 function homeBase(): string {
-  // 测试注入：STEP_PI_TEST_HOME 覆盖 home，避免测试写真实 ~/.step-pi/checkpoints
-  return process.env.STEP_PI_TEST_HOME ?? homedir();
+  // 测试注入：STEP_PILOT_TEST_HOME 覆盖 home，避免测试写真实 ~/.step-pilot/checkpoints
+  return process.env.STEP_PILOT_TEST_HOME ?? homedir();
 }
 
 function checkpointDir(cwd: string): string {
-  return join(homeBase(), '.step-pi', 'checkpoints', cwdHash(cwd));
+  return join(homeBase(), '.step-pilot', 'checkpoints', cwdHash(cwd));
 }
 
 function checkpointFile(cwd: string, absPath: string): string {

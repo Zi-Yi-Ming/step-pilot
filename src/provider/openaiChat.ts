@@ -104,7 +104,7 @@ export class OpenAiChatProvider implements ChatProvider {
       'content-type': 'application/json',
       authorization: `Bearer ${this.apiKey}`,
       // 自报家门：诚实标识客户端与版本（不伪装任何官方客户端），便于上游识别与归因。
-      'user-agent': `steppi/${VERSION}`,
+      'user-agent': `step-pilot/${VERSION}`,
     };
 
     // Anthropic 风格的事件流：for await 吐 content_block_delta（text_delta/thinking_delta）。

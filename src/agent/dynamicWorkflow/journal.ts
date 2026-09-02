@@ -4,7 +4,7 @@ import path from 'node:path';
 /**
  * 记忆化 journal：确定性重放 + 记忆化 resume。
  *
- * journal = 追加写 JSONL：`<cwd>/.step-pi/journal/dwf-<runId>.jsonl`（.step-pi/ 已在 gitignore）。
+ * journal = 追加写 JSONL：`<cwd>/.step-pilot/journal/dwf-<runId>.jsonl`（.step-pilot/ 已在 gitignore）。
  * 每条 { key, result }，key = 稳定的 JSON.stringify([fn, prompt, subagentType])。
  * 失败（null）结果不写 journal——resume 时失败调用会真重跑，对修复友好。
  *
@@ -25,7 +25,7 @@ export class Journal {
   }
 
   static journalDir(cwd: string): string {
-    return path.join(cwd, '.step-pi', 'journal');
+    return path.join(cwd, '.step-pilot', 'journal');
   }
 
   static filePathFor(cwd: string, runId: string): string {

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// loadConfig 读 ~/.step-pi/config.toml：把 homedir 指到临时目录，避免碰真实配置。
+// loadConfig 读 ~/.step-pilot/config.toml：把 homedir 指到临时目录，避免碰真实配置。
 // 不 mock 的话，开发机上一份真实 config.toml 就会污染断言（顶层 model 若是别名，
 // 展开时还会走渠道分支取到渠道 api_key），且只能靠 existsSync 跳过整个用例、丧失覆盖。
 let fakeHome = '';
@@ -12,14 +12,14 @@ vi.mock('node:os', async (importOriginal) => {
   return { ...orig, homedir: () => fakeHome };
 });
 
-import { loadConfig, conventionalApiKeyEnvVar, resolveCompactionConfig, resolveModelEntry, resolveModels, resolveProviders, resolveStringArray, resolveSubagentLimits, resolveTuiConfig, type StepCodeConfig } from '../src/config/config.js';
+import { loadConfig, conventionalApiKeyEnvVar, resolveCompactionConfig, resolveModelEntry, resolveModels, resolveProviders, resolveStringArray, resolveSubagentLimits, resolveTuiConfig, type StepPilotConfig } from '../src/config/config.js';
 
 const ENV_KEYS = [
   'STEPFUN_API_KEY',
-  'STEP_PI_API_KEY',
-  'STEP_PI_PROVIDER',
-  'STEP_PI_BASE_URL',
-  'STEP_PI_MODEL',
+  'STEP_PILOT_API_KEY',
+  'STEP_PILOT_PROVIDER',
+  'STEP_PILOT_BASE_URL',
+  'STEP_PILOT_MODEL',
   'ANTHROPIC_API_KEY',
   'OPENAI_API_KEY',
   'GW_ENV_KEY',
@@ -49,9 +49,9 @@ afterEach(() => {
 
 describe('loadConfig', () => {
   it('环境变量优先，覆盖默认值', () => {
-    process.env['STEP_PI_API_KEY'] = 'k-env';
-    process.env['STEP_PI_MODEL'] = 'step-custom';
-    process.env['STEP_PI_BASE_URL'] = 'https://example.test';
+    process.env['STEP_PILOT_API_KEY'] = 'k-env';
+    process.env['STEP_PILOT_MODEL'] = 'step-custom';
+    process.env['STEP_PILOT_BASE_URL'] = 'https://example.test';
     const cfg = loadConfig(dir);
     expect(cfg.apiKey).toBe('k-env');
     expect(cfg.model).toBe('step-custom');
@@ -59,13 +59,13 @@ describe('loadConfig', () => {
   });
 
   it('从 cwd/.env 读取 key（env 未设时）', () => {
-    writeFileSync(join(dir, '.env'), 'STEP_PI_API_KEY=k-dotenv\n');
+    writeFileSync(join(dir, '.env'), 'STEP_PILOT_API_KEY=k-dotenv\n');
     const cfg = loadConfig(dir);
     expect(cfg.apiKey).toBe('k-dotenv');
   });
 
   it('有 key 时给出合理默认（model=step-3.7-flash）', () => {
-    process.env['STEP_PI_API_KEY'] = 'k';
+    process.env['STEP_PILOT_API_KEY'] = 'k';
     const cfg = loadConfig(dir);
     expect(cfg.model).toBe('step-3.7-flash');
     expect(cfg.baseUrl).toBe('https://api.stepfun.com');
@@ -78,7 +78,7 @@ describe('loadConfig', () => {
   });
 
   it('media_keep_recent 解析：正整数进结果对象，缺省/非法值不进', () => {
-    const cfgDir = join(dir, '.step-pi');
+    const cfgDir = join(dir, '.step-pilot');
     mkdirSync(cfgDir, { recursive: true });
     // 缺省：键不进结果对象
     writeFileSync(join(cfgDir, 'config.toml'), 'model = "step-3.7-flash"\n', 'utf8');
@@ -97,7 +97,7 @@ describe('loadConfig', () => {
   });
 
   it('config 带 subagent 与 compaction 字段', () => {
-    process.env['STEP_PI_API_KEY'] = 'k';
+    process.env['STEP_PILOT_API_KEY'] = 'k';
     const cfg = loadConfig(dir);
     expect(cfg.subagent.maxDepth).toBeGreaterThanOrEqual(1);
     expect(cfg.subagent.maxSteps).toBeGreaterThanOrEqual(1);
@@ -108,16 +108,16 @@ describe('loadConfig', () => {
 
 describe('loadConfig provider 解析', () => {
   it('默认 provider 为 stepfun，且预设默认字节级不变', () => {
-    process.env['STEP_PI_API_KEY'] = 'k';
+    process.env['STEP_PILOT_API_KEY'] = 'k';
     const cfg = loadConfig(dir);
     expect(cfg.provider).toBe('stepfun');
     expect(cfg.baseUrl).toBe('https://api.stepfun.com');
     expect(cfg.model).toBe('step-3.7-flash');
   });
 
-  it('STEP_PI_PROVIDER 覆盖为 anthropic，未配 model 时用预设（anthropic 无预设 model → 空串）', () => {
-    process.env['STEP_PI_API_KEY'] = 'k';
-    process.env['STEP_PI_PROVIDER'] = 'anthropic';
+  it('STEP_PILOT_PROVIDER 覆盖为 anthropic，未配 model 时用预设（anthropic 无预设 model → 空串）', () => {
+    process.env['STEP_PILOT_API_KEY'] = 'k';
+    process.env['STEP_PILOT_PROVIDER'] = 'anthropic';
     const cfg = loadConfig(dir);
     expect(cfg.provider).toBe('anthropic');
     expect(cfg.baseUrl).toBe('https://api.anthropic.com');
@@ -125,15 +125,15 @@ describe('loadConfig provider 解析', () => {
   });
 
   it('overrides.provider 优先于环境变量', () => {
-    process.env['STEP_PI_API_KEY'] = 'k';
-    process.env['STEP_PI_PROVIDER'] = 'stepfun';
+    process.env['STEP_PILOT_API_KEY'] = 'k';
+    process.env['STEP_PILOT_PROVIDER'] = 'stepfun';
     const cfg = loadConfig(dir, { provider: 'anthropic' });
     expect(cfg.provider).toBe('anthropic');
   });
 
   it('overrides.model 优先于环境变量与预设', () => {
-    process.env['STEP_PI_API_KEY'] = 'k';
-    process.env['STEP_PI_MODEL'] = 'env-model';
+    process.env['STEP_PILOT_API_KEY'] = 'k';
+    process.env['STEP_PILOT_MODEL'] = 'env-model';
     const cfg = loadConfig(dir, { model: 'cli-model' });
     expect(cfg.model).toBe('cli-model');
   });
@@ -144,18 +144,18 @@ describe('loadConfig provider 解析', () => {
     expect(cfg.apiKey).toBeUndefined();
   });
 
-  it('STEP_PI_API_KEY 生效，STEPFUN_API_KEY 被忽略', () => {
+  it('STEP_PILOT_API_KEY 生效，STEPFUN_API_KEY 被忽略', () => {
     process.env['STEPFUN_API_KEY'] = 'legacy-key';
-    process.env['STEP_PI_API_KEY'] = 'new-key';
+    process.env['STEP_PILOT_API_KEY'] = 'new-key';
     const cfg = loadConfig(dir);
     expect(cfg.apiKey).toBe('new-key');
   });
 
   it('用户显式 baseUrl/model 优先于 provider 预设', () => {
-    process.env['STEP_PI_API_KEY'] = 'k';
-    process.env['STEP_PI_PROVIDER'] = 'anthropic';
-    process.env['STEP_PI_BASE_URL'] = 'https://custom.example';
-    process.env['STEP_PI_MODEL'] = 'my-model';
+    process.env['STEP_PILOT_API_KEY'] = 'k';
+    process.env['STEP_PILOT_PROVIDER'] = 'anthropic';
+    process.env['STEP_PILOT_BASE_URL'] = 'https://custom.example';
+    process.env['STEP_PILOT_MODEL'] = 'my-model';
     const cfg = loadConfig(dir);
     expect(cfg.baseUrl).toBe('https://custom.example');
     expect(cfg.model).toBe('my-model');
@@ -359,7 +359,7 @@ describe('resolveModels（[models.<别名>] 表）', () => {
 });
 
 describe('resolveModelEntry（别名展开合并）', () => {
-  function baseConfig(models?: StepCodeConfig['models']): StepCodeConfig {
+  function baseConfig(models?: StepPilotConfig['models']): StepPilotConfig {
     return {
       provider: 'stepfun',
       apiKey: 'k-implicit',
@@ -496,9 +496,9 @@ describe('resolveProviders（渠道表解析）', () => {
 
 describe('resolveModelEntry（自定义渠道合并）', () => {
   function channelConfig(
-    providers: StepCodeConfig['providers'],
-    models: StepCodeConfig['models'],
-  ): StepCodeConfig {
+    providers: StepPilotConfig['providers'],
+    models: StepPilotConfig['models'],
+  ): StepPilotConfig {
     return {
       provider: 'stepfun',
       apiKey: 'k-implicit',
@@ -597,7 +597,7 @@ describe('resolveModelEntry（跨渠道 key 回落校验）', () => {
   beforeEach(() => {
     saved.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
     saved.OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-    saved.STEP_PI_API_KEY = process.env.STEP_PI_API_KEY;
+    saved.STEP_PILOT_API_KEY = process.env.STEP_PILOT_API_KEY;
   });
   afterEach(() => {
     for (const [k, v] of Object.entries(saved)) {
@@ -607,7 +607,7 @@ describe('resolveModelEntry（跨渠道 key 回落校验）', () => {
   });
 
   // channelConfig 把顶层写死成 stepfun（无惯例 env），测不出拒绝分支，这里显式构造 anthropic 顶层。
-  const anthropicTop = (extra?: Partial<StepCodeConfig>): StepCodeConfig => ({
+  const anthropicTop = (extra?: Partial<StepPilotConfig>): StepPilotConfig => ({
     provider: 'anthropic',
     apiKey: 'k-top',
     baseUrl: 'https://api.anthropic.com',
@@ -631,9 +631,9 @@ describe('resolveModelEntry（跨渠道 key 回落校验）', () => {
     ).toThrow(/channelMismatch|跨/);
   });
 
-  it('渠道缺 key 但回落目标是通用 STEP_PI_API_KEY → 放行（不绑 type）', () => {
-    // config.apiKey 来自通用 STEP_PI_API_KEY，不等于 anthropic 惯例 env → 不绑 type，放行。
-    process.env.STEP_PI_API_KEY = 'k-generic';
+  it('渠道缺 key 但回落目标是通用 STEP_PILOT_API_KEY → 放行（不绑 type）', () => {
+    // config.apiKey 来自通用 STEP_PILOT_API_KEY，不等于 anthropic 惯例 env → 不绑 type，放行。
+    process.env.STEP_PILOT_API_KEY = 'k-generic';
     process.env.ANTHROPIC_API_KEY = 'k-other'; // 与 config.apiKey 不同，boundToTopType 为 false
     const merged = resolveModelEntry(
       anthropicTop({
@@ -701,9 +701,9 @@ describe('api_key_env 解析（resolveModels / resolveProviders）', () => {
 
 describe('resolveModelEntry（apiKey 多渠道回落链）', () => {
   function chainConfig(
-    providers?: StepCodeConfig['providers'],
-    models?: StepCodeConfig['models'],
-  ): StepCodeConfig {
+    providers?: StepPilotConfig['providers'],
+    models?: StepPilotConfig['models'],
+  ): StepPilotConfig {
     return {
       provider: 'stepfun',
       apiKey: 'k-implicit',

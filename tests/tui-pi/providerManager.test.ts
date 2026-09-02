@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { providerItems } from '../../src/tui-pi/ProviderManager.js';
-import { PROVIDER_PRESETS, type StepCodeConfig } from '../../src/config/config.js';
+import { PROVIDER_PRESETS, type StepPilotConfig } from '../../src/config/config.js';
 
 const config = {
   provider: 'mine',
@@ -19,7 +19,7 @@ const config = {
     a2: { model: 'm2', provider: 'mine' },
     b1: { model: 'm3', provider: 'other' },
   },
-} as unknown as StepCodeConfig;
+} as unknown as StepPilotConfig;
 
 describe('providerItems', () => {
   const items = providerItems(config);
@@ -44,7 +44,7 @@ describe('providerItems', () => {
   });
 
   it('无自定义渠道时只有预设与新增入口', () => {
-    const bare = providerItems({} as StepCodeConfig);
+    const bare = providerItems({} as StepPilotConfig);
     expect(bare.some((i) => i.value.startsWith('custom:'))).toBe(false);
     expect(bare[bare.length - 1]!.value).toBe('__add__');
   });

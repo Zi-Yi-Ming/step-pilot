@@ -6,7 +6,7 @@ import { installPlugin, pluginsStatePath, readPluginsState, setPluginDisabled, u
 
 /**
  * /plugin 斜杠命令的子命令分发（list/install/enable/disable/remove/info）。
- * 纯文本产出：返回给转录区展示的 note 文本，状态变更落盘 ~/.step-pi/plugins.json 与 plugins 目录。
+ * 纯文本产出：返回给转录区展示的 note 文本，状态变更落盘 ~/.step-pilot/plugins.json 与 plugins 目录。
  * 能力合流只在启动时发生，变更后提示 /new 或重启生效（与 MCP 变更语义一致）。
  */
 

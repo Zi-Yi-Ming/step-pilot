@@ -5,7 +5,7 @@
 
 # Installation
 
-> If you already have another AI agent at hand, [`skills/steppi-install/`](../../skills/steppi-install/SKILL.md) is an install-instructions skill: point your agent at it and it can carry out the steps on this page for you.
+> If you already have another AI agent at hand, [`skills/step-pilot-install/`](../../skills/step-pilot-install/SKILL.md) is an install-instructions skill: point your agent at it and it can carry out the steps on this page for you.
 
 ## Requirements
 
@@ -30,9 +30,9 @@ Download the platform-specific artifact from [Releases](https://github.com/Zi-Yi
 
 | Platform | Download |
 |----------|----------|
-| Windows x64 | [steppi-win32-x64.exe](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/steppi-win32-x64.exe) |
-| macOS Apple Silicon | [steppi-darwin-arm64](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/steppi-darwin-arm64) |
-| Linux x64 | [steppi-linux-x64](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/steppi-linux-x64) |
+| Windows x64 | [step-pilot-win32-x64.exe](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot-win32-x64.exe) |
+| macOS Apple Silicon | [step-pilot-darwin-arm64](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot-darwin-arm64) |
+| Linux x64 | [step-pilot-linux-x64](https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot-linux-x64) |
 
 Each artifact comes with a same-name `.sha256` checksum file (append `.sha256` to the same path). After downloading, rename it to `step` (or `step.exe` on Windows) and place it on your PATH.
 
@@ -49,7 +49,7 @@ xattr -d com.apple.quarantine step 2>/dev/null || true
 One command installs the latest version (a permalink that always resolves to the latest Release's tarball):
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/steppi.tgz
+npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot.tgz
 step --version
 ```
 
@@ -58,7 +58,7 @@ The tarball includes a pre-built `dist/`. `npm i -g <url>` only unpacks it and l
 To pin a specific version for reproducible installs, use that tag's versioned asset instead, e.g.:
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/download/v0.1.2/steppi-0.1.2.tgz
+npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/download/v0.1.2/step-pilot-0.1.2.tgz
 ```
 
 ## npm install source branch (follow main)
@@ -102,7 +102,7 @@ pnpm install && pnpm build
 
 ## npm public registry (not currently provided)
 
-`step-code` is not published to the npm public registry, so `npm install -g step-code` is unavailable, and `npm update -g step-code` does not work.
+`step-pilot` is not published to the npm public registry, so `npm install -g step-pilot` is unavailable, and `npm update -g step-pilot` does not work.
 
 This is a deliberate choice for the current stage, not an omission: the methods above already cover every combination of "Node required or not" and "follow a version or follow mainline", while publishing to a registry introduces long-term commitments such as accounts, publish permissions, and non-retractable versions. We will reevaluate registry publishing once the distribution model stabilizes.
 
@@ -117,11 +117,11 @@ Download the new version and overwrite the file in place.
 Re-run the original install command; npm re-resolves the URL or git reference and overwrites the existing installation:
 
 ```bash
-npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/steppi.tgz  # latest Release tarball
+npm i -g https://github.com/Zi-Yi-Ming/Step-Realtime-CLI/releases/latest/download/step-pilot.tgz  # latest Release tarball
 npm i -g github:Zi-Yi-Ming/Step-Realtime-CLI#main                                  # source branch
 ```
 
-`npm update -g step-code` does not work for these variants—it targets registry packages, while the sources here are git references or URLs.
+`npm update -g step-pilot` does not work for these variants—it targets registry packages, while the sources here are git references or URLs.
 
 ### Source install upgrade
 
@@ -143,7 +143,7 @@ Delete the executable file and remove it from PATH.
 ### npm-installed variants
 
 ```bash
-npm uninstall -g step-code
+npm uninstall -g step-pilot
 ```
 
 ### Source install
@@ -153,7 +153,7 @@ cd Step-Realtime-CLI
 pnpm unlink --global   # removes the global step command
 ```
 
-Configuration, session records, and other data live in `~/.step-pi/`. The uninstall command does not touch them; delete that directory manually for a full cleanup.
+Configuration, session records, and other data live in `~/.step-pilot/`. The uninstall command does not touch them; delete that directory manually for a full cleanup.
 
 ## FAQ
 

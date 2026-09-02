@@ -6,7 +6,7 @@ import { BUILTIN_SKILLS } from './builtin/index.js';
 
 /**
  * skill 懒加载（纯客户端方案）：
- * 扫描 `.step-pi/skills/`、`.agents/skills/`、`~/.step-pi/skills/`、plugin skill 目录，
+ * 扫描 `.step-pilot/skills/`、`.agents/skills/`、`~/.step-pilot/skills/`、plugin skill 目录，
  * 解析 SKILL.md（YAML frontmatter + 正文）。system prompt 只放「名称+描述+路径」清单，
  * 正文不进 system prompt——模型经 skill 工具激活后才把正文注入上下文。
  * config.toml 的 extra_skill_dirs 可在默认路径之上追加扫描目录（plugin 目录仍最后、优先级最高）。
@@ -91,12 +91,12 @@ function resolveConfigPath(p: string, cwd: string): string {
 }
 
 /**
- * 构建 skill 注册表：内置 builtin < 用户级 < 项目 .agents/skills < 项目 .step-pi/skills < 追加目录 < plugin，同名后者覆盖。
- * 原则：具体胜一般（项目级盖用户级，一切文件系统来源盖内置）、原生胜兼容（.step-pi 盖 .agents，后者是其他 CLI 的兼容目录）。
+ * 构建 skill 注册表：内置 builtin < 用户级 < 项目 .agents/skills < 项目 .step-pilot/skills < 追加目录 < plugin，同名后者覆盖。
+ * 原则：具体胜一般（项目级盖用户级，一切文件系统来源盖内置）、原生胜兼容（.step-pilot 盖 .agents，后者是其他 CLI 的兼容目录）。
  * extraDirs（config.toml extra_skill_dirs）追加在默认路径之后扫描，可 shadow 同名用户/项目级 skill；
  * plugin skills 始终最后、优先级最高。disabledSkills（config.toml disabled_skills）按名排除，
  * 合并完成后统一过滤，任何来源（含 builtin）的同名 skill 都不进注册表（目录不归你管时的屏蔽出口）。
- * @param cwd 工作目录（项目级 .step-pi/skills 与 .agents/skills）
+ * @param cwd 工作目录（项目级 .step-pilot/skills 与 .agents/skills）
  * @param pluginSkillDirs plugin 提供的 skill 目录（绝对路径数组）
  * @param extraDirs 追加的 skill 目录（支持 `~` 与相对 cwd 的路径）
  * @param disabledSkills 按名排除的 skill 清单
@@ -117,9 +117,9 @@ export function buildSkillRegistry(
     }
   };
   addAll(BUILTIN_SKILLS);
-  addAll(discoverInDir(join(homedir(), '.step-pi', 'skills'), 'user'));
+  addAll(discoverInDir(join(homedir(), '.step-pilot', 'skills'), 'user'));
   addAll(discoverInDir(join(cwd, '.agents', 'skills'), 'project'));
-  addAll(discoverInDir(join(cwd, '.step-pi', 'skills'), 'project'));
+  addAll(discoverInDir(join(cwd, '.step-pilot', 'skills'), 'project'));
   for (const p of extraDirs ?? []) {
     addAll(discoverInDir(resolveConfigPath(p, cwd), 'user'));
   }
@@ -170,9 +170,9 @@ export function fingerprintSkillRoots(cwd: string, pluginSkillDirs: string[] = [
 /** skill 扫描根目录清单（注册表与指纹共用，保证两者扫的是同一组根）。 */
 function skillRoots(cwd: string, pluginSkillDirs: string[] = [], extraDirs?: string[]): string[] {
   return [
-    join(homedir(), '.step-pi', 'skills'),
+    join(homedir(), '.step-pilot', 'skills'),
     join(cwd, '.agents', 'skills'),
-    join(cwd, '.step-pi', 'skills'),
+    join(cwd, '.step-pilot', 'skills'),
     ...(extraDirs ?? []).map((p) => resolveConfigPath(p, cwd)),
     ...pluginSkillDirs,
   ];
@@ -208,9 +208,9 @@ export function scanSkillRootsOnce(
   const fingerprintParts: string[] = [];
   // 根目录的来源标记需与 buildSkillRegistry 的扫描顺序一致（决定同名覆盖优先级）
   const rootsWithSource: Array<{ root: string; source: SkillDefinition['source'] }> = [
-    { root: join(homedir(), '.step-pi', 'skills'), source: 'user' },
+    { root: join(homedir(), '.step-pilot', 'skills'), source: 'user' },
     { root: join(cwd, '.agents', 'skills'), source: 'project' },
-    { root: join(cwd, '.step-pi', 'skills'), source: 'project' },
+    { root: join(cwd, '.step-pilot', 'skills'), source: 'project' },
     ...(extraDirs ?? []).map((p) => ({ root: resolveConfigPath(p, cwd), source: 'user' as const })),
     ...pluginSkillDirs.map((d) => ({ root: d, source: 'plugin' as const })),
   ];

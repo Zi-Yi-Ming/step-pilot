@@ -63,7 +63,7 @@ describe.skipIf(bash === undefined)('后台任务防失控加固（2026-08-10 �
     const content = readFileSync(logPath);
     // 上界 = max + 截断标记行（标记自身占百字节级，文件始终有界即可，不追求精确等于 max）
     expect(content.length).toBeLessThan(max + 1024);
-    expect(content.toString('utf8')).toContain('steppi 滚动截断');
+    expect(content.toString('utf8')).toContain('step-pilot 滚动截断');
 
     const meta = JSON.parse(readFileSync(join(dir, id, 'meta.json'), 'utf8')) as {
       outputTruncated?: boolean;
