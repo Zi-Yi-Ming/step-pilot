@@ -1,0 +1,86 @@
+#!/usr/bin/env expect -f
+# 自动验证 P1-P3 的用户视觉效果
+# 用法：expect verify-p1-p3.exp
+
+set timeout 30
+set repoRoot [lindex $argv 0]
+set entry "$repoRoot/dist/main.js"
+
+if {![file exists $entry]} {
+  puts "ERROR: dist/main.js 不存在，请先运行 pnpm build"
+  exit 1
+}
+
+puts "=== 启动 TUI ==="
+spawn node $entry --pi
+set pid $spawn_id
+
+# 等待向导界面
+expect {
+  -re "选择默认模型|Step 3.7 Flash|step-3.7-flash" {
+    puts "检测到模型选择界面"
+  }
+  -re "欢迎使用 Step Code|›" {
+    puts "检测到主界面"
+  }
+  timeout {
+    puts "ERROR: 启动超时"
+    exit 1
+  }
+}
+
+# 如果在向导界面，选择 Step 3.7 Flash
+set sel [catch {expect -re "选择默认模型"}]
+if {$sel == 0} {
+  send "\033[B"  ;# ↓ 选 Step 3.7 Flash
+  sleep 0.3
+  send "\r"      ;# Enter 确认
+  sleep 1
+}
+
+# 等待主界面
+expect {
+  -re "›" {
+    puts "已进入主界面"
+  }
+  timeout {
+    puts "ERROR: 进入主界面超时"
+    exit 1
+  }
+}
+
+# 输入 /plan 开启 plan mode
+send "/plan\r"
+sleep 1
+
+expect {
+  -re "计划模式|plan mode" {
+    puts "Plan mode 已开启"
+  }
+  timeout {
+    puts "ERROR: plan mode 开启超时"
+  }
+}
+
+# 输入一个写文件请求，触发工具拦截
+send "请把 hello 写入 src/hello.txt\r"
+sleep 3
+
+# 这里应该有模型调用 write_file 被拦截
+# 由于没有真实 API key，进程可能停在输入框或显示错误
+
+# 等待一段时间观察输出
+sleep 2
+
+# 尝试退出
+send "\003"  ;# Ctrl+C
+sleep 0.5
+send "\003"  ;# Ctrl+C
+sleep 0.5
+
+# 保存截图/输出
+set output [exec cat /dev/stdin]
+puts "=== 验证完成 ==="
+puts "请检查上述输出中的渲染效果"
+
+exit 0
