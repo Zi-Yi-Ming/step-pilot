@@ -10,38 +10,39 @@
 
 [![CI](https://github.com/Zi-Yi-Ming/step-pi/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Zi-Yi-Ming/step-pi/actions/workflows/test.yml)
 
-A lightweight terminal coding agent CLI optimized for **Step 3.7 Flash**, with **pi-tui** for the UI. The model layer speaks three protocols—Anthropic Messages, OpenAI Chat Completions, and OpenAI Responses—so any compatible provider works out of the box; Step is the best-tested and default path.
+A terminal coding agent CLI optimized for **Step 3.7 Flash stability**. It ditches the heavy prompt stack and bloated context budget that make small models fail: a ~2000 char system prompt, tighter tool-result caps, and earlier compaction let Flash actually follow instructions — without giving up the agent loop, sub-agents, or plugin system when you need them.
+
+## Why steppi
+
+Small frontier models are fast and cheap, but they break under the weight of traditional agent scaffolding: long system prompts, runaway tool outputs, and lazy compression eat the context window before the real work starts.
+
+steppi treats small-model instruction following as a first-class constraint:
+
+- **~2000 char system prompt** — the smallest useful instruction set, not a kitchen-sink manifesto
+- **Tool results capped at 200K chars** — stops one runaway command from drowning the model
+- **Compaction triggers earlier, keeps less** — default trigger at 75% context, retains only the last 4 messages during summary; user messages get a 10K token fidelity budget
+- **Clearer tool contracts** — core tool descriptions rewritten for unambiguous instruction following
+
+The point isn't to make Flash behave like a 700B model. It's to stop wasting its context on things that don't matter, so the instructions that do matter actually get followed.
 
 ## What it is
 
-Step Pi is a lightweight terminal coding agent CLI optimized for Step 3.7 Flash. The agent loop: the model uses tools to read and write real files and run real commands, results are fed back, and the loop continues until the task is done. It is built with **pi-tui** and targets Step 3.7 Flash as the primary path, while also supporting any compatible provider through three open protocols (Anthropic Messages, OpenAI Chat Completions, OpenAI Responses).
+steppi is a terminal coding agent CLI. The model uses tools to read and write real files, run real commands, and spawn sub-agents; results feed back into the loop until the task is done.
 
-Key capabilities:
-- **Permission tiers + plan mode**: enforce "say what you'll change before changing it"
-- **Sub-agents and JS dynamic workflows**: split large tasks and run them in parallel
-- **Autonomous goals**: keep driving one objective across turns
-- **Memory observation pool (/memory)**: the agent records observed preferences and conventions into plain markdown directories (global + project); observations stay inert until your review promotes them into your rules. Off by default
-- **Team mode (/team)**: parallel multi-mission repo changes — git worktree isolation, mutually exclusive write scopes, system-enforced dependency gating, and a five-gate reviewed merge; cross-repo supported
-- **Context compaction + session persistence**: resume days later with full history
-- **Skills, plugins, and MCP**: lazily loaded external capabilities on demand
-- **Background execution**: long commands and entire sub-agents can be moved to the background
-- **Media degradation on all providers**: when an image limit is hit, the most recent N images are kept and older ones replaced with placeholders, with consistent behavior across anthropic / openai / openai_responses
-- **Image paste and path readback**: Alt+V pastes from the clipboard; read_media reads images by path and supports probe-based chunk planning
-- **Thinking visibility**: the thinking process is rendered in the TUI — streaming preview while running, a collapsed block when done; when the model returns only a thinking signature with no visible text, the status line still shows "thinking…", so a long silence is distinguishable from a stuck request
+It's built with **pi-tui** and speaks three protocols — Anthropic Messages, OpenAI Chat Completions, OpenAI Responses — so any compatible provider works out of the box. Step is the default and best-tested path.
 
 ## Quick start
 
-Requires Node.js >= 22 (not needed if you use the standalone executable).
+First run is interactive — it walks you through API key, provider, and model selection. No manual config editing required.
 
 ```bash
 npm i -g steppi
-export STEP_PI_API_KEY=<your-key>
 steppi
 ```
 
-That installs a pre-built package: nothing is compiled locally and no dependencies are fetched, and the link always points to the latest Release. Without Node, grab the standalone executable for your platform (Windows / macOS / Linux) from [Releases](https://github.com/Zi-Yi-Ming/step-pi/releases/latest); to modify the code, install from source instead.
+Requires Node.js >= 22. Without Node, grab the standalone executable for your platform from [Releases](https://github.com/Zi-Yi-Ming/step-pi/releases/latest); to modify the code, install from source instead.
 
-See [Quick start](./docs/en/quickstart.md) for installation and configuration details, and [Installation](./docs/en/installation.md) for the trade-offs between the four installation methods.
+See [Quick start](./docs/en/quickstart.md) for installation and configuration details, and [Installation](./docs/en/installation.md) for the trade-offs between installation methods.
 
 If you already have another AI agent at hand, [`skills/steppi-install/`](./skills/steppi-install/SKILL.md) is an install-instructions skill: clone the repo, point your agent at it, and it will know how to build, where to put the API key, and what to check when the build fails.
 

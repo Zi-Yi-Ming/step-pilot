@@ -10,36 +10,37 @@
 
 [![CI](https://github.com/Zi-Yi-Ming/step-pi/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Zi-Yi-Ming/step-pi/actions/workflows/test.yml)
 
-终端里的轻量编码 agent CLI，以 **Step 3.7 Flash** 为主要优化目标，UI 层用 **pi-tui**。模型接入层支持三种协议（Anthropic Messages、OpenAI Chat Completions、OpenAI Responses），任何兼容的模型都能直接接入；Step 是默认且经过最充分验证的目标。
+终端里的编码 agent CLI，专为 **Step 3.7 Flash 的稳定性**优化。它甩掉了让小型模型失效的重型 prompt 堆和膨胀上下文预算：~2000 字符的 system prompt、更紧的工具结果上限、更早触发压缩——让 Flash 真正能遵循指令，同时在你需要时保留 agent loop、子 agent 和插件系统。
+
+## 为什么选 steppi
+
+小型前沿模型又快又便宜，但传统 agent  scaffolding 会让它们崩溃：过长的 system prompt、失控的工具输出、懒散的上下文压缩，在真正干活前就把 context window 吃光了。
+
+steppi 把小模型指令遵循当作一等约束：
+
+- **~2000 char system prompt** — 最小可用指令集，不是什么都塞的清单
+- **工具结果上限 200K 字符** — 阻止单条失控命令淹没模型
+- **压缩更早触发、保留更少** — 默认在 75% context 触发压缩，摘要时只保留最近 4 条消息；用户原话保真预算 10K token
+- **更清晰的工具契约** — 核心工具描述重写，减少指令歧义
+
+目标不是让 Flash 表现得像 700B 模型。而是停止在无关紧要的东西上浪费它的上下文，让真正重要的指令被正确执行。
 
 ## 它是什么
 
-Step Pi 是一个针对 **Step 3.7 Flash** 优化的轻量终端编码 agent CLI。核心是一个 agent 主循环：模型通过工具直接读写真实文件、执行真实命令，结果回灌给模型继续推进，直到任务完成。它用 **pi-tui** 构建 UI，以 Step 3.7 Flash 为主要适配目标，同时通过三种开放协议（Anthropic Messages、OpenAI Chat Completions、OpenAI Responses）支持任何兼容的模型接入。
+steppi 是一个终端编码 agent CLI。模型通过工具读写真实文件、执行真实命令、派生子 agent；结果回灌进循环继续推进，直到任务完成。
 
-核心能力：
-- **三档权限 + 计划模式**：管住「改什么之前先说清楚」
-- **子 agent 与 JS 动态工作流**：大任务拆开并行执行
-- **自主目标**：跨回合持续推进同一个目标
-- **记忆观察池（/memory）**：agent 把观察到的偏好与约定沉淀到纯 markdown 目录（全局 + 项目两层）；观察不直接生效，经你回顾确认后才晋升进规范层。默认关闭
-- **团队模式（/team）**：多任务并行改代码库——git worktree 隔离 + 文件范围互斥 + 依赖系统门控 + 五道门审阅收编，支持跨仓
-- **上下文压缩 + 会话持久化**：历史完整保留，数天后仍可续接
-- **技能、插件与 MCP**：外部能力按需懒加载
-- **后台执行**：长命令与整个子 agent 都可转后台运行
-- **媒体降级全通道**：图片超限时自动保留最近 N 张重试，anthropic / openai / openai_responses 三协议行为一致
-- **图片粘贴与路径回读**：Alt+V 从剪贴板粘贴图片，read_media 支持按路径直读与 probe 分块规划
-- **思考过程呈现**：模型的思考过程在 TUI 中呈现——流式期暗色滚动预览、完成后折叠块；模型只回思考签名、不回思考正文时，状态行仍显示「思考中…」，把长时间静默与请求卡死区分开
+它用 **pi-tui** 构建 UI，支持三种协议 —— Anthropic Messages、OpenAI Chat Completions、OpenAI Responses —— 任何兼容的模型都能直接接入。Step 是默认且经过最充分验证的目标。
 
 ## 快速上手
 
-需要 Node.js >= 22（用单文件可执行版则不需要 Node）。
+首次运行是交互式向导 —— 它会引导你完成 API key、provider 和模型选择，无需手动编辑配置文件。
 
 ```bash
 npm i -g steppi
-export STEP_PI_API_KEY=<your-key>
 steppi
 ```
 
-装的是预编译好的包，不在本机编译、不拉依赖；链接始终指向最新 Release。不想装 Node 就从 [Releases](https://github.com/Zi-Yi-Ming/step-pi/releases/latest) 下对应平台的单文件可执行（Windows / macOS / Linux）；要改代码请走源码安装。
+需要 Node.js >= 22。不想装 Node 就到 [Releases](https://github.com/Zi-Yi-Ming/step-pi/releases/latest) 下载对应平台的单文件可执行；要改代码请走源码安装。
 
 更细的安装与配置见[快速开始](./docs/zh/quickstart.md)，四种安装方式的取舍见[安装](./docs/zh/installation.md)。
 

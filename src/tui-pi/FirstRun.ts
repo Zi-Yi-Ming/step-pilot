@@ -140,6 +140,7 @@ async function wizard(tui: TUI, banner: Banner): Promise<FirstRunResult> {
           `${t('firstRun.confirmProvider', { label: chosen!.name })} · ${t('firstRun.confirmBaseUrl', { url: chosen!.baseUrl })}`,
         ),
         c.accent(t('firstRun.pasteTitle')),
+        c.dim('steppi 需要 API key 才能调用模型；key 仅保存在你本机的配置文件中，不会上传到任何地方。'),
       );
       const key = await askLine(tui, t('firstRun.pasteHint'), undefined, t('firstRun.pasteEscHint'));
       if (key === null) {
