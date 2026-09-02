@@ -5,7 +5,7 @@
 
 # Skills, plugins and MCP
 
-This page covers three ways to extend step-code: skills (SKILL.md), plugins, and external MCP servers.
+This page covers three ways to extend Step Pi: skills (SKILL.md), plugins, and external MCP servers.
 
 ## Skills
 
@@ -51,7 +51,7 @@ A skill in an extra directory shadows same-named skills at the project and user 
 
 ### Hot reload and `/skill reload`
 
-Adding, editing or deleting a SKILL.md mid-session does not require a restart: at each turn boundary step-code compares a fingerprint built from the path plus modification time of every SKILL.md, and on any change it rebuilds the whole registry and reports the added, removed and changed entries. After the rebuild, the next turn's system prompt, the `skill` tool and sub-agents immediately use the new listing. To refresh right away, run:
+Adding, editing or deleting a SKILL.md mid-session does not require a restart: at each turn boundary Step Pi compares a fingerprint built from the path plus modification time of every SKILL.md, and on any change it rebuilds the whole registry and reports the added, removed and changed entries. After the rebuild, the next turn's system prompt, the `skill` tool and sub-agents immediately use the new listing. To refresh right away, run:
 
 ```
 /skill reload    # force a full rescan of the skill directories
@@ -114,7 +114,7 @@ Installation copies rather than symlinks, so moving or deleting the plugin sourc
 
 ## MCP
 
-Connect to external MCP servers (over stdio) to bring external tools into step-code:
+Connect to external MCP servers (over stdio) to bring external tools into Step Pi:
 
 ```json
 // ~/.step-pi/mcp.json

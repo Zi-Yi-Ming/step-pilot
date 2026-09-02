@@ -141,7 +141,7 @@ function log(level: LogLevel, args: unknown[]): void {
   pushBuffer(line);
   writeFile(line);
   if (shouldWriteStderr(level)) {
-    process.stderr.write(`[step-code${level === 'error' ? ':error' : ''}] ${msg}\n`);
+    process.stderr.write(`[steppi${level === 'error' ? ':error' : ''}] ${msg}\n`);
   }
 }
 

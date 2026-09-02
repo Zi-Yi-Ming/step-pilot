@@ -1,6 +1,6 @@
 # 快速开始
 
-读完本页你能完成：安装 step-code、配置 API key、跑通第一次对话。
+读完本页你能完成：安装 Step Pi、配置 API key、跑通第一次对话。
 
 ## 1. 安装
 
@@ -24,7 +24,7 @@ pnpm link --global   # 之后可直接用 step 命令
 
 ## 2. 配置 API key
 
-Step 模型的 API key 在[阶跃开放平台](https://platform.stepfun.com)获取。首次启动时如果未配置 key，step-code 会提示配置方式。
+Step 模型的 API key 在[阶跃开放平台](https://platform.stepfun.com)获取。首次启动时如果未配置 key，Step Pi 会提示配置方式。
 
 任选一种方式配置：
 
@@ -38,7 +38,7 @@ export STEP_PI_API_KEY=<your-key>
 #   api_key = "<your-key>"
 ```
 
-> 提示：也可以启动后按提示粘贴 key，step-code 会自动写入配置文件。
+> 提示：也可以启动后按提示粘贴 key，Step Pi 会自动写入配置文件。
 
 ## 3. 第一次对话
 

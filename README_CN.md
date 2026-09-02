@@ -10,11 +10,11 @@
 
 [![CI](https://github.com/Zi-Yi-Ming/step-pi/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Zi-Yi-Ming/step-pi/actions/workflows/test.yml)
 
-终端里的编码 agent CLI，阶跃星辰 **Step 系列模型**为主要适配目标，UI 层用 **pi-tui**。模型接入层支持三种协议（Anthropic Messages、OpenAI Chat Completions、OpenAI Responses），任何兼容的模型都能直接接入；Step 是默认且经过最充分验证的目标。
+终端里的轻量编码 agent CLI，以 **Step 3.7 Flash** 为主要优化目标，UI 层用 **pi-tui**。模型接入层支持三种协议（Anthropic Messages、OpenAI Chat Completions、OpenAI Responses），任何兼容的模型都能直接接入；Step 是默认且经过最充分验证的目标。
 
 ## 它是什么
 
-Step Code 是一个终端编码 agent CLI，核心是一个 agent 主循环：模型通过工具直接读写真实文件、执行真实命令，结果回灌给模型继续推进，直到任务完成。它用 **pi-tui** 构建 UI，以阶跃星辰 **Step 系列模型**为主要适配目标，同时通过三种开放协议（Anthropic Messages、OpenAI Chat Completions、OpenAI Responses）支持任何兼容的模型接入。
+Step Pi 是一个针对 **Step 3.7 Flash** 优化的轻量终端编码 agent CLI。核心是一个 agent 主循环：模型通过工具直接读写真实文件、执行真实命令，结果回灌给模型继续推进，直到任务完成。它用 **pi-tui** 构建 UI，以 Step 3.7 Flash 为主要适配目标，同时通过三种开放协议（Anthropic Messages、OpenAI Chat Completions、OpenAI Responses）支持任何兼容的模型接入。
 
 核心能力：
 - **三档权限 + 计划模式**：管住「改什么之前先说清楚」

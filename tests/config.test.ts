@@ -242,7 +242,7 @@ describe('resolveSubagentRetention（[subagent.retention] 留存策略）', () =
 
 describe('resolveCompactionConfig', () => {
   it('缺省 → 默认值', () => {
-    expect(resolveCompactionConfig(undefined)).toEqual({ triggerRatio: 0.85, reservedTokens: 32000 });
+    expect(resolveCompactionConfig(undefined)).toEqual({ triggerRatio: 0.75, reservedTokens: 32000 });
   });
 
   it('越界 → clamp（上限）', () => {
@@ -260,16 +260,16 @@ describe('resolveCompactionConfig', () => {
   });
 
   it('非法类型 / 非对象 → 默认值', () => {
-    expect(resolveCompactionConfig('x')).toEqual({ triggerRatio: 0.85, reservedTokens: 32000 });
+    expect(resolveCompactionConfig('x')).toEqual({ triggerRatio: 0.75, reservedTokens: 32000 });
     expect(resolveCompactionConfig({ trigger_ratio: 'a' })).toEqual({
-      triggerRatio: 0.85,
+      triggerRatio: 0.75,
       reservedTokens: 32000,
     });
   });
 
   it('配置 model → 进结果对象', () => {
     expect(resolveCompactionConfig({ model: 'step-flash' })).toEqual({
-      triggerRatio: 0.85,
+      triggerRatio: 0.75,
       reservedTokens: 32000,
       model: 'step-flash',
     });

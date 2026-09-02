@@ -1,6 +1,6 @@
 # AGENTS.md 机制
 
-AGENTS.md 是给模型看的项目/个人规范文件。step-code 启动会话时自动收集相关 AGENTS.md，拼到 system prompt 尾部。本页讲清三个问题：默认从哪加载、怎么覆盖某一层、怎么完全自定义来源。
+AGENTS.md 是给模型看的项目/个人规范文件。Step Pi 启动会话时自动收集相关 AGENTS.md，拼到 system prompt 尾部。本页讲清三个问题：默认从哪加载、怎么覆盖某一层、怎么完全自定义来源。
 
 ## 默认收集路径
 
@@ -44,12 +44,12 @@ agents_paths = ["~/my-rules/AGENTS.md", "./team-docs"]
 
 ## 跨工具共享
 
-`~/.agents/AGENTS.md` 放在一个工具中立的目录下，不带 step-code 的私有路径前缀。把「我是谁、我怎么工作、我的技术偏好」这类不依赖具体工具的规范写在这里，多个 agent 工具可以共用同一份，不必逐个维护。
+`~/.agents/AGENTS.md` 放在一个工具中立的目录下，不带 Step Pi 的私有路径前缀。把「我是谁、我怎么工作、我的技术偏好」这类不依赖具体工具的规范写在这里，多个 agent 工具可以共用同一份，不必逐个维护。
 
-工具专属的指令（只对 step-code 生效的约定）放 `~/.step-pi/AGENTS.md` 或项目内 `.step-pi/AGENTS.md`，与共享层分开，避免把本工具的实现细节泄漏给其他工具读取。
+工具专属的指令（只对 Step Pi 生效的约定）放 `~/.step-pi/AGENTS.md` 或项目内 `.step-pi/AGENTS.md`，与共享层分开，避免把本工具的实现细节泄漏给其他工具读取。
 
 ## 维护建议
 
 - 团队规范入库放项目根 `AGENTS.md`，保持精简，只写对协作者普遍适用的内容
 - 个人规范放 `~/.step-pi/AGENTS.md`（全局）或项目内 `AGENTS.override.md`（单项目）
-- `.step-pi/AGENTS.md` 优先级最高，适合放工具专属的指令（比如只对 step-code 生效的约定）
+- `.step-pi/AGENTS.md` 优先级最高，适合放工具专属的指令（比如只对 Step Pi 生效的约定）

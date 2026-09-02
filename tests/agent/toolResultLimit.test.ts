@@ -67,8 +67,8 @@ describe('capToolResult', () => {
     expect(r.content.length).toBe(2_000);
   });
 
-  it('默认上限为 400k 字符：略低于上限不截断，略高于上限截断', () => {
-    expect(DEFAULT_MAX_TOOL_RESULT_CHARS).toBe(400_000);
+  it('默认上限为 200k 字符：略低于上限不截断，略高于上限截断', () => {
+    expect(DEFAULT_MAX_TOOL_RESULT_CHARS).toBe(200_000);
     const under = { content: 'u'.repeat(DEFAULT_MAX_TOOL_RESULT_CHARS), isError: false };
     expect(capToolResult(under).content.length).toBe(DEFAULT_MAX_TOOL_RESULT_CHARS);
     const over = { content: 'o'.repeat(DEFAULT_MAX_TOOL_RESULT_CHARS + 1), isError: false };

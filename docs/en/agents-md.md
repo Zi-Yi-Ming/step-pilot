@@ -5,7 +5,7 @@
 
 # The AGENTS.md mechanism
 
-AGENTS.md is a project-level or personal convention file written for the model. When step-code starts a session it automatically collects the relevant AGENTS.md files and appends them to the end of the system prompt. This page answers three questions: where they are loaded from by default, how to override one layer, and how to fully customize the sources.
+AGENTS.md is a project-level or personal convention file written for the model. When Step Pi starts a session it automatically collects the relevant AGENTS.md files and appends them to the end of the system prompt. This page answers three questions: where they are loaded from by default, how to override one layer, and how to fully customize the sources.
 
 ## Default collection paths
 
@@ -18,7 +18,7 @@ AGENTS.md is a project-level or personal convention file written for the model. 
 
 `~/.agents/` is a cross-tool shared directory, so the same conventions can be read by several agent tools; that is why it also accepts the lowercase `agents.md` to accommodate different tools' spellings. `~/.step-pi/` is this tool's own directory and only accepts the two canonical names.
 
-**Project level**: step-code walks up from the current directory to find the project root containing `.git`, then walks back down from the root to the current directory, taking the first matching file at each level:
+**Project level**: Step Pi walks up from the current directory to find the project root containing `.git`, then walks back down from the root to the current directory, taking the first matching file at each level:
 
 ```
 .step-pi/AGENTS.md  →  AGENTS.override.md  →  AGENTS.md  →  agents.md
@@ -49,12 +49,12 @@ This is an escape hatch, not an everyday entry point: once configured, team conv
 
 ## Cross-tool sharing
 
-`~/.agents/AGENTS.md` lives in a tool-neutral directory, without step-code's private path prefix. Put tool-independent conventions there, the "who I am, how I work, what my technical preferences are" kind, so several agent tools can share one copy instead of each maintaining its own.
+`~/.agents/AGENTS.md` lives in a tool-neutral directory, without Step Pi's private path prefix. Put tool-independent conventions there, the "who I am, how I work, what my technical preferences are" kind, so several agent tools can share one copy instead of each maintaining its own.
 
-Tool-specific instructions (conventions that apply only to step-code) belong in `~/.step-pi/AGENTS.md` or the in-project `.step-pi/AGENTS.md`, kept separate from the shared layer so this tool's implementation details are not exposed to other tools.
+Tool-specific instructions (conventions that apply only to Step Pi) belong in `~/.step-pi/AGENTS.md` or the in-project `.step-pi/AGENTS.md`, kept separate from the shared layer so this tool's implementation details are not exposed to other tools.
 
 ## Maintenance advice
 
 - Team conventions that go into version control belong in the project root `AGENTS.md`; keep it lean and only write what applies to collaborators generally
 - Personal conventions belong in `~/.step-pi/AGENTS.md` (global) or an in-project `AGENTS.override.md` (single project)
-- `.step-pi/AGENTS.md` has the highest precedence and suits tool-specific instructions (for example conventions that apply only to step-code)
+- `.step-pi/AGENTS.md` has the highest precedence and suits tool-specific instructions (for example conventions that apply only to Step Pi)

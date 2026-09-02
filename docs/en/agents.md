@@ -99,7 +99,7 @@ Quota accounting has its own subtlety: illegal requests of the two kinds, depth 
 
 ### Parallel execution
 
-The model can return multiple tool calls in a single turn, and step-code decides what may run in parallel by **resource conflict**: each tool declares its own access surface (no side effects / reads a path / writes a path / globally exclusive), non-conflicting ones run in parallel, conflicting ones run serially, and results are always fed back in call order.
+The model can return multiple tool calls in a single turn, and Step Pi decides what may run in parallel by **resource conflict**: each tool declares its own access surface (no side effects / reads a path / writes a path / globally exclusive), non-conflicting ones run in parallel, conflicting ones run serially, and results are always fed back in call order.
 
 The access surface of `spawn_agent` depends on the type: `explore` declares no side effects (parallelizable), while `general` declares global exclusivity (serial by nature). So multiple explore sub-agents and multiple read-only read/grep calls run in parallel, while `general` sub-agents, file writes, and `bash` run serially.
 

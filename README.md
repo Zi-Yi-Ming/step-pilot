@@ -10,11 +10,11 @@
 
 [![CI](https://github.com/Zi-Yi-Ming/step-pi/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Zi-Yi-Ming/step-pi/actions/workflows/test.yml)
 
-A terminal coding agent CLI, with StepFun's **Step model family** as the primary target and **pi-tui** for the UI. The model layer speaks three protocols—Anthropic Messages, OpenAI Chat Completions, and OpenAI Responses—so any compatible provider works out of the box; Step is the best-tested and default path.
+A lightweight terminal coding agent CLI optimized for **Step 3.7 Flash**, with **pi-tui** for the UI. The model layer speaks three protocols—Anthropic Messages, OpenAI Chat Completions, and OpenAI Responses—so any compatible provider works out of the box; Step is the best-tested and default path.
 
 ## What it is
 
-Step Pi is a terminal coding agent CLI built around an agent loop: the model uses tools to read and write real files and run real commands, results are fed back, and the loop continues until the task is done. It is built with **pi-tui** and targets **StepFun's Step model family** as the primary path, while also supporting any compatible provider through three open protocols (Anthropic Messages, OpenAI Chat Completions, OpenAI Responses).
+Step Pi is a lightweight terminal coding agent CLI optimized for Step 3.7 Flash. The agent loop: the model uses tools to read and write real files and run real commands, results are fed back, and the loop continues until the task is done. It is built with **pi-tui** and targets Step 3.7 Flash as the primary path, while also supporting any compatible provider through three open protocols (Anthropic Messages, OpenAI Chat Completions, OpenAI Responses).
 
 Key capabilities:
 - **Permission tiers + plan mode**: enforce "say what you'll change before changing it"

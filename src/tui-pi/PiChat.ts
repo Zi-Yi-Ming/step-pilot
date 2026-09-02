@@ -159,7 +159,7 @@ export interface PiChatExit {
 const HINTS = 'Enter 发送 · Esc 中断 · Ctrl+C 退出 · /help 命令';
 
 /** /compact 保留的最近消息条数（与 fullCompact 的 keepRecent 默认值一致，两处必须同值）。 */
-const COMPACT_KEEP_RECENT = 6;
+const COMPACT_KEEP_RECENT = 4;
 
 /**
  * Transcript 逐回合折叠参数（OOM 第二道防线，设计文档 `前端设计-pi版/20260818-Transcript逐回合折叠与块释放设计.md`）。

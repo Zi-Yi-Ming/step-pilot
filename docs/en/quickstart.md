@@ -5,7 +5,7 @@
 
 # Quick start
 
-By the end of this page you will have installed step-code, configured an API key, and completed your first conversation.
+By the end of this page you will have installed Step Pi, configured an API key, and completed your first conversation.
 
 ## 1. Install
 

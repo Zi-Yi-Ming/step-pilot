@@ -9,7 +9,7 @@ Hooks let you run your own shell commands at lifecycle event points without chan
 
 ## How it relates to the permission system
 
-step-code already has an internal layer of in-process mount points (authorization, result post-processing, continuation decisions), and the permission system hangs off of it. Hooks are **an opening in that layer exposed to users**: shell commands declared in configuration take part in the same lifecycle.
+Step Pi already has an internal layer of in-process mount points (authorization, result post-processing, continuation decisions), and the permission system hangs off of it. Hooks are **an opening in that layer exposed to users**: shell commands declared in configuration take part in the same lifecycle.
 
 One bottom line to state up front: **hooks are not a security boundary**. When a command times out, crashes, or returns an exit code outside the convention, it is always allowed through (fail-open); the security boundary always remains the permission system. Hooks are positioned as an experience enhancement, for logging, injecting context, and intercepting the occasional obviously wrong operation. Do not expect them to serve as a security fallback.
 

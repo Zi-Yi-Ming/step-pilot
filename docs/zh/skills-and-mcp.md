@@ -1,6 +1,6 @@
 # 技能、插件与 MCP
 
-本页讲三种扩展 step-code 能力的方式：技能（SKILL.md）、插件、外部 MCP server。
+本页讲三种扩展 Step Pi 能力的方式：技能（SKILL.md）、插件、外部 MCP server。
 
 ## 技能（Skill）
 
@@ -109,7 +109,7 @@ my-plugin/
 
 ## MCP
 
-连接外部 MCP server（stdio 方式），把外部工具接进 step-code：
+连接外部 MCP server（stdio 方式），把外部工具接进 Step Pi：
 
 ```json
 // ~/.step-pi/mcp.json
