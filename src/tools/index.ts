@@ -149,6 +149,9 @@ export function toolAccessOf(name: string, rawInput: unknown, ctx: ToolContext):
  * 执行一次工具调用：校验入参 → 调用 execute。校验失败、未知工具、执行抛异常、
  * 返回畸形值——全部转为 ToolResult（错误以 isError 回灌），绝不抛出，
  * 以便 agent 循环把错误交还给模型自我纠正。
+ *
+ * 对 Step 3.7 Flash 等小模型做一次轻度容错：schema 校验失败时，尝试把常见格式错误
+ * （字符串 "true"/"false" 转布尔、数值字符串转数字）修正后重试一次，不直接判死。
  */
 export async function executeTool(
   name: string,
@@ -159,7 +162,13 @@ export async function executeTool(
   if (tool === undefined) {
     return fail(`未知工具：${name}`);
   }
-  const parsed = tool.schema.safeParse(rawInput);
+  let parsed = tool.schema.safeParse(rawInput);
+  if (!parsed.success) {
+    const tolerant = tolerantParse(rawInput, tool.schema);
+    if (tolerant.success) {
+      parsed = tolerant;
+    }
+  }
   if (!parsed.success) {
     return fail(`工具 ${name} 入参校验失败：${parsed.error.message}`);
   }
@@ -168,4 +177,49 @@ export async function executeTool(
   } catch (e) {
     return fail(`工具 ${name} 执行异常：${(e as Error).message}`);
   }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * 对 schema 校验失败的输入做一次轻度修正：只处理顶层字段的类型误判，
+ * 把字符串 "true"/"false" 转布尔、数值字符串转数字，不改变语义。
+ */
+function tolerantParse(rawInput: unknown, schema: z.ZodTypeAny) {
+  if (!isPlainObject(rawInput)) {
+    return schema.safeParse(rawInput);
+  }
+  const original = schema.safeParse(rawInput);
+  if (original.success) return original;
+
+  const issues = original.error.issues;
+  const coerced: Record<string, unknown> = { ...rawInput };
+  let changed = false;
+
+  for (const issue of issues) {
+    if (issue.code !== 'invalid_type') continue;
+    if (!issue.path || issue.path.length === 0) continue;
+    const field = issue.path[0] as string;
+    const currentValue = coerced[field];
+    if (issue.expected === 'boolean' && typeof currentValue === 'string') {
+      if (currentValue === 'true') {
+        coerced[field] = true;
+        changed = true;
+      } else if (currentValue === 'false') {
+        coerced[field] = false;
+        changed = true;
+      }
+    } else if (issue.expected === 'number' && typeof currentValue === 'string') {
+      const num = Number(currentValue);
+      if (!isNaN(num)) {
+        coerced[field] = num;
+        changed = true;
+      }
+    }
+  }
+
+  if (!changed) return original;
+  return schema.safeParse(coerced);
 }
