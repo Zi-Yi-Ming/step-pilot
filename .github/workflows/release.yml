@@ -146,13 +146,91 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: Extract changelog highlights
+        id: changelog
+        run: |
+          if [ ! -f CHANGELOG.md ]; then
+            echo "found=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          node -e '
+            const fs = require("fs");
+            const tag = process.argv[1];
+            const text = fs.readFileSync("CHANGELOG.md", "utf8");
+            const lines = text.split(/\r?\n/);
+            let inSection = false;
+            let inSubsection = false;
+            let buf = [];
+            let foundVersioned = false;
+            for (const line of lines) {
+              if (line.startsWith("## [")) {
+                if (inSection) break;
+                if (line.includes("[" + tag + "]")) {
+                  inSection = true;
+                  foundVersioned = true;
+                  continue;
+                }
+              }
+              if (!inSection) continue;
+              if (line.startsWith("### ")) {
+                inSubsection = true;
+                buf.push("");
+                buf.push("**" + line.slice(5).trim() + "**");
+                continue;
+              }
+              if (inSubsection && line.startsWith("- ")) {
+                buf.push(line);
+              } else if (inSubsection && line.trim() !== "") {
+                inSubsection = false;
+              }
+            }
+            if (!foundVersioned || buf.length === 0) {
+              inSection = false;
+              inSubsection = false;
+              buf = [];
+              for (const line of lines) {
+                if (line.startsWith("## [")) {
+                  if (inSection) break;
+                  if (line.includes("[Unreleased]")) {
+                    inSection = true;
+                    continue;
+                  }
+                }
+                if (!inSection) continue;
+                if (line.startsWith("### ")) {
+                  inSubsection = true;
+                  buf.push("");
+                  buf.push("**" + line.slice(5).trim() + "**");
+                  continue;
+                }
+                if (inSubsection && line.startsWith("- ")) {
+                  buf.push(line);
+                } else if (inSubsection && line.trim() !== "") {
+                  inSubsection = false;
+                }
+              }
+            }
+            if (buf.length > 0) {
+              fs.writeFileSync("highlights.tmp", buf.join("\n").trim());
+              console.log("found=true");
+            } else {
+              console.log("found=false");
+            }
+          ' "${GITHUB_REF_NAME#v}"
+
       - name: Compose release notes
         env:
           TAG: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
         run: |
           TGZ="$(cd artifacts && ls step-pilot-*.tgz)"
-          cat > notes.md <<EOF
+          {
+            if [ -f highlights.tmp ]; then
+              cat highlights.tmp
+              echo ""
+              echo ""
+            fi
+            cat <<EOF
           ## 安装
 
           ### 单文件可执行（无需 Node 环境）
@@ -179,6 +257,7 @@ jobs:
 
           安装后执行 \`step --version\` 确认。
           EOF
+          } > notes.md
 
       - name: Create or update release
         env:

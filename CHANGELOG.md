@@ -4,7 +4,7 @@
 
 本项目的所有重要变更记录于此。格式沿用 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [0.1.3] - 2026-09-02
 
 ### Changed
 
@@ -13,7 +13,7 @@
 - **工具结果兜底上限从 200K 提升到 400K**：减少正常长输出被截断的概率，保留更多上下文供模型决策。
 
 ### Added
-- **记忆观察池 `/memory`（默认关闭）**：agent 可把对话中观察到的偏好与约定（用户明确要求记住、纠正、稳定项目约定）自主沉淀到两级 markdown 目录——全局 `~/.step-pilot/memory/` 与项目 `.step-pilot/memory/`。观察**不直接生效**：system 记忆段显式标注「未经确认，与规范冲突时以规范为准」，定期回顾经用户确认后才晋升进规范层。存储为 markdown 正文 + HTML 注释结构化字段（version / occurrences 计数 / updated_at），人可直接编辑；无 embedding、无后台提取管线，更新只发生在对话回合内。`/memory` 无参列出全部观察（含索引字符用量与待修复文件），`on`/`off` 写回 config 并即时生效；中途开启时注入回看引导，agent 补沉淀本次会话的遗留观察。子 agent 只读（见索引、不能写）。
+- **记忆观察池 `/memory`（默认关闭）**：agent 可把对话中观察到的偏好与约定（用户明确要求记住、纠正、稳定项目约定）自主沉淀到两级 markdown 目录——全局 `~/.step-pilot/memory/` 与项目 `.step-pilot/memory/`。观察**不直接生效**：system 记忆段显式标注「未经确认，与规范冲突时以规范为准」，定期回顾经用户确认后才晋升为规范层。存储为 markdown 正文 + HTML 注释结构化字段（version / occurrences 计数 / updated_at），人可直接编辑；无 embedding、无后台提取管线，更新只发生在对话回合内。`/memory` 无参列出全部观察（含索引字符用量与待修复文件），`on`/`off` 写回 config 并即时生效；中途开启时注入回看引导，agent 补沉淀本次会话的遗留观察。子 agent 只读（见索引、不能写）。
 
 - **当前时间注入与跨天提醒**：system prompt 注入启动时刻快照（本地时区 + IANA 时区名），明示其快照属性——需准确时间时用 `date` 现取，训练截止日期之后的时事用 web_search 查证。会话跨过本地午夜时经 injection 消息注入一条日期修正（不改动 system，保住 prompt 缓存断点）。此前模型只能拿训练截止日期当「现在」，写文档日期、判断「最新」都会静默出错。
 
@@ -49,6 +49,8 @@
 - **任务清单面板按状态优先级裁剪，折叠行带状态分布**：面板仍最多显示 5 条，但超出时不再是硬切列表尾部——此前清单前部堆积的已完成条目会等权占位，把进行中和待办挤出可视区。现在进行中全部保留、最新一条已完成保留做进度上下文、剩余名额按原顺序填待办；折叠行从「… +N more」改为带隐藏条目的状态分布（如「… +3（1 已完成 · 2 待办）」），被裁掉的部分可感知。
 
 - **安装链路收敛为永久链接，`dist-npm` 预构建分支退役**：Release 资产新增不带版本号的 `step-pilot.tgz` 固定名副本，安装命令改为 `npm i -g https://github.com/<仓库>/releases/latest/download/step-pilot.tgz`——`releases/latest/download/` 始终解析到最新 Release，发新版不再需要改文档里的版本号；三端单文件可执行同样走该永久链接。原 `dist-npm` 预构建分支（每次发版由 CI 强推覆盖的分发快照）已删除，CI 里负责刷新它的 `dist-branch` job 与 `scripts/make-dist-branch.mjs` 同步移除；要锁定版本时改用 `releases/download/<tag>/step-pilot-<版本>.tgz` 带版本号资产。安装文档（中英）、快速上手（中英）、README（中英）与 `step-pilot-install` skill 已全部对齐到四种安装方式。
+
+## [Unreleased]
 
 ## [0.1.2] - 2026-08-07
 
