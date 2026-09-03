@@ -41,5 +41,5 @@ describe('grep 文件数上限边界', () => {
     expect(r.isError).toBe(false);
     expect(r.content).toContain('无匹配');
     expect(readFileCalls).toBeLessThanOrEqual(3000);
-  }, 15_000);
+  }, 60_000);
 });

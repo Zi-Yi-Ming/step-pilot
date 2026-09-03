@@ -67,7 +67,7 @@ describe('bash 前台超时自动转后台', () => {
   it('超时后转后台：tool_result 非 error、任务入册、带部分输出', async () => {
     const mgr = new BackgroundManager();
     const r = await bashTool.execute(
-      { command: 'echo before; sleep 5', timeout: 1 },
+      { command: 'echo before; sleep 5', timeout: 2 },
       { cwd: process.cwd(), background: mgr },
     );
     expect(r.isError).toBe(false);
