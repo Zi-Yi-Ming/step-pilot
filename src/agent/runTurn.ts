@@ -4,6 +4,7 @@ import {
   computeRetryDelay,
   type EmptyResponseContext,
   EmptyResponseError,
+  MaxTokensExhaustedError,
   errorAdvice,
   isContextOverflowError,
   isEmptyStreamError,
@@ -101,6 +102,13 @@ export function subagentRequeueDelay(
  */
 function errorMessageWithAdvice(err: unknown): string {
   const advice = errorAdvice(err);
+  // 输出预算耗尽：独立类型，不走重试，给确定性提示。
+  if (err instanceof MaxTokensExhaustedError) {
+    const ctx = err.context;
+    const limit = ctx?.maxTokens;
+    const message = limit !== undefined ? t('loop.maxTokens.thinkingExhaustedWithLimit', { limit }) : t('loop.maxTokens.thinkingExhausted');
+    return message;
+  }
   // 空流/空响应给确定的中文文案：SDK 原文是英文且不附恢复线索
   const message =
     err instanceof EmptyResponseError || isEmptyStreamError(err)

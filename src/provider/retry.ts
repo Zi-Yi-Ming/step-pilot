@@ -77,6 +77,38 @@ export class StreamIdleTimeoutError extends Error {
 }
 
 /**
+ * 输出预算耗尽：思考吃满了 max_tokens，正文零输出。
+ *
+ * 这是配置性问题，不是瞬时故障：同样的预算与档位重发一万次也会复现。
+ * 独立成类型后，loop / TUI / wire log 可以在类型层面直接区分「截断可续写」与「预算耗尽需改配置」，
+ * 不依赖调用方记得读某个布尔标记或字符串枚举。
+ */
+export interface MaxTokensExhaustedContext {
+  /** 本次请求发出的输出上限。 */
+  maxTokens?: number;
+  /** 本次输出消耗的 token 数。 */
+  outputTokens?: number;
+  /** 是否产出过思考内容。 */
+  hadReasoning?: boolean;
+  /** 服务端给出的结束原因。 */
+  stopReason?: string | null;
+  /** 模型名。 */
+  model?: string;
+  /** 渠道名。 */
+  provider?: string;
+}
+
+export class MaxTokensExhaustedError extends Error {
+  readonly context?: MaxTokensExhaustedContext;
+
+  constructor(message: string, context?: MaxTokensExhaustedContext) {
+    super(message);
+    this.name = 'MaxTokensExhaustedError';
+    if (context !== undefined) this.context = context;
+  }
+}
+
+/**
  * 沿 err.cause 链收集所有字符串 code（含顶层）。
  * undici（Node 内置 fetch）传输层失败时抛 TypeError('fetch failed')，真实的
  * socket/DNS code 嵌在 err.cause（可能多级）；OpenAI 兼容通道用裸 fetch，这类
@@ -117,6 +149,10 @@ const RETRYABLE_NET_CODES = new Set([
 export function isRetryableError(err: unknown): boolean {
   if (err instanceof Anthropic.APIConnectionError || err instanceof Anthropic.APIConnectionTimeoutError) {
     return true;
+  }
+  // 输出预算耗尽：配置性问题，重发一万次也会复现，绝不重试。
+  if (err instanceof MaxTokensExhaustedError) {
+    return false;
   }
   // 空流/空响应：对端在产出任何内容前结束了生成，多为瞬时故障；
   // 配合 runTurn「未吐字才重试」守卫，归可重试是安全的。

@@ -1,6 +1,6 @@
 {
   "name": "step-pilot",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Step Pilot — 阶跃星辰 Step 系列模型驱动的终端编码 agent CLI。",
   "type": "module",
   "bin": {

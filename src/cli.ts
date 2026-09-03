@@ -42,7 +42,7 @@ import { setLocale, t } from './i18n.js';
 import { discoverPlugins, defaultPluginsDir } from './plugin/manager.js';
 import { pluginsStatePath, readPluginsState } from './plugin/manage.js';
 import { buildSkillRegistry, diffSkillRegistries, fingerprintSkillRoots, scanSkillRootsOnce, skillListing, type SkillRegistry, type SkillRegistryDiff } from './skill/registry.js';
-import { McpManager, mcpInputSchemaToZod, type McpServerConfig } from './mcp/manager.js';
+import { McpManager, expandMcpEnvVars, mcpInputSchemaToZod, type McpServerConfig } from './mcp/manager.js';
 import { registerDynamicTool } from './tools/index.js';
 import { createProvider } from './provider/factory.js';
 import { resolveCompactionBinding } from './provider/compaction.js';
@@ -540,14 +540,14 @@ try {
   const mcpPath = join(homedir(), '.step-pilot', 'mcp.json');
   if (existsSync(mcpPath)) {
     const mcpCfg = JSON.parse(readFileSync(mcpPath, 'utf8')) as { mcpServers?: Record<string, McpServerConfig> };
-    mcpServerConfigs = mcpCfg.mcpServers ?? {};
+    mcpServerConfigs = expandMcpEnvVars(mcpCfg.mcpServers ?? {}) as Record<string, McpServerConfig>;
   }
 } catch {
   // mcp.json 读取失败不阻塞启动
 }
 // plugin 贡献的 MCP server 并入加载（键已带 <pluginId>:<serverName> 前缀隔离，与全局配置不冲突）。
 for (const p of plugins) {
-  Object.assign(mcpServerConfigs, p.mcpServers);
+  Object.assign(mcpServerConfigs, expandMcpEnvVars(p.mcpServers) as Record<string, McpServerConfig>);
 }
 
 // tool_search：deferred = MCP 工具；命中后动态注册为可调用工具。

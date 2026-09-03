@@ -138,8 +138,21 @@ my-plugin/
 }
 ```
 
+http 类型支持在 headers 里使用 `${ENV_VAR}` 占位符，启动时自动展开为 `process.env` 里的值；未设置时保留占位符原样，不抛异常。示例：
+
+```json
+{
+  "mcpServers": {
+    "firecrawl": {
+      "url": "https://mcp.firecrawl.dev/v2/mcp",
+      "headers": { "Authorization": "Bearer ${FIRECRAWL_API_KEY}" }
+    }
+  }
+}
+```
+
 - 每个条目 `command`（stdio）与 `url`（streamable http）**二选一**，同时给或缺给都会在 `/mcp` 面板显示为 failed。
-- http 类型的鉴权暂走 `headers` 手填（如 `Authorization`）；OAuth 授权流尚未支持。
+- http 类型的鉴权可继续手填 `headers`（如 `Authorization`），也支持 `auth.type = "oauth"` 走内置浏览器授权流，连接时自动完成授权并将 token 注入后续请求。
 - 旧的 SSE-only 传输（已废弃）不支持；现行 MCP 服务器（2025-03-26 规范起）均为 streamable http。
 
 MCP 工具命名为 `mcp__<server>__<tool>`，默认不进初始工具列表——经 `tool_search` 懒加载，模型检索命中后才注册进会话，避免外部工具撑爆上下文。启动时并行连接、单点失败不影响其他 server。`/mcp` 查看各 server 的连接状态、工具数和错误。MCP 工具的超长文本输出会经语义预处理（保头尾、省中间），与内置工具同等防护，防止外部大输出淹没小模型的上下文。

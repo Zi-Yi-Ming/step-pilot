@@ -70,6 +70,52 @@ export interface OAuthToken {
   refresh_token?: string;
   scope?: string;
   obtainedAt: number;
+  /** 绝对过期时间戳（毫秒）。由 obtainedAt + expires_in * 1000 计算，缺失 expires_in 时 undefined。 */
+  expiresAt?: number;
+}
+
+/** 判断 token 是否已过期（含 skew 缓冲，默认提前 30 秒判定过期）。 */
+export function isTokenExpired(token: OAuthToken, skewMs = 30_000): boolean {
+  const expiresAt = token.expiresAt ?? (token.obtainedAt !== undefined && token.expires_in !== undefined
+    ? token.obtainedAt + token.expires_in * 1000
+    : undefined);
+  if (expiresAt === undefined) return false;
+  return Date.now() >= expiresAt - skewMs;
+}
+
+/** 用 refresh_token 换新的 access_token。 */
+export async function exchangeRefreshToken(
+  config: OAuthServerConfig,
+  refreshToken: string,
+): Promise<OAuthToken> {
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+    client_id: config.clientId ?? '',
+  });
+  if (config.clientSecret) {
+    body.set('client_secret', config.clientSecret);
+  }
+  const res = await fetch(config.tokenUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`OAuth token refresh failed: ${res.status} ${text}`);
+  }
+  const data = (await res.json()) as {
+    access_token: string;
+    token_type?: string;
+    expires_in?: number;
+    refresh_token?: string;
+    scope?: string;
+  };
+  return {
+    ...data,
+    obtainedAt: Date.now(),
+  };
 }
 
 /** mcp.json 里 server 级的 OAuth 配置。 */
@@ -185,7 +231,12 @@ export async function exchangeCodeForToken(
 /** 保存 server 级 token（加密覆盖）。 */
 export function saveOAuthToken(serverName: string, token: OAuthToken): void {
   const data = loadAllTokens();
-  data[serverName] = token;
+  // 计算 expiresAt（已有则保留，避免重复计算）
+  const saved: OAuthToken = { ...token };
+  if (saved.expiresAt === undefined && saved.expires_in !== undefined && saved.obtainedAt !== undefined) {
+    saved.expiresAt = saved.obtainedAt + saved.expires_in * 1000;
+  }
+  data[serverName] = saved;
   writeFileSync(getOAuthFile(), encrypt(JSON.stringify(data, null, 2)), 'utf8');
 }
 
@@ -209,17 +260,48 @@ export function listOAuthServers(): string[] {
 }
 
 /** 跑完整 OAuth authorization code flow：无 token 时弹浏览器授权，已有 token 直接复用。 */
-export async function runOAuthFlow(name: string, config: OAuthFlowInput): Promise<OAuthFlowInput> {
-  // 已有 token 直接复用（0.1.7 暂不做过期检测与 refresh）
+export async function runOAuthFlow(
+  name: string,
+  config: OAuthFlowInput,
+  deps?: {
+    openBrowser?: (url: string) => void;
+    startLocalCallbackServer?: (port: number) => Promise<string>;
+    exchangeCodeForToken?: typeof exchangeCodeForToken;
+    exchangeRefreshToken?: typeof exchangeRefreshToken;
+  },
+): Promise<OAuthFlowInput> {
+  // 已有 token：未过期直接复用；已过期但可 refresh → 刷新后复用；否则走完整授权码流
   const stored = loadOAuthToken(name);
   if (stored?.access_token) {
-    return {
-      ...config,
-      headers: {
-        ...config.headers,
-        Authorization: `${stored.token_type ?? 'Bearer'} ${stored.access_token}`,
-      },
-    };
+    if (!isTokenExpired(stored)) {
+      return {
+        ...config,
+        headers: {
+          ...config.headers,
+          Authorization: `${stored.token_type ?? 'Bearer'} ${stored.access_token}`,
+        },
+      };
+    }
+    // token 过期，尝试 refresh
+    if (stored.refresh_token) {
+      try {
+        const refreshed = await (deps?.exchangeRefreshToken ?? exchangeRefreshToken)(config.auth, stored.refresh_token);
+        saveOAuthToken(name, refreshed);
+        return {
+          ...config,
+          headers: {
+            ...config.headers,
+            Authorization: `${refreshed.token_type ?? 'Bearer'} ${refreshed.access_token}`,
+          },
+        };
+      } catch {
+        // refresh 失败，清掉旧 token，走完整授权码流
+        deleteOAuthToken(name);
+      }
+    } else {
+      // 过期且无 refresh_token，清掉旧 token 走完整授权码流
+      deleteOAuthToken(name);
+    }
   }
 
   // 无 token，走授权流程
@@ -227,7 +309,7 @@ export async function runOAuthFlow(name: string, config: OAuthFlowInput): Promis
   const redirectUrl = new URL(redirectUri);
   const port = redirectUrl.port ? Number(redirectUrl.port) : 18923;
 
-  const callbackPromise = startLocalCallbackServer(port);
+  const callbackPromise = (deps?.startLocalCallbackServer ?? startLocalCallbackServer)(port);
 
   const authUrl = new URL(config.auth.authorizationUrl);
   authUrl.searchParams.set('client_id', config.auth.clientId ?? '');
@@ -237,9 +319,9 @@ export async function runOAuthFlow(name: string, config: OAuthFlowInput): Promis
     authUrl.searchParams.set('scope', config.auth.scopes.join(' '));
   }
 
-  openBrowser(authUrl.toString());
+  (deps?.openBrowser ?? openBrowser)(authUrl.toString());
   const code = await callbackPromise;
-  const token = await exchangeCodeForToken(config.auth, code);
+  const token = await (deps?.exchangeCodeForToken ?? exchangeCodeForToken)(config.auth, code);
   saveOAuthToken(name, token);
 
   return {

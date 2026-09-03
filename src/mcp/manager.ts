@@ -10,6 +10,24 @@ import { VERSION } from '../version.js';
 import { runOAuthFlow, type OAuthServerConfig } from './oauth.js';
 import type { WireEvent } from '../agent/wirelog.js';
 
+/** 递归展开 MCP 配置里字符串中的 `${ENV_VAR}` 占位符；未设置时保留原样，不抛异常。 */
+export function expandMcpEnvVars(obj: unknown): unknown {
+  if (typeof obj === 'string') {
+    return obj.replace(/\$\{([^}]+)\}/g, (_, name) => process.env[name] ?? `\${${name}}`);
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(expandMcpEnvVars);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      out[k] = expandMcpEnvVars(v);
+    }
+    return out;
+  }
+  return obj;
+}
+
 /** 把 MCP 工具的 JSON inputSchema 转成带类型强转的 zod schema（模型常给字符串数字/布尔）。 */
 export function mcpInputSchemaToZod(inputSchema: unknown): z.ZodTypeAny {
   const props = (inputSchema as { properties?: Record<string, unknown> } | undefined)?.properties;
@@ -292,6 +310,7 @@ function formatMcpToolError(
 /** MCP 连接管理器：并行连接配置的 server（stdio / streamable http），发现工具，统一调用，暴露 per-server 状态。 */
 export class McpManager {
   private readonly servers = new Map<string, ConnectedServer>();
+  private readonly toolMap = new Map<string, { client: Client; info: McpToolInfo; server: ConnectedServer }>();
   private readonly states = new Map<string, McpServerState>();
   /** 工具级连续失败统计：qualifiedName -> 连续失败次数 + 最近错误。 */
   private readonly toolFailures = new Map<string, { count: number; lastError: string }>();
@@ -473,7 +492,12 @@ export class McpManager {
         description: tool.description ?? '',
         inputSchema: (tool.inputSchema ?? { type: 'object' }) as Anthropic.Tool['input_schema'],
       }));
-      this.servers.set(name, { name, client, tools: infos, callTimeoutMs: effectiveConfig.callTimeoutMs });
+      const server: ConnectedServer = { name, client, tools: infos, callTimeoutMs: effectiveConfig.callTimeoutMs };
+      this.servers.set(name, server);
+      // 重建 O(1) 索引：同 qualifiedName 只保留最后连接的 server（一般不会碰撞）
+      for (const info of infos) {
+        this.toolMap.set(info.qualifiedName, { client, info, server });
+      }
       this.states.set(name, { name, status: 'connected', toolCount: infos.length, transport, callTimeoutMs: effectiveConfig.callTimeoutMs });
       return true;
     } catch (e) {
@@ -540,6 +564,7 @@ export class McpManager {
       }
     }
     this.servers.clear();
+    this.toolMap.clear();
   }
 
   /** 指定 server 已发现的工具（未连接返回空）。 */
@@ -554,11 +579,7 @@ export class McpManager {
 
   /** 按规范化名查工具（含所属 client、server 配置）。 */
   find(qualifiedName: string): { client: Client; info: McpToolInfo; server: ConnectedServer } | undefined {
-    for (const s of this.servers.values()) {
-      const info = s.tools.find((t) => t.qualifiedName === qualifiedName);
-      if (info !== undefined) return { client: s.client, info, server: s };
-    }
-    return undefined;
+    return this.toolMap.get(qualifiedName);
   }
 
   /** 调用一个 MCP 工具，返回文本结果。超时（callTimeoutMs，缺省 60s）转 isError 回灌，不挂起回合。 */

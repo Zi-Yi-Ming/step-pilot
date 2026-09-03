@@ -143,8 +143,21 @@ Connect to external MCP servers to bring external tools into Step Pilot. Two tra
 }
 ```
 
+http servers support `${ENV_VAR}` placeholders in header values; they are expanded from `process.env` at startup. Unset variables are left as-is and do not throw. Example:
+
+```json
+{
+  "mcpServers": {
+    "firecrawl": {
+      "url": "https://mcp.firecrawl.dev/v2/mcp",
+      "headers": { "Authorization": "Bearer ${FIRECRAWL_API_KEY}" }
+    }
+  }
+}
+```
+
 - Each entry takes **either** `command` (stdio) **or** `url` (streamable http); giving both, or neither, shows up as `failed` in the `/mcp` panel.
-- Auth for http servers currently means filling `headers` manually (e.g. `Authorization`); the OAuth flow is not supported yet.
+- Auth for http servers currently means filling `headers` manually (e.g. `Authorization`), or setting `auth.type = "oauth"` for the built-in browser authorization flow with automatic token injection.
 - The legacy SSE-only transport (deprecated upstream) is not supported; current MCP servers (since the 2025-03-26 spec) all speak streamable http.
 
 MCP tools are named `mcp__<server>__<tool>` and are not part of the initial tool list by default. They are lazily loaded through `tool_search`: a tool is registered into the session only after the model's search matches it, which keeps external tools from blowing up the context. Servers are connected in parallel at startup, and a single failure does not affect the others. Use `/mcp` to see each server's connection state, tool count and errors. Overly long text output from MCP tools goes through semantic preprocessing (keep head and tail, elide the middle) with the same protections as built-in tools, so a large external output cannot drown a small model's context.

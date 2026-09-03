@@ -8,6 +8,7 @@ import {
   isContextOverflowError,
   isRateLimitError,
   isRetryableError,
+  MaxTokensExhaustedError,
   RETRY_AFTER_MAX_MS,
   RETRY_BASE_MS,
   RETRY_MAX_MS,
@@ -84,6 +85,10 @@ describe('isRetryableError', () => {
     expect(isRetryableError(new TypeError('Invalid URL'))).toBe(false);
     // cause 链上是不可重试的 code 也不算
     expect(isRetryableError(Object.assign(new Error('x'), { code: 'ENOTFOUND' }))).toBe(false);
+  });
+
+  it('MaxTokensExhaustedError → 不可重试（预算耗尽，重发无意义）', () => {
+    expect(isRetryableError(new MaxTokensExhaustedError('output budget exhausted'))).toBe(false);
   });
 });
 

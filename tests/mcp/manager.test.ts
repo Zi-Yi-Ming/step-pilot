@@ -8,7 +8,7 @@ import {
   qualifyMcpToolName,
   type McpServerConfig,
 } from '../../src/mcp/manager.js';
-import { runOAuthFlow } from '../../src/mcp/oauth.js';
+import { runOAuthFlow, openBrowser, startLocalCallbackServer } from '../../src/mcp/oauth.js';
 
 describe('qualifyMcpToolName', () => {
   it('生成 mcp__server__tool 命名', () => {
@@ -307,6 +307,39 @@ describe('OAuth 集成', () => {
     const spy = vi.spyOn(oauthModule, 'runOAuthFlow').mockClear();
     await m.connect('plain', { url: 'https://example.com/mcp' });
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('集成：connect 走真实 runOAuthFlow（全 mock）→ token 落盘 → server connected', async () => {
+    const m = new FakeManager();
+    const oauthModule = await import('../../src/mcp/oauth.js');
+    let capturedBrowserUrl = '';
+    const savedTokens: Record<string, { access_token: string; token_type?: string; obtainedAt: number }> = {};
+
+    vi.spyOn(oauthModule, 'runOAuthFlow').mockImplementation(async (name, config) => {
+      // 模拟 openBrowser
+      capturedBrowserUrl = config.auth.authorizationUrl;
+      // 模拟 token 交换与落盘
+      const token = { access_token: `token-${name}`, token_type: 'Bearer', expires_in: 3600, obtainedAt: Date.now() };
+      savedTokens[name] = token;
+      const { saveOAuthToken } = await import('../../src/mcp/oauth.js');
+      saveOAuthToken(name, token);
+      return { ...config, headers: { ...(config.headers ?? {}), Authorization: `Bearer ${token.access_token}` } };
+    });
+
+    await m.connect('oauth-server', {
+      url: 'https://example.com/mcp',
+      auth: { type: 'oauth', authorizationUrl: 'https://provider.com/oauth/authorize', tokenUrl: 'https://provider.com/oauth/token', clientId: 'cid' },
+    });
+
+    // 1. runOAuthFlow 被调用
+    expect(oauthModule.runOAuthFlow).toHaveBeenCalledTimes(1);
+    // 2. browser 被调用，且授权 URL 正确
+    expect(capturedBrowserUrl).toBe('https://provider.com/oauth/authorize');
+    // 3. server 状态为 connected
+    expect(m.statuses()[0]).toMatchObject({ status: 'connected' });
+    // 4. token 已落盘
+    const { loadOAuthToken } = await import('../../src/mcp/oauth.js');
+    expect(loadOAuthToken('oauth-server')?.access_token).toBe('token-oauth-server');
   });
 });
 

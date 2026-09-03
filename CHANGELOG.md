@@ -4,6 +4,19 @@
 
 本项目的所有重要变更记录于此。格式沿用 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.1.10] - 2026-09-04
+
+### Added
+
+- **MCP OAuth token refresh + 过期自动重授权**：`runOAuthFlow` 新增 refresh_token 分支；token 过期前自动刷新，refresh 失败则清掉旧 token 并重新走浏览器授权码流。新增 `isTokenExpired(token, skewMs?)` 与 `exchangeRefreshToken(config, refreshToken)`；`saveOAuthToken` 自动计算 `expiresAt`。0.1.7 的 OAuth 最小闭环由此补上持久化续期能力。
+- **MCP 工具可观察性 + retry loop 自动禁用**：`callTool.find()` 改为 `toolMap` O(1) 查找；新增 `markFailed/markSuccess`、`disabledTools`、`durations`、`serverStats`、wire 事件 `mcp.tool_call`；`/mcp` 面板展示 server 级统计、耗时分布与趋势箭头；新增 `/mcp enable|disable|reset` 命令；`[mcp]` 配置段支持 `auto_disable_on_retry_loop`。
+- **MCP streamable http headers 环境变量展开**：`mcp.json` / 插件 `mcpServers` 的 `headers` 支持 `${ENV_VAR}` 占位符，启动时从 `process.env` 展开；未定义变量原样保留、不抛错。
+
+### Fixed
+
+- **max_tokens 截断错误分型不依赖运行时标记**：`stop_reason=max_tokens` 升格为两个独立 stopReason——`max_tokens` 与 `thinking_exhausted`；循环守卫、compaction、wire 日志与 TUI 提示全部按类型分派，消除调用方漏读布尔位的风险。
+- **工具连续失败不触发重试循环**：retry loop 现在同时感知 `executeTool()` 抛错与 MCP 工具 `isError` 结果，连续失败达上限后主动终止该回合并发出 notice，避免无限重试消耗上下文。
+
 ## [0.1.7] - 2026-09-03
 
 ### Added
