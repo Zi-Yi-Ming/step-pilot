@@ -50,6 +50,8 @@ export interface ToolContext {
   toolSearch?: import('./toolSearch.js').ToolSearchRegistry;
   /** MCP 连接管理器（组合根注入）。缺失表示当前上下文不支持 MCP。 */
   mcpManager?: import('../mcp/manager.js').McpManager;
+  /** MCP 配置（组合根注入）。缺失时回退内置默认。 */
+  mcpConfig?: import('../config/config.js').McpConfig;
   /** 引用式附件存储（组合根注入）：发 provider 前把消息里的 stepref 图片还原成 base64。缺失表示不做 rehydrate。 */
   attachments?: import('../session/attachments.js').AttachmentStore;
   /** 向用户提问回调（组合根注入，前台阻塞收集答案）。缺失表示当前上下文不支持提问（如子 agent 无 UI）。 */

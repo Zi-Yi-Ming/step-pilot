@@ -683,7 +683,8 @@ export async function* runTurn(
   if (retryLoopTool !== undefined) {
     // 自动禁用：对 MCP 工具，连续失败达到上限时自动禁用，避免后续回合继续重试。
     const mcp = ctx.mcpManager;
-    if (mcp !== undefined && retryLoopTool.startsWith('mcp__')) {
+    const autoDisable = ctx.mcpConfig?.autoDisableOnRetryLoop !== false;
+    if (autoDisable && mcp !== undefined && retryLoopTool.startsWith('mcp__')) {
       mcp.disableTool(retryLoopTool);
     }
     yield {
