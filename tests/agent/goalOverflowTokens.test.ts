@@ -44,7 +44,7 @@ describe('goal token 计量在 overflow 重试场景下不重复累计', () => {
       // 第 1 回合首次尝试：上下文溢出（stream 抛错，runTurn 返回 overflow，无 usage）
       { throw: overflowErr },
       // 溢出兜底 fullCompact 的摘要调用（compaction 配置存在时会强制压缩）
-      { textChunks: [], finalContent: [textBlock('早期摘要')] },
+      { textChunks: [], finalContent: [textBlock('早期摘要'.repeat(20))] },
       // 第 1 回合重试成功：tool_use，带真实 usage
       { textChunks: [], finalContent: [toolUseBlock('c1', 'nonexistent_tool', {})], usage: usageTool },
       // 第 2 回合：end_turn，带真实 usage

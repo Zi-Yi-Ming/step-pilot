@@ -63,7 +63,7 @@ describe('发请求前的压缩预检', () => {
     // 若预检缺失，第一次 stream 就会是主会话请求、摘要调用不存在，
     // 断言 streamParams()[0] 带 compactionModel 就会失败。
     const { provider, streamCalls, streamParams } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('早期摘要')] }, // 预检触发的摘要调用
+      { textChunks: [], finalContent: [textBlock('早期摘要'.repeat(20))] }, // 预检触发的摘要调用
       { textChunks: ['答复'], finalContent: [textBlock('答复')] }, // 主会话唯一回合，直接 end_turn
     ]);
     const messages = bigHistory();
@@ -92,10 +92,15 @@ describe('发请求前的压缩预检', () => {
 
   it('预检压缩后紧跟 usage 事件：状态栏立即回落，不等下一次真实 usage', async () => {
     const { provider } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('早期摘要')] },
+      { textChunks: [], finalContent: [textBlock('早期摘要'.repeat(8))] },
       { textChunks: ['答复'], finalContent: [textBlock('答复')] },
     ]);
-    const messages = bigHistory();
+    // 50 条长消息，保证压缩掉的老消息体量足够大，回落效果明显（>1000 tok）
+    const messages = Array.from({ length: 50 }, (_, i) =>
+      i % 2 === 0
+        ? sm({ role: 'user', content: `历史消息内容${'x'.repeat(100)}` })
+        : sm({ role: 'assistant', content: [textBlock(`回复${'y'.repeat(100)}`)] }, 'assistant'),
+    );
     // 同口径基线：状态栏报的是「历史估算 + 框架开销」，基线也必须含框架开销
     const beforeSameUnit = estimateTokens(messages) + frameworkTokensOf('sys');
 
@@ -163,7 +168,7 @@ describe('overflow 保命压缩的状态栏刷新', () => {
     const overflow = new Anthropic.APIError(400, undefined, 'prompt is too long', undefined);
     const { provider } = makeFakeProvider([
       { throw: overflow }, // 主请求：溢出
-      { textChunks: [], finalContent: [textBlock('保命摘要')] }, // 保命 fullCompact 摘要调用
+      { textChunks: [], finalContent: [textBlock('保命摘要'.repeat(20))] }, // 保命 fullCompact 摘要调用
       { textChunks: ['重试成功'], finalContent: [textBlock('重试成功')] }, // 重试本回合
     ]);
     // 多条历史，保证保命压缩确实有内容可压；maxContextSize 给大值使预检不触发
@@ -202,7 +207,7 @@ describe('压缩饱和守卫', () => {
     // 修复前的行为：预检每回合都判一次，于是每回合各烧一次摘要请求（且都压不下来）。
     // 只给 3 个行为，若发生第二次压缩就会 behaviors 用尽而 error。
     const { provider, streamCalls, streamParams } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('早期摘要')] }, // 唯一一次摘要调用
+      { textChunks: [], finalContent: [textBlock('早期摘要'.repeat(20))] }, // 唯一一次摘要调用
       { textChunks: [], finalContent: [toolUseBlock('c1', 'nonexistent_tool', {})] }, // 第1轮
       { textChunks: ['收尾'], finalContent: [textBlock('收尾')] }, // 第2轮 end_turn
     ]);
@@ -246,7 +251,7 @@ describe('预检判据的口径', () => {
 
   it('传 initialUsage：首回合即用真实基准判断，估算偏低也会压缩', async () => {
     const { provider, streamParams } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('摘要')] }, // 预检触发的摘要调用
+      { textChunks: [], finalContent: [textBlock('摘要'.repeat(20))] }, // 预检触发的摘要调用
       { textChunks: ['答复'], finalContent: [textBlock('答复')] },
     ]);
     const messages = bigHistory();
@@ -294,7 +299,7 @@ describe('预检判据的口径', () => {
     // 6800 < 7492（越线），且清空工具后仅 261 ≪ 6800（对照用例不过线）。
     // 若未来工具表大幅增删导致此用例失败，按上面实测口径重算 maxContextSize。
     const { provider, streamParams } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('摘要')] },
+      { textChunks: [], finalContent: [textBlock('摘要'.repeat(20))] },
       { textChunks: ['答复'], finalContent: [textBlock('答复')] },
     ]);
     const messages = bigHistory();
@@ -356,7 +361,7 @@ describe('预检判据的口径', () => {
     // 历史里没有可被 micro 清理的大 tool_result（clearedCount=0），
     // 此时若拿 estimateTokens 重判就会判成「不用 full」——那正是被修掉的行为。
     const { provider, streamParams } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('摘要')] },
+      { textChunks: [], finalContent: [textBlock('摘要'.repeat(20))] },
       { textChunks: ['答复'], finalContent: [textBlock('答复')] },
     ]);
     const messages = bigHistory(); // 纯文本对话，无 tool_result

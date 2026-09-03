@@ -102,7 +102,7 @@ describe('runAgent', () => {
   it('循环内超阈值：tool_use 回合后自动压缩并发 notice', async () => {
     const { provider, streamCalls } = makeFakeProvider([
       { textChunks: [], finalContent: [toolUseBlock('c1', 'nonexistent_tool', {})] }, // 第1轮 tool_use
-      { textChunks: [], finalContent: [textBlock('早期摘要')] }, // fullCompact 摘要调用
+      { textChunks: [], finalContent: [textBlock('早期摘要'.repeat(5))] }, // fullCompact 摘要调用
       { textChunks: ['完成'], finalContent: [textBlock('完成')] }, // 第2轮 end_turn
     ]);
     // 8 条长消息，估算远超 maxContextSize×triggerRatio=170，触发循环内压缩
@@ -125,10 +125,11 @@ describe('runAgent', () => {
   it('循环内压缩后紧跟 usage 事件：状态栏立即回落到压缩后估算，不等下一回合', async () => {
     const { provider } = makeFakeProvider([
       { textChunks: [], finalContent: [toolUseBlock('c1', 'nonexistent_tool', {})] }, // 第1轮 tool_use
-      { textChunks: [], finalContent: [textBlock('早期摘要')] }, // fullCompact 摘要调用
+      { textChunks: [], finalContent: [textBlock('早期摘要'.repeat(8))] }, // fullCompact 摘要调用
       { textChunks: ['完成'], finalContent: [textBlock('完成')] }, // 第2轮 end_turn
     ]);
-    const big2: StoredMessage[] = Array.from({ length: 8 }, (_, i) =>
+    // 50 条长消息，保证压缩掉的老消息体量足够大，回落效果明显（>1000 tok）
+    const big2: StoredMessage[] = Array.from({ length: 50 }, (_, i) =>
       i % 2 === 0
         ? sm({ role: 'user', content: `历史消息内容${'x'.repeat(100)}` })
         : sm({ role: 'assistant', content: [textBlock(`回复${'y'.repeat(100)}`)] }, 'assistant'),
@@ -176,7 +177,7 @@ describe('runAgent', () => {
   it('压缩回落的估算 usage 带 measuredLength = 压缩后全长（尾部为空，不重复叠加）', async () => {
     const { provider } = makeFakeProvider([
       { textChunks: [], finalContent: [toolUseBlock('c1', 'nonexistent_tool', {})] },
-      { textChunks: [], finalContent: [textBlock('早期摘要')] }, // fullCompact 摘要调用
+      { textChunks: [], finalContent: [textBlock('早期摘要'.repeat(5))] }, // fullCompact 摘要调用
       { textChunks: ['完成'], finalContent: [textBlock('完成')] },
     ]);
     const msgs: StoredMessage[] = Array.from({ length: 8 }, (_, i) =>
@@ -206,7 +207,7 @@ describe('runAgent', () => {
     const overflowErr = new Anthropic.APIError(400, undefined, 'prompt is too long', undefined);
     const { provider, streamCalls } = makeFakeProvider([
       { throw: overflowErr }, // 第1次：溢出
-      { textChunks: [], finalContent: [textBlock('早期摘要')] }, // 强制压缩的摘要调用
+      { textChunks: [], finalContent: [textBlock('早期摘要'.repeat(5))] }, // 强制压缩的摘要调用
       { textChunks: ['好了'], finalContent: [textBlock('好了')] }, // 重试：正常完成
     ]);
     const msgs: StoredMessage[] = Array.from({ length: 8 }, (_, i) =>
@@ -241,7 +242,7 @@ describe('runAgent', () => {
     // 序列说明：历史一开始就超阈值，故**发请求前的预检**先压一次，摘要调用排在最前，
     // 主会话的第 1 次请求排在它之后。这个顺序本身就是预检生效的证据。
     const { provider, streamCalls, streamParams } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('早期摘要')] }, // 预检压缩的 fullCompact 摘要调用
+      { textChunks: [], finalContent: [textBlock('早期摘要'.repeat(5))] }, // 预检压缩的 fullCompact 摘要调用
       { textChunks: [], finalContent: [toolUseBlock('c1', 'nonexistent_tool', {})] }, // 第1轮 tool_use
       { textChunks: ['完成'], finalContent: [textBlock('完成')] }, // 第2轮 end_turn
     ]);
@@ -269,7 +270,7 @@ describe('runAgent', () => {
     const overflowErr = new Anthropic.APIError(400, undefined, 'prompt is too long', undefined);
     const { provider, streamCalls, streamParams } = makeFakeProvider([
       { throw: overflowErr }, // 第1次：溢出
-      { textChunks: [], finalContent: [textBlock('早期摘要')] }, // 强制压缩的摘要调用
+      { textChunks: [], finalContent: [textBlock('早期摘要'.repeat(5))] }, // 强制压缩的摘要调用
       { textChunks: ['好了'], finalContent: [textBlock('好了')] }, // 重试：正常完成
     ]);
     const msgs: StoredMessage[] = Array.from({ length: 8 }, (_, i) =>

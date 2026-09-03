@@ -288,7 +288,7 @@ describe('fullCompact', () => {
 
   it('切点安全：遇 tool_result 边界往后挪，不产生孤儿 tool_result', async () => {
     const { provider } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('早期摘要正文')] },
+      { textChunks: [], finalContent: [textBlock('早期摘要正文'.repeat(20))] },
     ]);
     const msgs: StoredMessage[] = [
       stored({ role: 'user', content: '开始任务' }, { kind: 'user' }),
@@ -331,7 +331,7 @@ describe('fullCompact', () => {
 
   it('提供 todos 时把清单拼进摘要尾部', async () => {
     const { provider } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('摘要正文')] },
+      { textChunks: [], finalContent: [textBlock('摘要正文'.repeat(20))] },
     ]);
     const msgs: StoredMessage[] = [
       stored({ role: 'user', content: '开始' }, { kind: 'user' }),
@@ -351,7 +351,7 @@ describe('fullCompact', () => {
 
   it('摘要 prompt 里图片渲染为带 hash 的 marker（不降级成字面 [image]、不内联 base64）', async () => {
     const { provider, streamParams } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('摘要')] },
+      { textChunks: [], finalContent: [textBlock('摘要'.repeat(20))] },
     ]);
     const msgs: StoredMessage[] = [
       imageMsg('stepref:abcd1234ef567890'),
@@ -368,7 +368,7 @@ describe('fullCompact', () => {
 
   it('传入 model 时摘要调用带 model 覆盖（大小模型协同）', async () => {
     const { provider, streamParams } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('早期摘要')] },
+      { textChunks: [], finalContent: [textBlock('早期摘要'.repeat(20))] },
     ]);
     const msgs: StoredMessage[] = [
       stored({ role: 'user', content: '开始' }, { kind: 'user' }),
@@ -384,7 +384,7 @@ describe('fullCompact', () => {
 
   it('不传 model 时摘要调用不带 model（行为与之前一致）', async () => {
     const { provider, streamParams } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('早期摘要')] },
+      { textChunks: [], finalContent: [textBlock('早期摘要'.repeat(20))] },
     ]);
     const msgs: StoredMessage[] = [
       stored({ role: 'user', content: '开始' }, { kind: 'user' }),
@@ -616,7 +616,7 @@ describe('fullCompact 用户原话保真', () => {
 
   it('保真预算为 0 时退回纯摘要形态', async () => {
     const { provider } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('纯摘要正文')] },
+      { textChunks: [], finalContent: [textBlock('纯摘要正文'.repeat(20))] },
     ]);
     const msgs: StoredMessage[] = [
       stored({ role: 'user', content: '早期请求' }, { kind: 'user' }),
@@ -668,7 +668,7 @@ describe('fullCompact 用户原话保真', () => {
 
   it('摘要 prompt 带上 handoff 认知要求（已决/未决分离、未验证标注）', async () => {
     const { provider, streamParams } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('摘要')] },
+      { textChunks: [], finalContent: [textBlock('摘要'.repeat(20))] },
     ]);
     const msgs: StoredMessage[] = [
       stored({ role: 'user', content: '开始' }, { kind: 'user' }),
@@ -776,7 +776,7 @@ describe('fullCompact 闸门层失败的重试策略（2026-08-13 修复）', ()
       stored({ role: 'user', content: '最近2' }, { kind: 'user' }),
     ];
     const { provider } = makeFakeProvider([
-      { textChunks: [], finalContent: [textBlock('摘要：做了一点事并继续推进。')] },
+      { textChunks: [], finalContent: [textBlock('摘要：做了一点事并继续推进。'.repeat(5))] },
     ]);
     const out = await fullCompact(provider as never, thinkingHeavy, 2);
     expect(summaryOf(out).message.content).toContain('早期对话摘要');
@@ -794,7 +794,7 @@ describe('fullCompact 闸门层失败的重试策略（2026-08-13 修复）', ()
       stored({ role: 'user', content: '最近1' }, { kind: 'user' }),
       stored({ role: 'assistant', content: [textBlock('最近2')] }, { kind: 'assistant' }),
     ];
-    // 3 次都返回同一个偏短但非噪音的交接（≥50 token 但 <200）
+    // 3 次都返回同一个偏短但非噪音的交接（过正常闸门但达降级门槛：normal 150 tok / degraded 75 tok）
     const short = '用户要建代号 ORION 的系统，已定方案 B，下一步写集成测试。'.repeat(3);
     const { provider, streamParams } = makeFakeProvider([
       { textChunks: [], finalContent: [textBlock(short)] },

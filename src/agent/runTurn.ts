@@ -30,6 +30,13 @@ import { toWire } from './wire.js';
 /** 单回合结束原因。overflow = 上下文溢出，交外层循环压缩后重试。max_tokens = 输出达上限被截断。 */
 export type StopReason = 'end_turn' | 'tool_use' | 'aborted' | 'error' | 'overflow' | 'max_tokens';
 
+/**
+ * 连续同工具失败上限：同一工具在单回合内连续失败超过此次数，判定为工具级重试循环。
+ * 不提高到更高值：超过 3 次通常意味着工具本身在当前环境下不可用（权限、路径、依赖），
+ * 继续重试只会浪费上下文与时间，且下层已有 executeTool 自身异常处理。
+ */
+const MAX_CONSECUTIVE_TOOL_FAILURES = 3;
+
 /** 单回合执行结果。 */
 export interface TurnOutcome {
   stopReason: StopReason;
@@ -589,6 +596,10 @@ export async function* runTurn(
   // 串行场景（单工具或全部冲突）下事件仍是 start→end 逐个交替，与旧串行实现字节级一致。
   const toolResults: Anthropic.ToolResultBlockParam[] = [];
   const pendingStarts: AgentEvent[] = [];
+  // 连续同工具失败计数：单回合内同一工具真正执行后连续失败超过上限时，判定为工具级重试循环。
+  // 授权拒绝、中断等非工具本身异常不计入；只有 executeTool 抛错才算。
+  const consecutiveFailures = new Map<string, number>();
+  let retryLoopTool: string | undefined;
   const scheduler = new ToolScheduler(
     prepared.map((p) => ({
       access: p.access,
@@ -608,8 +619,16 @@ export async function* runTurn(
           // 兜底长度上限：这一处赋值同时决定 tool_end 事件（→ items）与 makeToolResult（→ history），
           // 单点拦截覆盖三处副本，且界面与模型看到的是同一份内容。
           p.result = capToolResult(preprocessed);
+          // 成功执行：重置该工具的连续失败计数
+          consecutiveFailures.set(p.tu.name, 0);
         } catch (e) {
           p.result = { content: `工具 ${p.tu.name} 执行异常：${(e as Error).message}`, isError: true };
+          // 连续失败计数：达到上限时标记工具级重试循环（调度器仍在跑，等本轮全部 settle 后统一处理）
+          const prev = consecutiveFailures.get(p.tu.name) ?? 0;
+          consecutiveFailures.set(p.tu.name, prev + 1);
+          if (prev + 1 >= MAX_CONSECUTIVE_TOOL_FAILURES && retryLoopTool === undefined) {
+            retryLoopTool = p.tu.name;
+          }
         }
       },
       // 429 重排队（第二道防线）：spawn_agent 因限流失败时不直接占槽，重排队尾让出槽位后重试
@@ -656,6 +675,16 @@ export async function* runTurn(
     scheduler.drain();
     while (pendingStarts.length > 0) yield pendingStarts.shift()!;
   }
+
+  // 工具级重试循环：同一工具连续失败超过上限，终止本回合（不把失败结果回灌给模型继续循环）。
+  if (retryLoopTool !== undefined) {
+    yield {
+      type: 'notice',
+      message: t('loop.toolRetryLoop', { tool: retryLoopTool, count: MAX_CONSECUTIVE_TOOL_FAILURES }),
+    };
+    return { stopReason: 'error', usage };
+  }
+
   messages.push(stored({ role: 'user', content: toolResults }, { kind: 'tool' }));
 
   return { stopReason: userAborted ? 'aborted' : 'tool_use', usage };

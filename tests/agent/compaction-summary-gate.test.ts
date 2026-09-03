@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { describe, expect, it } from 'vitest';
-import { fullCompact, validateSummary, estimateTextTokens } from '../../src/agent/compaction/compact.js';
+import { adaptiveSummaryMinTokens, fullCompact, validateSummary, estimateTextTokens } from '../../src/agent/compaction/compact.js';
 import { stored, type StoredMessage } from '../../src/agent/message.js';
 import { makeFakeProvider, textBlock } from '../helpers/fakeProvider.js';
 
@@ -32,6 +32,13 @@ function goodSummary(marker: string): string {
   return `${marker}：已确认项目路径与 key 位置，配置改完并验证通过。${'下一步的依据与上下文继续记录在此。'.repeat(14)}`;
 }
 
+/** 超长合格摘要：用于大历史（>20000 tokens）的测试，确保超过 3% 比例下限。 */
+function longGoodSummary(marker: string): string {
+  const base = `${marker}：已确认项目路径与 key 位置，配置改完并验证通过。`;
+  const detail = '下一步的依据与上下文继续记录在此。'.repeat(2000);
+  return `${base}${detail}`;
+}
+
 /** 事故现场那条摘要的原文（56 字符，且含 serializeContent 的工具标记）。 */
 const GARBAGE_SUMMARY = '[早期对话摘要]\n[调用工具 bash] 搜索 step-pilot 项目中的配置文件，查找阶跃 API key。';
 
@@ -54,11 +61,11 @@ describe('validateSummary', () => {
     expect(() => validateSummary('   \n  ', 100_000)).toThrow('empty');
   });
 
-  it('长度下限随被压缩量按比例上浮，封顶 200 token', () => {
+  it('长度下限随被压缩量按比例上浮，小历史固定 50', () => {
     const short = '一句话摘要';
-    // older 只有 50 token → 下限 1 token → 通过（小压缩不该被苛求）
-    expect(() => validateSummary(short, 50)).not.toThrow();
-    // older 891K token → 下限封顶 200 token → 5 token 必然不合格
+    // older 只有 50 token → 自适应下限 50 token → 5 token 不合格
+    expect(() => validateSummary(short, 50)).toThrow('too short');
+    // older 891K token → 自适应下限 200 + 3% = 26700 → 5 token 必然不合格
     expect(() => validateSummary(short, 891_000)).toThrow('too short');
   });
 
@@ -97,7 +104,30 @@ describe('validateSummary', () => {
   });
 
   it('正常长摘要通过', () => {
-    expect(() => validateSummary(goodSummary('交接笔记'), 500_000)).not.toThrow();
+    // 500K 历史的自适应下限 = 200 + 3% * 500000 = 15200 tokens，需要用超长摘要
+    expect(() => validateSummary(longGoodSummary('交接笔记'), 500_000)).not.toThrow();
+  });
+});
+
+describe('adaptiveSummaryMinTokens', () => {
+  it('tiny 历史（<500 tokens）下限封到 20，避免 1 token 的死锁', () => {
+    expect(adaptiveSummaryMinTokens(0)).toBe(20);
+    expect(adaptiveSummaryMinTokens(100)).toBe(20);
+    expect(adaptiveSummaryMinTokens(500)).toBe(20);
+  });
+
+  it('中等历史按 2% 比例上浮，封顶 200', () => {
+    expect(adaptiveSummaryMinTokens(1000)).toBe(20);
+    expect(adaptiveSummaryMinTokens(5000)).toBe(100);
+    expect(adaptiveSummaryMinTokens(10000)).toBe(200);
+    expect(adaptiveSummaryMinTokens(50000)).toBe(200); // 封顶
+  });
+
+  it('单调递增：历史越大，门槛越高', () => {
+    const prev = [0, 100, 1000, 5000, 10000, 50000].map(adaptiveSummaryMinTokens);
+    for (let i = 1; i < prev.length; i++) {
+      expect(prev[i]!).toBeGreaterThanOrEqual(prev[i - 1]!);
+    }
   });
 });
 
@@ -269,7 +299,10 @@ describe('复述判定的密度口径（2026-08-12 误判实录）', () => {
   });
 
   it('短摘要带一个标记仍是复述（密度高）', () => {
-    expect(() => validateSummary('[工具结果] 文件内容…', 100)).toThrow('recitation');
+    // 1000 tokens 历史 → 自适应下限 50 tokens；一个标记 + 180 字符 filler ≈ 55 tokens，
+    // 长度过闸（55 >= 50），但密度 1/192 > 1/1000，仍被 isRecitation 拦住。
+    const summary = '[工具结果] 文件内容…' + 'x'.repeat(180);
+    expect(() => validateSummary(summary, 1_000)).toThrow('recitation');
   });
 
   it('复述被拒后：重试不丢历史，且 prompt 带反复述提示', async () => {

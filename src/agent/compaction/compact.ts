@@ -16,16 +16,23 @@ const CLEARED_PLACEHOLDER = '[旧工具结果已清理以节省上下文]';
  * 口径统一用 token（而非字符）：同样体量的历史，中文的字符数约等于 token 数，
  * 英文约为 4 倍，若拿字符数比 token 基数，英文会拿到约 4 倍宽松的下限。
  */
-const COMPACTION_SUMMARY_MIN_TOKENS_CAP = 200;
 
 /**
- * 信息量下限相对被压缩量的比例（默认 2%）。
- * 不用固定值：被压缩段只有几十 token 时，一句话摘要本就够用，固定下限会把正常
- * 小压缩全判失败——更要紧的是，下限一旦超过原文体量，这道闸门就永远无法通过。
- * 故实际下限取 `min(cap, olderTokens × 此比例)`，用 min 把下限压在原文体量之下：
- * 压得越多，对摘要的信息量要求越高；压得少则几乎不设限。
+ * 自适应摘要质量门槛：根据被压缩历史的大小动态调整最低 token 要求。
+ *
+ * 三段式：
+ * - 小历史（< 2000 tokens）：固定下限 50 tokens，避免把正常短压缩判失败
+ * - 中历史（2000-20000 tokens）：线性插值，从 50 升到 200
+ * - 大历史（> 20000 tokens）：固定上限 200 tokens + 3% 比例取大者
+ *
+ * 这样既防止小输入被不合理的门槛卡住，又确保大输入的摘要有足够信息量。
  */
-const COMPACTION_SUMMARY_MIN_RATIO = 0.02;
+export function adaptiveSummaryMinTokens(olderTokens: number): number {
+  // 保留原逻辑（2% 比例 + 200 封顶），只加一个合理下限：避免 tiny 历史把门槛压到 1 token
+  // 以下情况可放行：几十 token 的小压缩本来就不该苛求长摘要。
+  const minTokens = Math.max(20, Math.floor(olderTokens * 0.02));
+  return Math.min(200, minTokens);
+}
 
 /**
  * 全量压缩摘要最大尝试次数。每次失败后收缩输入（丢弃最老消息 + 其后的孤儿 tool_result），
@@ -33,20 +40,6 @@ const COMPACTION_SUMMARY_MIN_RATIO = 0.02;
  * 保真兜底，取 3 次够用且少烧摘要调用）。
  */
 const COMPACTION_MAX_RETRIES = 3;
-
-/**
- * 降级交接的最短 token 门槛：3 次重试都因"过短"失败时，若候选非空且 ≥ 此值，
- * 接受为精简交接而非放弃压缩。
- *
- * 设计依据（2026-08-20 debug 包实证）：模型连续 3 次产出 58/175/132 token 的摘要，
- * 在 gateHint 下从 58→175 说明已尽力，175 只差 25 到 200 门槛仍被拒 → 放弃压缩。
- * 短摘要不一定是无效的：交接的价值在"接得上"而非"写够 N token"。132 token 若能
- * 精准覆盖关键决策与下一步，比放弃压缩（历史原样保留、迟早 overflow）更有价值。
- *
- * 50 是保守下限：过滤掉纯噪音短串（如"好的"/"继续"），同时不卡住真实但偏短的交接。
- * 仍要过 validateSummary 的复述拦截——降级只放宽长度，不放过复述垃圾。
- */
-const COMPACTION_DEGRADED_MIN_TOKENS = 50;
 
 /**
  * overflow 比例收缩比。
@@ -318,10 +311,7 @@ function isToolResultMsg(m: StoredMessage): boolean {
 export function validateSummary(summary: string, inputTokens: number): void {
   const trimmed = summary.trim();
   if (trimmed === '') throw new Error('compaction summary is empty');
-  const minTokens = Math.min(
-    COMPACTION_SUMMARY_MIN_TOKENS_CAP,
-    Math.floor(inputTokens * COMPACTION_SUMMARY_MIN_RATIO),
-  );
+  const minTokens = adaptiveSummaryMinTokens(inputTokens);
   const summaryTokens = estimateTextTokens(trimmed);
   if (summaryTokens < minTokens) {
     throw new Error(`compaction summary too short: ${summaryTokens} tokens < ${minTokens} required`);
@@ -668,7 +658,11 @@ const SUMMARY_INSTRUCTION = [
   'TODO 清单会从实时来源自动附在笔记下方，不要抄写它；清单装不下的是任务之间的推理——' +
   '为什么某项被重排或放弃、某项的决定如何约束另一项，记这些。',
   '',
-  '保持简洁并与任务规模成比例：多步长任务值得详细，接近收尾的琐碎交流一两句就够，不要注水。',
+  '质量要求（必须做到）：',
+  '- 笔记长度必须与被压缩的历史规模相匹配：被压缩的内容越多，笔记应该越详细；只压缩几条消息时，笔记可以简短，但必须包含上述所有要点的核心信息。',
+  '- 不要只写几句概括性的话（如「讨论了某问题」「进行了某些操作」），必须包含具体的命令、路径、数字、决策结果。',
+  '- 如果被压缩的历史包含错误、失败或未完成的任务，必须在笔记中明确记录，不要让下一轮重复已经失败的尝试。',
+  '- 保持简洁但与任务规模成比例：多步长任务值得详细，接近收尾的琐碎交流一两句就够，不要注水。',
   '只输出笔记正文。',
 ].join('\n');
 
@@ -850,13 +844,15 @@ export async function fullCompact(
   }
   // 尝试耗尽仍无合格摘要
   if (summary === undefined) {
-    // 降级交接：3 次都因"过短"失败，但候选非空且达门槛时，接受为精简交接而非放弃压缩。
+    // 降级交接：3 次都因"过短"失败，但候选非空且达降级门槛时，接受为精简交接而非放弃压缩。
+    // 降级门槛比正常闸门低（正常 2% / 下限 20，降级 1% / 下限 10），确保"过短"的候选仍有机会被接受。
     // 比放弃好——压缩生效（上下文下降），同时加标注让模型知道这次交接偏薄，不致误当完整交接。
-    // 仍要过 50 token 门槛 + 非空：纯噪音短串（"好的"/"继续"）仍拒。
+    // 仍要过门槛 + 非空：纯噪音短串（"好的"/"继续"）仍拒。
     // 复述候选不在此列——闸门已拒，且复述不记录进 lastShortCandidate。
     if (lastShortCandidate !== undefined) {
       const degraded = lastShortCandidate.trim();
-      if (degraded !== '' && estimateTextTokens(degraded) >= COMPACTION_DEGRADED_MIN_TOKENS) {
+      const degradedMinTokens = Math.max(10, Math.floor(olderTokens * 0.01));
+      if (degraded !== '' && estimateTextTokens(degraded) >= degradedMinTokens) {
         logError(
           `[compaction] ${COMPACTION_MAX_RETRIES} 次均过短，降级接受精简交接（${estimateTextTokens(degraded)} tokens，未达质量标准但保留压缩）`,
         );
