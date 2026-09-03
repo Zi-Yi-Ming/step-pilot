@@ -32,6 +32,16 @@ export function formatMcpStatus(manager: McpManager): string {
   if (states.length === 0) {
     return t('app.mcp.none', { path: join(homedir(), '.step-pilot', 'mcp.json') });
   }
-  const lines = states.map(statusLine).join('\n');
-  return `${t('app.mcp.title')}\n${lines}`;
+  const lines = states.map(statusLine);
+  const failures = manager.toolFailureStats();
+  const sections = [`${t('app.mcp.title')}`, ...lines];
+  if (failures.length > 0) {
+    sections.push('');
+    sections.push(t('app.mcp.toolFailures.title'));
+    for (const stat of failures) {
+      const msg = stat.lastError ?? t('app.mcp.toolFailures.unknown');
+      sections.push(t('app.mcp.toolFailures.line', { tool: stat.qualifiedName, count: stat.consecutiveFailures, msg }));
+    }
+  }
+  return sections.join('\n');
 }

@@ -182,6 +182,15 @@ export interface McpToolInfo {
   inputSchema: Anthropic.Tool['input_schema'];
 }
 
+/** 单个 MCP 工具的失败统计（供 /mcp 面板展示）。 */
+export interface McpToolFailureStat {
+  qualifiedName: string;
+  /** 本回合内连续失败次数。 */
+  consecutiveFailures: number;
+  /** 最近一次失败的错误摘要。 */
+  lastError?: string;
+}
+
 function sanitize(s: string): string {
   return s.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_');
 }
@@ -280,6 +289,8 @@ function formatMcpToolError(
 export class McpManager {
   private readonly servers = new Map<string, ConnectedServer>();
   private readonly states = new Map<string, McpServerState>();
+  /** 工具级连续失败统计：qualifiedName -> 连续失败次数 + 最近错误。 */
+  private readonly toolFailures = new Map<string, { count: number; lastError: string }>();
 
   /**
    * 连接一个 stdio MCP server 并发现工具。
@@ -436,9 +447,30 @@ export class McpManager {
         .map((b) => (b.type === 'text' ? (b.text ?? '') : `[${b.type}]`))
         .join('\n');
       const isError = (result as { isError?: boolean }).isError === true;
+      // 成功调用或工具侧 isError：重置连续失败计数
+      if (!isError) {
+        this.toolFailures.delete(qualifiedName);
+      } else if (text) {
+        this.toolFailures.set(qualifiedName, { count: 1, lastError: text.slice(0, 120) });
+      }
       return { content: text === '' ? '[无输出]' : text, isError };
     } catch (e) {
-      return { content: formatMcpToolError(e, qualifiedName, found.server), isError: true };
+      const message = formatMcpToolError(e, qualifiedName, found.server);
+      const prev = this.toolFailures.get(qualifiedName);
+      this.toolFailures.set(qualifiedName, {
+        count: (prev?.count ?? 0) + 1,
+        lastError: oneLine(message),
+      });
+      return { content: message, isError: true };
     }
+  }
+
+  /** 工具级连续失败统计（供 /mcp 面板或调试使用）。 */
+  toolFailureStats(): McpToolFailureStat[] {
+    return [...this.toolFailures.entries()].map(([qualifiedName, stat]) => ({
+      qualifiedName,
+      consecutiveFailures: stat.count,
+      lastError: stat.lastError,
+    }));
   }
 }

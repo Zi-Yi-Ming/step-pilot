@@ -510,6 +510,9 @@ const zh = {
   'app.mcp.line.disabled': '- {name}：已禁用',
   'app.mcp.line.callTimeout': '调用超时 {ms}ms',
   'app.mcp.line.oauth': 'OAuth {status}',
+  'app.mcp.toolFailures.title': '工具连续失败：',
+  'app.mcp.toolFailures.line': '- {tool}：连续失败 {count} 次，最近错误：{msg}',
+  'app.mcp.toolFailures.unknown': '未知错误',
 
   // --- App /fork /new /compact /reflect /export-debug-zip ---
   'app.fork.busy': '会话进行中，无法 fork。请等待当前回合结束后再试。',
@@ -1269,6 +1272,9 @@ const en: Record<keyof typeof zh, string> = {
   'app.mcp.line.disabled': '- {name}: disabled',
   'app.mcp.line.callTimeout': 'call timeout {ms}ms',
   'app.mcp.line.oauth': 'oauth {status}',
+  'app.mcp.toolFailures.title': 'Tool consecutive failures:',
+  'app.mcp.toolFailures.line': '- {tool}: failed {count} times in a row; last error: {msg}',
+  'app.mcp.toolFailures.unknown': 'unknown error',
 
   'app.fork.busy': 'Session busy; cannot fork. Wait for the current turn to finish.',
   'app.fork.done': 'Forked session {from} into new session {to} (kept {messages} messages, {todos} tasks). The original session is untouched.',
