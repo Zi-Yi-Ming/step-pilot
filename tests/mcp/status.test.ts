@@ -91,4 +91,46 @@ describe('formatMcpStatus', () => {
     expect(text).not.toContain('调用超时');
     expect(text).toContain('- default：已连接，1 个工具 [stdio: default]');
   });
+
+  it('调用统计：有工具调用记录时展示成功/失败计数', async () => {
+    const m = new FakeManager();
+    await m.connect('s', { command: 's' });
+    const server = [...m['servers'].values()][0]!;
+    let callCount = 0;
+    server.client.callTool = async () => {
+      callCount++;
+      if (callCount <= 2) return { content: [{ type: 'text', text: 'ok' }], isError: false };
+      return { content: [{ type: 'text', text: 'err' }], isError: true };
+    };
+    await m.callTool('mcp__s__echo', {});
+    await m.callTool('mcp__s__echo', {});
+    await m.callTool('mcp__s__echo', {});
+    const text = formatMcpStatus(m);
+    expect(text).toContain('工具调用统计');
+    expect(text).toContain('mcp__s__echo');
+    expect(text).toContain('共调用 3 次');
+    expect(text).toContain('成功 2');
+    expect(text).toContain('失败 1');
+  });
+
+  it('连续失败：有连续失败记录时展示失败次数与最近错误', async () => {
+    const m = new FakeManager();
+    await m.connect('f', { command: 'f' });
+    const server = [...m['servers'].values()][0]!;
+    server.client.callTool = () => Promise.reject(new Error('tool broke'));
+    await m.callTool('mcp__f__echo', {});
+    await m.callTool('mcp__f__echo', {});
+    const text = formatMcpStatus(m);
+    expect(text).toContain('工具连续失败');
+    expect(text).toContain('连续失败 2 次');
+    expect(text).toContain('tool broke');
+  });
+
+  it('无调用记录时不展示统计与失败区块', async () => {
+    const m = new FakeManager();
+    await m.connect('clean', { command: 'clean' });
+    const text = formatMcpStatus(m);
+    expect(text).not.toContain('工具调用统计');
+    expect(text).not.toContain('工具连续失败');
+  });
 });

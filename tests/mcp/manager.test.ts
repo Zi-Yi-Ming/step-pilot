@@ -309,3 +309,141 @@ describe('OAuth 集成', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 });
+
+describe('MCP 工具失败分类与统计', () => {
+  it('timeout 错误分类：含超时提示与 callTimeoutMs 数值', async () => {
+    const m = new FakeManager();
+    await m.connect('s', { command: 's', callTimeoutMs: 1234 });
+    const server = [...m['servers'].values()][0]!;
+    server.client.callTool = () => Promise.reject(new Error('request timed out after 5000ms'));
+    const r = await m.callTool('mcp__s__echo', {});
+    expect(r.isError).toBe(true);
+    expect(r.content).toContain('1234');
+    expect(r.content).toContain('超时');
+  });
+
+  it('网络错误分类：ECONNREFUSED / ENOTFOUND / fetch failed', async () => {
+    const m = new FakeManager();
+    await m.connect('net', { command: 'net' });
+    const server = [...m['servers'].values()][0]!;
+    server.client.callTool = () => Promise.reject(new Error('fetch failed'));
+    const r = await m.callTool('mcp__net__echo', {});
+    expect(r.isError).toBe(true);
+    expect(r.content).toContain('网络失败');
+  });
+
+  it('鉴权错误分类：401 / 403 / auth / token', async () => {
+    const m = new FakeManager();
+    await m.connect('auth', { command: 'auth' });
+    const server = [...m['servers'].values()][0]!;
+    server.client.callTool = () => Promise.reject(new Error('401 unauthorized: invalid token'));
+    const r = await m.callTool('mcp__auth__echo', {});
+    expect(r.isError).toBe(true);
+    expect(r.content).toContain('鉴权失败');
+  });
+
+  it('工具不存在分类：not found / unknown tool', async () => {
+    const m = new FakeManager();
+    await m.connect('tool', { command: 'tool' });
+    const server = [...m['servers'].values()][0]!;
+    server.client.callTool = () => Promise.reject(new Error('tool not found: missing_tool'));
+    const r = await m.callTool('mcp__tool__ping', {});
+    expect(r.isError).toBe(true);
+    expect(r.content).toContain('工具不存在');
+  });
+
+  it('参数错误分类：invalid / schema / arguments', async () => {
+    const m = new FakeManager();
+    await m.connect('arg', { command: 'arg' });
+    const server = [...m['servers'].values()][0]!;
+    server.client.callTool = () => Promise.reject(new Error('invalid arguments: missing required field'));
+    const r = await m.callTool('mcp__arg__echo', {});
+    expect(r.isError).toBe(true);
+    expect(r.content).toContain('参数错误');
+  });
+
+  it('服务端错误分类：server error / internal / isError', async () => {
+    const m = new FakeManager();
+    await m.connect('srv', { command: 'srv' });
+    const server = [...m['servers'].values()][0]!;
+    server.client.callTool = () => Promise.reject(new Error('server error: internal failure'));
+    const r = await m.callTool('mcp__srv__echo', {});
+    expect(r.isError).toBe(true);
+    expect(r.content).toContain('执行失败');
+  });
+
+  it('未知错误兜底：不匹配任何分类时保留原始信息', async () => {
+    const m = new FakeManager();
+    await m.connect('unk', { command: 'unk' });
+    const server = [...m['servers'].values()][0]!;
+    server.client.callTool = () => Promise.reject(new Error('weird unknown failure'));
+    const r = await m.callTool('mcp__unk__echo', {});
+    expect(r.isError).toBe(true);
+    expect(r.content).toContain('weird unknown failure');
+  });
+
+  it('toolCallStats：成功/失败计数与清空连续失败', async () => {
+    const m = new FakeManager();
+    await m.connect('stats', { command: 'stats' });
+    const server = [...m['servers'].values()][0]!;
+    // 第 1 次失败
+    server.client.callTool = () => Promise.reject(new Error('boom'));
+    let r = await m.callTool('mcp__stats__echo', {});
+    expect(r.isError).toBe(true);
+    let stats = m.toolCallStats();
+    expect(stats).toEqual([{ qualifiedName: 'mcp__stats__echo', success: 0, failure: 1, total: 1 }]);
+    let failures = m.toolFailureStats();
+    expect(failures).toEqual([{ qualifiedName: 'mcp__stats__echo', consecutiveFailures: 1, lastError: expect.stringContaining('boom') }]);
+
+    // 第 2 次连续失败
+    r = await m.callTool('mcp__stats__echo', {});
+    expect(r.isError).toBe(true);
+    stats = m.toolCallStats();
+    expect(stats).toEqual([{ qualifiedName: 'mcp__stats__echo', success: 0, failure: 2, total: 2 }]);
+    failures = m.toolFailureStats();
+    expect(failures).toEqual([{ qualifiedName: 'mcp__stats__echo', consecutiveFailures: 2, lastError: expect.stringContaining('boom') }]);
+
+    // 第 3 次成功：连续失败归零，成功+1
+    server.client.callTool = () => Promise.resolve({ content: [{ type: 'text', text: 'ok' }], isError: false });
+    r = await m.callTool('mcp__stats__echo', {});
+    expect(r.isError).toBe(false);
+    stats = m.toolCallStats();
+    expect(stats).toEqual([{ qualifiedName: 'mcp__stats__echo', success: 1, failure: 2, total: 3 }]);
+    failures = m.toolFailureStats();
+    expect(failures).toEqual([]);
+  });
+
+  it('toolFailureStats：多工具独立计数', async () => {
+    const m = new FakeManager();
+    await m.connect('multi', { command: 'multi' });
+    const server = [...m['servers'].values()][0]!;
+    server.client.callTool = async ({ name }: { name: string }) => {
+      if (name === 'ping') throw new Error('bad tool failed');
+      return { content: [{ type: 'text', text: 'ok' }], isError: false };
+    };
+    await m.callTool('mcp__multi__ping', {});
+    await m.callTool('mcp__multi__ping', {});
+    await m.callTool('mcp__multi__echo', {});
+    const failures = m.toolFailureStats();
+    expect(failures).toEqual([{ qualifiedName: 'mcp__multi__ping', consecutiveFailures: 2, lastError: expect.stringContaining('bad tool failed') }]);
+    const stats = m.toolCallStats();
+    expect(stats).toEqual([
+      { qualifiedName: 'mcp__multi__ping', success: 0, failure: 2, total: 2 },
+      { qualifiedName: 'mcp__multi__echo', success: 1, failure: 0, total: 1 },
+    ]);
+  });
+
+  it('toolCallStats：isError=true 但服务端返回文本时计入失败', async () => {
+    const m = new FakeManager();
+    await m.connect('err', { command: 'err' });
+    const server = [...m['servers'].values()][0]!;
+    server.client.callTool = () => Promise.resolve({ content: [{ type: 'text', text: 'tool error' }], isError: true });
+    const r = await m.callTool('mcp__err__echo', {});
+    expect(r.isError).toBe(true);
+    expect(r.content).toBe('tool error');
+    const stats = m.toolCallStats();
+    expect(stats).toEqual([{ qualifiedName: 'mcp__err__echo', success: 0, failure: 1, total: 1 }]);
+    const failures = m.toolFailureStats();
+    expect(failures).toEqual([{ qualifiedName: 'mcp__err__echo', consecutiveFailures: 1, lastError: 'tool error' }]);
+  });
+});
