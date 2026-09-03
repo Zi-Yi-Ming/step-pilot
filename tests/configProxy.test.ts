@@ -3,12 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// loadConfig 读 ~/.step-pilot/config.toml：把 homedir 指到临时目录（对齐 tests/permissionMode.test.ts），
-// 避免开发机上的真实配置污染断言。
-let fakeHome = '';
+(globalThis as Record<string, unknown>).fakeHome = '';
 vi.mock('node:os', async (importOriginal) => {
   const orig = await importOriginal<typeof import('node:os')>();
-  return { ...orig, homedir: () => fakeHome };
+  return { ...orig, homedir: () => (globalThis as Record<string, string>).fakeHome as string };
 });
 
 import { loadConfig, resolveProxy } from '../src/config/config.js';
@@ -24,11 +22,11 @@ function writeHomeConfig(content: string): void {
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'proxy-test-'));
-  fakeHome = dir;
+  (globalThis as Record<string, unknown>).fakeHome = dir;
 });
 
 afterEach(() => {
-  fakeHome = '';
+  (globalThis as Record<string, unknown>).fakeHome = '';
   rmSync(dir, { recursive: true, force: true });
 });
 

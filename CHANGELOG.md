@@ -4,12 +4,19 @@
 
 本项目的所有重要变更记录于此。格式沿用 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.1.7] - 2026-09-03
+
+### Added
+
+- **MCP OAuth client-side authorization code flow**：`mcp.json` 的 streamable http server 条目支持 `auth.type = "oauth"`，连接时自动走浏览器授权 → 本地 callback 收 code → 换 access_token → 加密持久化到 `~/.step-pilot/mcp-oauth.json`；后续请求自动注入 `Authorization: Bearer <token>`。0.1.7 最小闭环不含 refresh_token / 过期检测 / PKCE。
+- **MCP streamable http 真线协议集成测试**：进程内起真实的 streamable http MCP server（独立 fixture 进程、ephemeral 端口），manager 走真 HTTP 验证连接发现、工具调用、调用超时与 headers 鉴权（缺 token 401 拒绝 / 带 token 连通）。0.1.5 发布时登记的「从未连过真实 http server」未验证面就此关闭。
+- **`tool_search` 检索结果描述截断**：命中工具的描述在结果行里截断到 200 字符（全文仍会随加载进 tools 数组）——远程 server 的超长描述 × limit 条不再无谓灌爆上下文。
+
 ## [Unreleased]
 
 ### Added
 
-- **MCP streamable http 真线协议集成测试**：进程内起真实的 streamable http MCP server（独立 fixture 进程、ephemeral 端口），manager 走真 HTTP 验证连接发现、工具调用、调用超时与 headers 鉴权（缺 token 401 拒绝 / 带 token 连通）。0.1.5 发布时登记的「从未连过真实 http server」未验证面就此关闭。
-- **`tool_search` 检索结果描述截断**：命中工具的描述在结果行里截断到 200 字符（全文仍会随加载进 tools 数组）——远程 server 的超长描述 × limit 条不再无谓灌爆上下文。
+- 待定。
 
 ## [0.1.6] - 2026-09-03
 

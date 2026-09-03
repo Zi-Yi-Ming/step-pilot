@@ -4,6 +4,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { VERSION } from '../version.js';
+import { runOAuthFlow, type OAuthServerConfig } from './oauth.js';
 
 /** 把 MCP 工具的 JSON inputSchema 转成带类型强转的 zod schema（模型常给字符串数字/布尔）。 */
 export function mcpInputSchemaToZod(inputSchema: unknown): z.ZodTypeAny {
@@ -75,6 +76,8 @@ export interface McpServerConfig {
   maxRetries?: number;
   /** http 类型：重连初始退避（毫秒），SDK 按指数增长到 maxReconnectionDelay。clamp [100,60000]。 */
   reconnectDelayMs?: number;
+  /** OAuth 配置（仅 http 类型支持）。 */
+  auth?: OAuthServerConfig;
 }
 
 /** SDK 重连参数的缺省值（与 StreamableHTTPClientTransport 内部默认对齐，此处显式便于组合）。 */
@@ -131,6 +134,23 @@ export function validateServerConfig(config: McpServerConfig): string | null {
     } catch {
       return `url 不是合法的绝对地址：${config.url}`;
     }
+    // OAuth 仅支持 http 类型
+    if (config.auth?.type === 'oauth') {
+      const a = config.auth;
+      if (!a.authorizationUrl) return 'auth.type = "oauth" 时 authorizationUrl 必填';
+      if (!a.tokenUrl) return 'auth.type = "oauth" 时 tokenUrl 必填';
+      if (!a.clientId) return 'auth.type = "oauth" 时 clientId 必填';
+      try {
+        void new URL(a.authorizationUrl);
+      } catch {
+        return `auth.authorizationUrl 不是合法地址：${a.authorizationUrl}`;
+      }
+      try {
+        void new URL(a.tokenUrl);
+      } catch {
+        return `auth.tokenUrl 不是合法地址：${a.tokenUrl}`;
+      }
+    }
   }
   return null;
 }
@@ -149,6 +169,8 @@ export interface McpServerState {
   transport?: string;
   /** 单次工具调用超时（毫秒）；配置未设置时为 undefined。 */
   callTimeoutMs?: number;
+  /** OAuth 状态（仅 auth.type === 'oauth' 时设置）。 */
+  auth?: { type: 'oauth'; status: string };
 }
 
 export interface McpToolInfo {
@@ -245,11 +267,27 @@ export class McpManager {
       ? `http: ${config.url}${config.headers !== undefined && Object.keys(config.headers).length > 0 ? ' (+headers)' : ''}`
       : `stdio: ${config.command ?? ''}`;
     this.states.set(name, { name, status: 'pending', toolCount: 0, transport });
+    
+    // OAuth 预处理：http + auth.type === 'oauth' 时先拿 token 再握手
+    let effectiveConfig = config;
+    try {
+      if (isHttpServerConfig(config) && config.auth?.type === 'oauth') {
+        effectiveConfig = await runOAuthFlow(name, {
+          url: config.url,
+          headers: config.headers,
+          auth: config.auth,
+        });
+      }
+    } catch (e) {
+      this.states.set(name, { name, status: 'failed', toolCount: 0, error: oneLine((e as Error).message), transport });
+      return false;
+    }
+    
     const client = new Client({ name: 'step-pilot', version: VERSION });
     try {
       const tools = await withTimeout(
-        this.connectAndListTools(client, config),
-        config.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS,
+        this.connectAndListTools(client, effectiveConfig),
+        effectiveConfig.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS,
       );
       const infos: McpToolInfo[] = tools.map((tool) => ({
         qualifiedName: qualifyMcpToolName(name, tool.name),
@@ -258,8 +296,8 @@ export class McpManager {
         description: tool.description ?? '',
         inputSchema: (tool.inputSchema ?? { type: 'object' }) as Anthropic.Tool['input_schema'],
       }));
-      this.servers.set(name, { name, client, tools: infos, callTimeoutMs: config.callTimeoutMs });
-      this.states.set(name, { name, status: 'connected', toolCount: infos.length, transport, callTimeoutMs: config.callTimeoutMs });
+      this.servers.set(name, { name, client, tools: infos, callTimeoutMs: effectiveConfig.callTimeoutMs });
+      this.states.set(name, { name, status: 'connected', toolCount: infos.length, transport, callTimeoutMs: effectiveConfig.callTimeoutMs });
       return true;
     } catch (e) {
       // 失败/超时后尽力关闭 client（会 kill stdio 子进程），避免进程泄漏

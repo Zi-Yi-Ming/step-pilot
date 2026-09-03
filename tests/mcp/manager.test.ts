@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import {
   DEFAULT_STARTUP_TIMEOUT_MS,
@@ -8,6 +8,7 @@ import {
   qualifyMcpToolName,
   type McpServerConfig,
 } from '../../src/mcp/manager.js';
+import { runOAuthFlow } from '../../src/mcp/oauth.js';
 
 describe('qualifyMcpToolName', () => {
   it('生成 mcp__server__tool 命名', () => {
@@ -267,5 +268,44 @@ describe('httpTransportOptions 重连策略配置化', () => {
     const { httpTransportOptions } = await import('../../src/mcp/manager.js');
     const o = httpTransportOptions({ url: 'https://x.example/mcp', headers: { Authorization: 'Bearer t' } });
     expect(o.requestInit.headers).toEqual({ Authorization: 'Bearer t' });
+  });
+});
+
+describe('OAuth 集成', () => {
+  it('http + auth.type=oauth 时调用 runOAuthFlow 并注入 Authorization', async () => {
+    const m = new FakeManager();
+    const oauthModule = await import('../../src/mcp/oauth.js');
+    const spy = vi.spyOn(oauthModule, 'runOAuthFlow').mockImplementation(async (name, config) => ({
+      ...config,
+      headers: { ...config.headers, Authorization: `Bearer oauth-token-${name}` },
+    }));
+    await m.connect('remote', {
+      url: 'https://example.com/mcp',
+      auth: { type: 'oauth', authorizationUrl: 'https://example.com/oauth/authorize', tokenUrl: 'https://example.com/oauth/token', clientId: 'cid' },
+    });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith('remote', expect.objectContaining({ url: 'https://example.com/mcp' }));
+    expect(m.statuses()[0]).toMatchObject({ status: 'connected' });
+  });
+
+  it('OAuth flow 失败时记 failed 状态', async () => {
+    const m = new FakeManager();
+    const oauthModule = await import('../../src/mcp/oauth.js');
+    vi.spyOn(oauthModule, 'runOAuthFlow').mockRejectedValue(new Error('oauth denied'));
+    const ok = await m.connect('bad', {
+      url: 'https://example.com/mcp',
+      auth: { type: 'oauth', authorizationUrl: 'https://example.com/oauth/authorize', tokenUrl: 'https://example.com/oauth/token', clientId: 'cid' },
+    });
+    expect(ok).toBe(false);
+    expect(m.statuses()[0]).toMatchObject({ status: 'failed' });
+    expect(m.statuses()[0]!.error).toContain('oauth denied');
+  });
+
+  it('非 oauth 配置不触发 runOAuthFlow', async () => {
+    const m = new FakeManager();
+    const oauthModule = await import('../../src/mcp/oauth.js');
+    const spy = vi.spyOn(oauthModule, 'runOAuthFlow').mockClear();
+    await m.connect('plain', { url: 'https://example.com/mcp' });
+    expect(spy).not.toHaveBeenCalled();
   });
 });
