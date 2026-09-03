@@ -46,6 +46,7 @@ const UPDATE_CONFIG_BODY = `# update-config：step-pilot 自身配置的查询�
 | agents_paths | string[] | 无 | AGENTS.md 自定义加载路径，配置后完全覆盖默认收集。支持 ~ 与相对 cwd 路径 |
 | agents_md_max_bytes | number | 32768 | AGENTS.md 总字节预算；0 或负数 = 禁用加载 |
 | media_keep_recent | number | 10 | 媒体降级（413/400 图片超限触发）时保留的最近图片张数，更旧的图换占位文本；0 = 全部换占位。全通道生效（stepfun 走 adapter.send，其余走 withMediaDegradation wrapper）；[models.*] 下可按别名覆盖 |
+| mcp | table | 无 | MCP 可观察性配置（[mcp] 段） |
 | extra_skill_dirs | string[] | 无 | 追加的 skill 扫描目录，同名 skill 追加目录胜出 |
 | disabled_skills | string[] | 无 | 按名排除的 skill 清单，任何来源的同名 skill 都不加载 |
 | skill_listing_budget | number | 8000 | system prompt 中可用技能清单的字符预算；超预算先压缩描述，再截断尾部技能。技能较多时可调大（如 20000），让更多技能名称和描述常驻；也可始终用 skill_search 工具搜索被截断的技能 |
@@ -126,6 +127,12 @@ STEP_PILOT_BASE_URL。
 | enabled | boolean | false | 记忆观察池开关。开启后 system 注入记忆段（目录说明+索引），agent 可将观察沉淀到 ~/.step-pilot/memory/ 与 .step-pilot/memory/；关闭保留已有文件不删除 |
 
 观察池定位：agent 写入的是**未经确认的观察**，不直接生效；定期回顾经用户确认后才晋升到 AGENTS.md / skills。/memory 命令查看与管理（on/off）。
+
+### [mcp] MCP 可观察性
+
+| 键 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| auto_disable_on_retry_loop | boolean | true | 同一 MCP 工具连续失败达上限时，自动禁用该工具，避免后续回合继续重试。仍可通过 ${'`'}/mcp enable <tool>${'`'} 恢复 |
 
 ### [search] 联网搜索
 

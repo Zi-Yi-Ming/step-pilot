@@ -211,6 +211,15 @@ export type WireEvent =
       maxTokens?: number;
       model?: string;
       provider?: string;
+    }
+  | {
+      /** MCP 工具调用审计（成功/失败/耗时）。纯审计，不参与 resume 状态迁移。 */
+      type: 'mcp.tool_call';
+      ts: string;
+      qualifiedName: string;
+      success: boolean;
+      durationMs: number;
+      error?: string;
     };
 
 /**

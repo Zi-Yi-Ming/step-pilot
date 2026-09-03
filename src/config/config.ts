@@ -251,6 +251,14 @@ export interface MemoryConfig {
 }
 
 /**
+ * MCP 可观察性配置（[mcp] 段）。
+ */
+export interface McpConfig {
+  /** retry loop 触发时是否自动禁用该工具（默认 true）。 */
+  autoDisableOnRetryLoop?: boolean;
+}
+
+/**
  * TUI 渲染配置（[tui] 段）。
  */
 export interface TuiConfig {
@@ -297,6 +305,8 @@ export interface StepPilotConfig {
   memory?: MemoryConfig;
   /** 联网搜索配置（[search] 段）。loadConfig 恒赋值（可能为空对象 {}），消费方按「专用段 → 通用段 → 主会话渠道」解析。 */
   search?: SearchConfig;
+  /** MCP 可观察性配置（[mcp] 段）。未配置时键不进结果对象。 */
+  mcp?: McpConfig;
   /** 网页结果缓存容量配置（[tools.web] 段）。未配置时使用内置默认值（条目数 100 / 总字节 32MB / 单条 2MB）。 */
   web?: WebCacheConfig;
   /** 界面语言（TUI/CLI 给人看的文案）。缺省 'zh'；给模型看的文案恒中文，不受其影响。 */
@@ -560,6 +570,7 @@ interface TomlConfigShape {
   providers?: unknown;
   hooks?: unknown;
   tui?: unknown;
+  mcp?: unknown;
 }
 
 /**
@@ -900,6 +911,19 @@ function parseThinkingLevels(raw: unknown): Partial<Record<ThinkingLevelName, nu
 export function resolveMemoryConfig(raw: unknown): MemoryConfig {
   const t = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
   return { enabled: t['enabled'] === true };
+}
+
+/**
+ * 从 [mcp] 段解析 MCP 可观察性配置。纯函数，便于单测。
+ */
+export function resolveMcpConfig(raw: unknown): McpConfig | undefined {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined;
+  const t = raw as Record<string, unknown>;
+  const out: McpConfig = {};
+  if ('auto_disable_on_retry_loop' in t && typeof t['auto_disable_on_retry_loop'] === 'boolean') {
+    out.autoDisableOnRetryLoop = t['auto_disable_on_retry_loop'];
+  }
+  return Object.keys(out).length === 0 ? undefined : out;
 }
 
 /**
@@ -1281,6 +1305,9 @@ export function loadConfig(
   cfg.thinking = resolveThinkingConfig(toml.thinking, cfg.maxTokens);
   // memory 观察池开关：默认关闭；恒赋值（默认 { enabled: false }）
   cfg.memory = resolveMemoryConfig(toml.memory);
+  // MCP 可观察性配置：未配置时键不进结果对象
+  const mcp = resolveMcpConfig(toml.mcp);
+  if (mcp !== undefined) cfg.mcp = mcp;
   // TUI 渲染配置：未配置时键不进结果对象，消费方用 ?? 落默认
   const tui = resolveTuiConfig(toml.tui);
   if (tui !== undefined) cfg.tui = tui;

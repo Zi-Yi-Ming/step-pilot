@@ -174,9 +174,19 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     name: 'mcp',
     describe: 'cmd.mcp',
     getArgumentCompletions: (partial) => {
-      // /mcp 无子命令，仅在空 partial 时提示用户无需参数
-      if (partial !== '') return [];
-      return [{ value: '', description: t('cmd.mcp.sub.none') }];
+      const q = partial.trim().toLowerCase();
+      const subs = ['enable', 'disable', 'reset'];
+      const descriptions: Record<string, string> = {
+        enable: t('cmd.mcp.sub.enable'),
+        disable: t('cmd.mcp.sub.disable'),
+        reset: t('cmd.mcp.sub.reset'),
+      };
+      if (q === '') {
+        return subs.map((s) => ({ value: s, description: descriptions[s] }));
+      }
+      return subs
+        .filter((s) => s.startsWith(q))
+        .map((s) => ({ value: s, description: descriptions[s] }));
     },
   },
   { name: 'skill', describe: 'cmd.skill' },

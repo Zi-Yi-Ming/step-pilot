@@ -1473,15 +1473,39 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
         this.setLang(args.toLowerCase());
         return;
 
-      case 'mcp':
-        this.push({
-          kind: 'note',
-          text:
-            this.deps.mcp !== undefined
-              ? formatMcpStatus(this.deps.mcp)
-              : '没有配置 MCP 服务器（~/.step-pilot/mcp.json）',
-        });
+      case 'mcp': {
+        const mcp = this.deps.mcp;
+        if (mcp === undefined) {
+          this.push({ kind: 'note', text: '没有配置 MCP 服务器（~/.step-pilot/mcp.json）' });
+          return;
+        }
+        const trimmed = args.trim();
+        if (trimmed === '') {
+          this.push({ kind: 'note', text: formatMcpStatus(mcp) });
+          return;
+        }
+        const [sub, target] = trimmed.split(/\s+/);
+        switch (sub) {
+          case 'enable':
+            if (!target) { this.push({ kind: 'note', text: t('app.mcp.usage') }); return; }
+            mcp.enableTool(target);
+            this.push({ kind: 'note', text: t('app.mcp.enabled', { tool: target }) });
+            break;
+          case 'disable':
+            if (!target) { this.push({ kind: 'note', text: t('app.mcp.usage') }); return; }
+            mcp.disableTool(target);
+            this.push({ kind: 'note', text: t('app.mcp.disabled', { tool: target }) });
+            break;
+          case 'reset':
+            mcp.resetDisabledTools();
+            this.push({ kind: 'note', text: t('app.mcp.reset') });
+            break;
+          default:
+            this.push({ kind: 'note', text: t('app.mcp.usage') });
+            break;
+        }
         return;
+      }
 
       case 'usage':
         this.showUsage(args === '--all');

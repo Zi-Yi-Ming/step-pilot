@@ -166,16 +166,19 @@ describe('/lang 参数补全', () => {
 });
 
 describe('/mcp 参数补全', () => {
-  it('/mcp 空格后 Tab → 给出无需参数提示', () => {
+  it('/mcp 空格后 Tab → 给出子命令提示', () => {
     const items = computeCompletions('/mcp ', baseCtx);
-    expect(items.length).toBe(1);
-    expect(items[0]).toMatchObject({ kind: 'argument', display: '' });
-    expect(items[0]!.description).toBeTruthy();
+    expect(items.length).toBeGreaterThanOrEqual(3);
+    const values = items.map((i) => i.display);
+    expect(values).toContain('enable');
+    expect(values).toContain('disable');
+    expect(values).toContain('reset');
   });
 
-  it('/mcp 非空 partial → 无候选（不暗示参数）', () => {
-    const items = computeCompletions('/mcp foo', baseCtx);
-    expect(items).toEqual([]);
+  it('/mcp 非空 partial → 匹配子命令', () => {
+    const items = computeCompletions('/mcp en', baseCtx);
+    const values = items.map((i) => i.display);
+    expect(values).toContain('enable');
   });
 });
 

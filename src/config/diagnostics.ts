@@ -44,6 +44,7 @@ export const CONFIG_TOP_LEVEL_KEYS = [
   'providers',
   'hooks',
   'tui',
+  'mcp',
 ] as const;
 
 /**

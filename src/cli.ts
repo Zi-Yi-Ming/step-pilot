@@ -533,6 +533,7 @@ ctx.bashAutoBackgroundOnTimeout = config.background?.bashAutoBackgroundOnTimeout
 
 // MCP 接入：读 ~/.step-pilot/mcp.json 拿到 server 配置（仅解析，连接不阻塞启动）。
 const mcpManager = new McpManager();
+ctx.mcpManager = mcpManager;
 let mcpServerConfigs: Record<string, McpServerConfig> = {};
 try {
   const mcpPath = join(homedir(), '.step-pilot', 'mcp.json');

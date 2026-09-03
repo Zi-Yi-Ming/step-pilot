@@ -612,8 +612,18 @@ export async function* runTurn(
           // 兜底长度上限：这一处赋值同时决定 tool_end 事件（→ items）与 makeToolResult（→ history），
           // 单点拦截覆盖三处副本，且界面与模型看到的是同一份内容。
           p.result = capToolResult(preprocessed);
-          // 成功执行：重置该工具的连续失败计数
-          consecutiveFailures.set(p.tu.name, 0);
+          if (p.result.isError) {
+            // MCP 等工具可能在内部消化错误并返回 isError=true（不抛异常），
+            // 这类失败同样计入连续失败，否则 retry loop 对 MCP 工具是死代码。
+            const prev = consecutiveFailures.get(p.tu.name) ?? 0;
+            consecutiveFailures.set(p.tu.name, prev + 1);
+            if (prev + 1 >= MAX_CONSECUTIVE_TOOL_FAILURES && retryLoopTool === undefined) {
+              retryLoopTool = p.tu.name;
+            }
+          } else {
+            // 成功执行：重置该工具的连续失败计数
+            consecutiveFailures.set(p.tu.name, 0);
+          }
         } catch (e) {
           p.result = { content: `工具 ${p.tu.name} 执行异常：${(e as Error).message}`, isError: true };
           // 连续失败计数：达到上限时标记工具级重试循环（调度器仍在跑，等本轮全部 settle 后统一处理）
@@ -671,6 +681,11 @@ export async function* runTurn(
 
   // 工具级重试循环：同一工具连续失败超过上限，终止本回合（不把失败结果回灌给模型继续循环）。
   if (retryLoopTool !== undefined) {
+    // 自动禁用：对 MCP 工具，连续失败达到上限时自动禁用，避免后续回合继续重试。
+    const mcp = ctx.mcpManager;
+    if (mcp !== undefined && retryLoopTool.startsWith('mcp__')) {
+      mcp.disableTool(retryLoopTool);
+    }
     yield {
       type: 'notice',
       message: t('loop.toolRetryLoop', { tool: retryLoopTool, count: MAX_CONSECUTIVE_TOOL_FAILURES }),

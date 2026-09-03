@@ -3,8 +3,12 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { VERSION } from '../version.js';
 import { runOAuthFlow, type OAuthServerConfig } from './oauth.js';
+import type { WireEvent } from '../agent/wirelog.js';
 
 /** 把 MCP 工具的 JSON inputSchema 转成带类型强转的 zod schema（模型常给字符串数字/布尔）。 */
 export function mcpInputSchemaToZod(inputSchema: unknown): z.ZodTypeAny {
@@ -293,6 +297,133 @@ export class McpManager {
   private readonly toolFailures = new Map<string, { count: number; lastError: string }>();
   /** 工具级调用统计：qualifiedName -> 成功次数 + 失败次数。 */
   private readonly toolStats = new Map<string, { success: number; failure: number }>();
+  /** 工具级耗时滚动窗口：qualifiedName -> 最近 200 次调用耗时（毫秒）。 */
+  private readonly durations = new Map<string, number[]>();
+  /** 自动禁用集合：连续失败达到上限的工具。 */
+  private readonly disabledTools = new Set<string>();
+  /** server 级统计：serverName -> { success, failure, tools }。 */
+  private readonly serverStats = new Map<string, { success: number; failure: number; tools: Set<string> }>();
+  /** 工具调用事件 sink（供 wire 事件落盘）。 */
+  private onToolCall?: (event: WireEvent) => void;
+  /** 全局 stats 文件路径。 */
+  private readonly statsPath = join(homedir(), '.step-pilot', 'mcpStats.json');
+
+  /** 设置工具调用事件 sink（供 wire 事件落盘）。 */
+  setOnToolCall(sink: (event: WireEvent) => void): void {
+    this.onToolCall = sink;
+  }
+
+  /** 工具是否已被自动禁用。 */
+  isToolDisabled(qualifiedName: string): boolean {
+    return this.disabledTools.has(qualifiedName);
+  }
+
+  /** 手动启用工具。 */
+  enableTool(qualifiedName: string): void {
+    this.disabledTools.delete(qualifiedName);
+    this.saveStats();
+  }
+
+  /** 手动禁用工具。 */
+  disableTool(qualifiedName: string): void {
+    this.disabledTools.add(qualifiedName);
+    this.saveStats();
+  }
+
+  /** 批量重置禁用状态。 */
+  resetDisabledTools(): void {
+    this.disabledTools.clear();
+    this.saveStats();
+  }
+
+  /** 标记工具成功：重置连续失败，更新 server 统计。 */
+  private markSuccess(qualifiedName: string, serverName: string): void {
+    this.toolFailures.delete(qualifiedName);
+    const stats = this.toolStats.get(qualifiedName) ?? { success: 0, failure: 0 };
+    stats.success++;
+    this.toolStats.set(qualifiedName, stats);
+    this.updateServerStat(serverName, true);
+  }
+
+  /** 标记工具失败：递增连续失败，更新 server 统计。 */
+  private markFailed(qualifiedName: string, serverName: string, error: string): void {
+    const prev = this.toolFailures.get(qualifiedName) ?? { count: 0, lastError: '' };
+    this.toolFailures.set(qualifiedName, { count: prev.count + 1, lastError: error.slice(0, 120) });
+    const stats = this.toolStats.get(qualifiedName) ?? { success: 0, failure: 0 };
+    stats.failure++;
+    this.toolStats.set(qualifiedName, stats);
+    this.updateServerStat(serverName, false);
+  }
+
+  /** 更新 server 级统计。 */
+  private updateServerStat(serverName: string, success: boolean): void {
+    const s = this.serverStats.get(serverName) ?? { success: 0, failure: 0, tools: new Set<string>() };
+    if (success) s.success++; else s.failure++;
+    this.serverStats.set(serverName, s);
+  }
+
+  /** 从磁盘加载持久化 stats。 */
+  public loadStats(): void {
+    if (process.env.NODE_ENV === 'test') return;
+    try {
+      if (!existsSync(this.statsPath)) return;
+      const raw = JSON.parse(readFileSync(this.statsPath, 'utf8')) as {
+        toolStats?: Record<string, { success: number; failure: number }>;
+        toolFailures?: Record<string, { count: number; lastError: string }>;
+        disabledTools?: string[];
+        durations?: Record<string, number[]>;
+        serverStats?: Record<string, { success: number; failure: number; tools: string[] }>;
+      };
+      if (raw.toolStats !== undefined) {
+        for (const [k, v] of Object.entries(raw.toolStats)) this.toolStats.set(k, v);
+      }
+      if (raw.toolFailures !== undefined) {
+        for (const [k, v] of Object.entries(raw.toolFailures)) this.toolFailures.set(k, v);
+      }
+      if (raw.disabledTools !== undefined) {
+        for (const t of raw.disabledTools) this.disabledTools.add(t);
+      }
+      if (raw.durations !== undefined) {
+        for (const [k, v] of Object.entries(raw.durations)) this.durations.set(k, v);
+      }
+      if (raw.serverStats !== undefined) {
+        for (const [k, v] of Object.entries(raw.serverStats)) {
+          this.serverStats.set(k, { ...v, tools: new Set(v.tools) });
+        }
+      }
+    } catch {
+      // 损坏的 stats 文件静默忽略
+    }
+  }
+
+  /** 持久化 stats 到磁盘（原子写）。 */
+  private saveStats(): void {
+    if (process.env.NODE_ENV === 'test') return;
+    try {
+      const toolStatsObj: Record<string, { success: number; failure: number }> = {};
+      for (const [k, v] of this.toolStats) toolStatsObj[k] = v;
+      const toolFailuresObj: Record<string, { count: number; lastError: string }> = {};
+      for (const [k, v] of this.toolFailures) toolFailuresObj[k] = v;
+      const durationsObj: Record<string, number[]> = {};
+      for (const [k, v] of this.durations) durationsObj[k] = v;
+      const serverStatsObj: Record<string, { success: number; failure: number; tools: string[] }> = {};
+      for (const [k, v] of this.serverStats) serverStatsObj[k] = { success: v.success, failure: v.failure, tools: [...v.tools] };
+      const data = {
+        toolStats: toolStatsObj,
+        toolFailures: toolFailuresObj,
+        disabledTools: [...this.disabledTools],
+        durations: durationsObj,
+        serverStats: serverStatsObj,
+      };
+      const dir = join(homedir(), '.step-pilot');
+      mkdirSync(dir, { recursive: true });
+      const tmp = this.statsPath + '.tmp';
+      writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
+      renameSync(tmp, this.statsPath);
+    } catch {
+      // 持久化失败不影响运行
+    }
+  }
 
   /**
    * 连接一个 stdio MCP server 并发现工具。
@@ -436,44 +567,66 @@ export class McpManager {
     if (found === undefined) {
       return { content: `未找到 MCP 工具 ${qualifiedName}`, isError: true };
     }
+    // 自动禁用拦截：被 retry loop 禁用的工具不实际调用
+    if (this.disabledTools.has(qualifiedName)) {
+      const disabledMsg = 'MCP 工具 ' + qualifiedName + ' 已因连续失败自动禁用，请检查服务后使用 `/mcp enable ' + qualifiedName + '` 重试。';
+      return { content: disabledMsg, isError: true };
+    }
     const timeoutMs = found.server.callTimeoutMs ?? DEFAULT_CALL_TIMEOUT_MS;
+    const t0 = Date.now();
     try {
       const result = await withTimeout(
         found.client.callTool({ name: found.info.toolName, arguments: args }),
         timeoutMs,
         '调用',
       );
+      const durationMs = Date.now() - t0;
       // 归一结果：取 text 内容
       const blocks = (result as { content?: Array<{ type: string; text?: string }> }).content ?? [];
       const text = blocks
         .map((b) => (b.type === 'text' ? (b.text ?? '') : `[${b.type}]`))
         .join('\n');
       const isError = (result as { isError?: boolean }).isError === true;
-      // 统计调用结果
-      const stats = this.toolStats.get(qualifiedName) ?? { success: 0, failure: 0 };
+      // 记录耗时（滚动窗口，上限 200）
+      const dur = this.durations.get(qualifiedName) ?? [];
+      dur.push(durationMs);
+      if (dur.length > 200) dur.splice(0, dur.length - 200);
+      this.durations.set(qualifiedName, dur);
       if (!isError) {
-        stats.success++;
-        this.toolFailures.delete(qualifiedName);
+        this.markSuccess(qualifiedName, found.server.name);
       } else {
-        stats.failure++;
-        if (text) {
-          this.toolFailures.set(qualifiedName, { count: 1, lastError: text.slice(0, 120) });
-        }
+        const errorText = text || 'MCP 工具返回 isError=true';
+        this.markFailed(qualifiedName, found.server.name, errorText);
       }
-      this.toolStats.set(qualifiedName, stats);
+      this.fireToolCall(qualifiedName, !isError, durationMs, isError ? (text || undefined) : undefined);
+      this.saveStats();
       return { content: text === '' ? '[无输出]' : text, isError };
     } catch (e) {
+      const durationMs = Date.now() - t0;
       const message = formatMcpToolError(e, qualifiedName, found.server);
-      const prev = this.toolFailures.get(qualifiedName);
-      this.toolFailures.set(qualifiedName, {
-        count: (prev?.count ?? 0) + 1,
-        lastError: oneLine(message),
-      });
-      const stats = this.toolStats.get(qualifiedName) ?? { success: 0, failure: 0 };
-      stats.failure++;
-      this.toolStats.set(qualifiedName, stats);
+      this.markFailed(qualifiedName, found.server.name, message);
+      // 记录耗时
+      const dur = this.durations.get(qualifiedName) ?? [];
+      dur.push(durationMs);
+      if (dur.length > 200) dur.splice(0, dur.length - 200);
+      this.durations.set(qualifiedName, dur);
+      this.fireToolCall(qualifiedName, false, durationMs, message);
+      this.saveStats();
       return { content: message, isError: true };
     }
+  }
+
+  /** 触发工具调用事件（wire 审计）。 */
+  private fireToolCall(qualifiedName: string, success: boolean, durationMs: number, error?: string): void {
+    if (this.onToolCall === undefined) return;
+    this.onToolCall({
+      type: 'mcp.tool_call',
+      ts: new Date().toISOString(),
+      qualifiedName,
+      success,
+      durationMs,
+      error,
+    });
   }
 
   /** 工具级连续失败统计（供 /mcp 面板或调试使用）。 */
@@ -493,5 +646,47 @@ export class McpManager {
       failure: stat.failure,
       total: stat.success + stat.failure,
     }));
+  }
+
+  /** server 级统计。 */
+  serverFailureStats(): Array<{ serverName: string; success: number; failure: number; total: number; toolCount: number }> {
+    return [...this.serverStats.entries()].map(([serverName, stat]) => ({
+      serverName,
+      success: stat.success,
+      failure: stat.failure,
+      total: stat.success + stat.failure,
+      toolCount: stat.tools.size,
+    }));
+  }
+
+  /** 工具耗时统计（p50/p95/max）。 */
+  toolDurationStats(qualifiedName: string): { p50: number; p95: number; max: number } | undefined {
+    const ds = this.durations.get(qualifiedName);
+    if (ds === undefined || ds.length === 0) return undefined;
+    const sorted = [...ds].sort((a, b) => a - b);
+    const p50 = sorted[Math.floor(sorted.length * 0.5)] ?? sorted[sorted.length - 1];
+    const p95 = sorted[Math.min(Math.floor(sorted.length * 0.95), sorted.length - 1)];
+    return { p50, p95, max: sorted[sorted.length - 1] };
+  }
+
+  /** 工具趋势：比较最近 10 次与之前 10 次的失败率。 */
+  toolTrend(qualifiedName: string): 'up' | 'down' | 'stable' {
+    const stats = this.toolStats.get(qualifiedName);
+    if (stats === undefined || stats.success + stats.failure < 4) return 'stable';
+    const total = stats.success + stats.failure;
+    const recent = Math.min(10, total);
+    const recentFailures = Math.min(recent, stats.failure);
+    const recentRate = recentFailures / recent;
+    const olderTotal = total - recent;
+    const olderFailures = Math.max(0, stats.failure - recentFailures);
+    const olderRate = olderTotal > 0 ? olderFailures / olderTotal : 0;
+    if (recentRate > olderRate + 0.1) return 'up';
+    if (recentRate < olderRate - 0.1) return 'down';
+    return 'stable';
+  }
+
+  /** 所有工具名称集合（供趋势计算时遍历）。 */
+  get trackedTools(): string[] {
+    return [...new Set([...this.toolStats.keys(), ...this.toolFailures.keys()])];
   }
 }
