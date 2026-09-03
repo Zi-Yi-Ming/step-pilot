@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import {
   encrypt,
   decrypt,
@@ -39,6 +39,10 @@ describe('oauth token store', () => {
     for (const name of listOAuthServers()) {
       deleteOAuthToken(name);
     }
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
   });
 
   it('空 store 返回空', () => {
