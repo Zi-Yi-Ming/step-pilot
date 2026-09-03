@@ -26,11 +26,33 @@
 - **compaction 降级交接门槛同步自适应**：降级交接的最低 token 要求改为独立计算，不再复用正常闸门的 `adaptiveSummaryMinTokens`，避免"3 次过短后仍因门槛过高放弃压缩"。
 - **compaction 测试数据补齐**：集成测试中的摘要 mock 文本统一补足到自适应门槛以上，防止"工具 mock 过短 → 闸门拦截 → 测试误报为功能故障"。
 
-## [Unreleased]
+## [0.1.9] - 2026-09-03
 
 ### Added
 
-- 待定。
+- **max_tokens 截断独立错误分型**：`stop_reason=max_tokens` 不再依赖 `thinkingExhausted` 布尔标记区分两种语义，而是升格为两个独立 stopReason——`max_tokens`（正文被截断，可自动续写）与 `thinking_exhausted`（思考吃满预算、正文零输出，不续写）。循环守卫、compaction、wire 日志、TUI 提示全部按类型分派，避免调用方漏读布尔位。
+
+### Changed
+
+- **`StopReason` 类型扩展**：新增 `'thinking_exhausted'`，与 `'max_tokens'` 并列。`TurnOutcome.thinkingExhausted` 标记已移除，调用方改用 `stopReason === 'thinking_exhausted'` 做类型级判断。
+
+### Fixed
+
+- **错误分型不靠运行时标记**：此前「输出预算耗尽」与「正文被截断」共用 `stop_reason=max_tokens`，靠 `thinkingExhausted` 布尔位区分，存在调用方漏读风险。现在两者在类型层面彻底分开，loop / continuation / compaction 各自命中对应分支，不再依赖字段存在性推断。
+
+## [0.1.8] - 2026-09-03
+
+### Added
+
+- **工具失败重试循环拦截**：同一工具在单回合内连续失败 3 次后，agent 循环主动终止该回合并发出 notice，避免无限重试消耗上下文。建议用户检查工具参数或环境后重试；持续失败可 `/model` 换模型或 `/new` 重开会话。
+- **compaction 摘要质量自适应门槛**：摘要最小长度改为按被压缩历史体量的 2% 动态计算（上限 200 token，下限 20 token），tiny 历史不再被不合理门槛卡死，大历史则强制要求足够信息量的摘要。
+- **compaction 摘要 prompt 质量要求强化**：摘要指令显式要求笔记长度与历史规模相匹配，禁止只写概括性的话；要求包含具体命令、路径、数字、决策结果；要求明确记录错误与未完成的任务，避免下一轮重复已失败的尝试。
+- **降级交接门槛独立化**：闸门连续 3 次判定"过短"后的降级交接，使用独立门槛（1% / 下限 10 token），低于正常闸门但高于纯噪音，确保"过短但非空"的候选仍有机会保留压缩效果。
+
+### Fixed
+
+- **compaction 降级交接门槛同步自适应**：降级交接的最低 token 要求改为独立计算，不再复用正常闸门的 `adaptiveSummaryMinTokens`，避免"3 次过短后仍因门槛过高放弃压缩"。
+- **compaction 测试数据补齐**：集成测试中的摘要 mock 文本统一补足到自适应门槛以上，防止"工具 mock 过短 → 闸门拦截 → 测试误报为功能故障"。
 
 ## [0.1.6] - 2026-09-03
 

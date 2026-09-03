@@ -97,7 +97,7 @@ export interface RunAgentOptions {
    * 输出被 `max_tokens` 截断时，自动续写的最大次数。默认 0（不自动续写，保持既有行为）。
    *
    * 只对「正文被截断」生效；「思考吃满预算、正文零输出」不走续写——那是预算配置问题，
-   * 续写不改变预算，实测续两轮正文仍为空。判据是 `TurnOutcome.thinkingExhausted`。
+   * 续写不改变预算，实测续两轮正文仍为空。判据是 `StopReason.thinking_exhausted`。
    * 每轮续写产出都过 {@link checkContinuationSafety} 的循环守卫。
    */
   maxAutoContinues?: number;
@@ -650,25 +650,6 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
           };
         }
         const limit = provider.maxTokens;
-        // B 类：思考吃满预算、正文零输出。先判这一条，因为它走「预算配置问题」提示，
-        // 不该进入自动续写守卫。
-        if (outcome.thinkingExhausted === true) {
-          yield {
-            type: 'notice',
-            message:
-              limit !== undefined
-                ? t('loop.maxTokens.thinkingExhaustedWithLimit', { limit })
-                : t('loop.maxTokens.thinkingExhausted'),
-          };
-          // goal 等自主续接：max_tokens 出口同样要过续跑裁决——曾在此直接 turn_done
-          // 静默停跑（2026-08-15 根因 B），goal active 时必须产出 continuation
-          const contEx = await resolveContinuation(hooks);
-          if (contEx !== null) {
-            yield { type: 'continuation', inject: contEx.inject };
-          }
-          yield { type: 'turn_done' };
-          return;
-        }
         // A 类：正文被截断。有实质产出，续写会推进，交循环守卫决定能不能续。
         const chunk = lastAssistantText(messages);
         contState ??= emptyContinuationState();
@@ -690,6 +671,33 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
         const contStop = await resolveContinuation(hooks);
         if (contStop !== null) {
           yield { type: 'continuation', inject: contStop.inject };
+        }
+        yield { type: 'turn_done' };
+        return;
+      }
+      case 'thinking_exhausted': {
+        if (outcome.usage !== undefined) {
+          yield {
+            type: 'usage',
+            totalTokens: usageTotalTokens(outcome.usage),
+            measuredLength: messages.length,
+            billedDelta: billedTokens(outcome.usage),
+          };
+        }
+        const limit = provider.maxTokens;
+        // B 类：思考吃满预算、正文零输出。走「预算配置问题」提示，不进入自动续写守卫。
+        yield {
+          type: 'notice',
+          message:
+            limit !== undefined
+              ? t('loop.maxTokens.thinkingExhaustedWithLimit', { limit })
+              : t('loop.maxTokens.thinkingExhausted'),
+        };
+        // goal 等自主续接：thinking_exhausted 出口同样要过续跑裁决——曾在此直接 turn_done
+        // 静默停跑（2026-08-15 根因 B），goal active 时必须产出 continuation
+        const contEx = await resolveContinuation(hooks);
+        if (contEx !== null) {
+          yield { type: 'continuation', inject: contEx.inject };
         }
         yield { type: 'turn_done' };
         return;
