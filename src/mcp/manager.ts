@@ -291,6 +291,8 @@ export class McpManager {
   private readonly states = new Map<string, McpServerState>();
   /** 工具级连续失败统计：qualifiedName -> 连续失败次数 + 最近错误。 */
   private readonly toolFailures = new Map<string, { count: number; lastError: string }>();
+  /** 工具级调用统计：qualifiedName -> 成功次数 + 失败次数。 */
+  private readonly toolStats = new Map<string, { success: number; failure: number }>();
 
   /**
    * 连接一个 stdio MCP server 并发现工具。
@@ -447,12 +449,18 @@ export class McpManager {
         .map((b) => (b.type === 'text' ? (b.text ?? '') : `[${b.type}]`))
         .join('\n');
       const isError = (result as { isError?: boolean }).isError === true;
-      // 成功调用或工具侧 isError：重置连续失败计数
+      // 统计调用结果
+      const stats = this.toolStats.get(qualifiedName) ?? { success: 0, failure: 0 };
       if (!isError) {
+        stats.success++;
         this.toolFailures.delete(qualifiedName);
-      } else if (text) {
-        this.toolFailures.set(qualifiedName, { count: 1, lastError: text.slice(0, 120) });
+      } else {
+        stats.failure++;
+        if (text) {
+          this.toolFailures.set(qualifiedName, { count: 1, lastError: text.slice(0, 120) });
+        }
       }
+      this.toolStats.set(qualifiedName, stats);
       return { content: text === '' ? '[无输出]' : text, isError };
     } catch (e) {
       const message = formatMcpToolError(e, qualifiedName, found.server);
@@ -461,6 +469,9 @@ export class McpManager {
         count: (prev?.count ?? 0) + 1,
         lastError: oneLine(message),
       });
+      const stats = this.toolStats.get(qualifiedName) ?? { success: 0, failure: 0 };
+      stats.failure++;
+      this.toolStats.set(qualifiedName, stats);
       return { content: message, isError: true };
     }
   }
@@ -471,6 +482,16 @@ export class McpManager {
       qualifiedName,
       consecutiveFailures: stat.count,
       lastError: stat.lastError,
+    }));
+  }
+
+  /** 工具级调用统计（供 /mcp 面板展示）。 */
+  toolCallStats(): Array<{ qualifiedName: string; success: number; failure: number; total: number }> {
+    return [...this.toolStats.entries()].map(([qualifiedName, stat]) => ({
+      qualifiedName,
+      success: stat.success,
+      failure: stat.failure,
+      total: stat.success + stat.failure,
     }));
   }
 }

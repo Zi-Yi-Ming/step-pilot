@@ -34,7 +34,15 @@ export function formatMcpStatus(manager: McpManager): string {
   }
   const lines = states.map(statusLine);
   const failures = manager.toolFailureStats();
+  const stats = manager.toolCallStats();
   const sections = [`${t('app.mcp.title')}`, ...lines];
+  if (stats.length > 0) {
+    sections.push('');
+    sections.push(t('app.mcp.toolStats.title'));
+    for (const stat of stats) {
+      sections.push(t('app.mcp.toolStats.line', { tool: stat.qualifiedName, total: stat.total, success: stat.success, failure: stat.failure }));
+    }
+  }
   if (failures.length > 0) {
     sections.push('');
     sections.push(t('app.mcp.toolFailures.title'));
