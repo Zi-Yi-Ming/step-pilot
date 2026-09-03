@@ -14,15 +14,7 @@ const schema = z.object({
     .string()
     .optional()
     .describe(
-      'JS 编排脚本（async 函数体，以 return <报告> 收尾）。与 name/script_path 任一即可（都不给时返回可用脚本列表）；同时给 script 与 name 时以 script 为准。可用全局原语：' +
-        'agent(prompt, {subagentType?, description?, schema?}?) → Promise<string|null|对象>（派子 agent，终态失败返回 null 不抛错；' +
-        '给 schema（JSON Schema 对象）时自动追加输出契约，校验不匹配带错误纠正重试 ≤2 次，仍败返回 null，成功返回解析后的对象）；' +
-        'parallel([() => agent(...), ...]) → Promise<(string|null)[]>（并发 barrier，永不 reject，失败位 null）；' +
-        'pipeline(items, ...stages) → Promise<(string|null)[]>（每项串行过各 stage，某项失败掉 null 跳过后续 stage）；' +
-        'phase(title)（记录阶段切换，展示层语义：阶段标题实时显示在 TUI 步骤面板，并随 [phase] 行进返回报告，长任务建议用它标注进度）；' +
-        'budget({agents?, minutes?})（收紧本 run 预算：agents 覆盖 agent 上限、minutes 收紧 wall-clock，只能收紧不能放松，耗尽后 agent() 抛错；token 维度二期再做）；' +
-        'args（入参 args）；console.log（限额日志）。' +
-        '可直接用 if / for / .map / 提前 return 等原生控制流。Date.now / Math.random / 无参 new Date() 已禁用（保证可 resume），需要时间请从 args 传时间戳。',
+      'JS 编排脚本（async 函数体，以 return <报告> 收尾）。与 name/script_path 任一即可（都不给时返回可用脚本列表）；同时给 script 与 name 时以 script 为准。可用原语：agent() 派子 agent、parallel() 并发 barrier、pipeline() 串行 stage、phase() 标注阶段、budget() 收紧 agents/minutes 预算。支持 if/for/.map/return 等原生控制流；Date.now/Math.random/无参 new Date() 已禁用，需要时间请从 args 传入。',
     ),
   name: z
     .string()

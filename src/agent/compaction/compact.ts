@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { DEFAULT_THINKING_LEVELS } from '../../config/config.js';
+import { DEFAULT_THINKING_LEVELS, type ThinkingLevelName } from '../../config/config.js';
 import { isAbortError } from '../../provider/retry.js';
 import type { ChatProvider } from '../../provider/types.js';
 import { isStepref, STEPREF_PREFIX } from '../../session/attachments.js';
@@ -27,11 +27,12 @@ const CLEARED_PLACEHOLDER = '[旧工具结果已清理以节省上下文]';
  *
  * 这样既防止小输入被不合理的门槛卡住，又确保大输入的摘要有足够信息量。
  */
-export function adaptiveSummaryMinTokens(olderTokens: number): number {
-  // 保留原逻辑（2% 比例 + 200 封顶），只加一个合理下限：避免 tiny 历史把门槛压到 1 token
-  // 以下情况可放行：几十 token 的小压缩本来就不该苛求长摘要。
-  const minTokens = Math.max(20, Math.floor(olderTokens * 0.02));
-  return Math.min(200, minTokens);
+export function adaptiveSummaryMinTokens(olderTokens: number, thinkingLevel?: ThinkingLevelName): number {
+  const base = Math.max(20, Math.floor(olderTokens * 0.02));
+  const capped = Math.min(200, base);
+  if (thinkingLevel === 'low') return Math.max(10, Math.floor(capped * 0.7));
+  if (thinkingLevel === 'high') return Math.min(260, Math.floor(capped * 1.3));
+  return capped;
 }
 
 /**
@@ -308,10 +309,10 @@ function isToolResultMsg(m: StoredMessage): boolean {
  * inputTokens 是当轮实际发给摘要模型的序列化输入的估算（不是原始历史体量——
  * 摘要模型看到的是 serializeContent 之后的文本，分母必须与模型所见同口径）。
  */
-export function validateSummary(summary: string, inputTokens: number): void {
+export function validateSummary(summary: string, inputTokens: number, thinkingLevel?: ThinkingLevelName): void {
   const trimmed = summary.trim();
   if (trimmed === '') throw new Error('compaction summary is empty');
-  const minTokens = adaptiveSummaryMinTokens(inputTokens);
+  const minTokens = adaptiveSummaryMinTokens(inputTokens, thinkingLevel);
   const summaryTokens = estimateTextTokens(trimmed);
   if (summaryTokens < minTokens) {
     throw new Error(`compaction summary too short: ${summaryTokens} tokens < ${minTokens} required`);
@@ -695,6 +696,7 @@ export async function fullCompact(
   model?: string,
   userBudget?: { maxTokens?: number; headTokens?: number },
   signal?: AbortSignal,
+  thinkingLevel?: ThinkingLevelName,
 ): Promise<StoredMessage[]> {
   /**
    * 中断判定统一走这里读实时值。
@@ -817,7 +819,7 @@ export async function fullCompact(
 
     // 质量闸门：三类失败（空白/过短/复述）都是输出行为问题，追加提示原输入重试，不收缩。
     try {
-      validateSummary(candidate, inputTokens);
+      validateSummary(candidate, inputTokens, thinkingLevel);
       summary = candidate;
       break;
     } catch (gateErr) {

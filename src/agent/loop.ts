@@ -1,4 +1,5 @@
-import type { ChatProvider } from '../provider/types.js';
+import type { ChatProvider, ThinkingParam } from '../provider/types.js';
+import type { ThinkingLevelName } from '../config/config.js';
 import { t } from '../i18n.js';
 import { toAnthropicTools } from '../tools/index.js';
 import { filterToolsByCapabilities } from '../tools/capabilities.js';
@@ -113,7 +114,7 @@ export interface RunAgentOptions {
   /** 模型覆盖。省略 = 用 provider 默认模型。子 agent 可指定不同模型。 */
   model?: string;
   /** thinking 覆盖（三态：undefined 构造默认 / 对象覆盖 / null 抑制），透传到每回合的 provider.stream。 */
-  thinking?: { budgetTokens?: number } | null;
+  thinking?: ThinkingParam | null;
   /** 渠道名（如 stepfun / openai / anthropic），用于空响应诊断上下文。 */
   providerName?: string;
   /** 压缩阈值。省略 = 不在循环内自动压缩（也不做溢出兜底压缩）。 */
@@ -212,6 +213,7 @@ async function maybeCompact(
   onWireEvent?: (event: WireEvent) => void,
   compactionProvider?: ChatProvider,
   signal?: AbortSignal,
+  thinkingLevel?: ThinkingLevelName,
 ): Promise<CompactOutcome> {
   if (!shouldCompact(usedTokens, thresholds)) return { acted: false, attemptedButFailed: false };
   let acted = false;
@@ -252,6 +254,7 @@ async function maybeCompact(
       compactionModel,
       userMessageBudget,
       signal,
+      thinkingLevel,
     );
     if (compacted !== messages) {
       replaceMessages(messages, compacted);
@@ -450,6 +453,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
         opts.onWireEvent,
         opts.compactionProvider,
         signal,
+        (opts.thinking?.level as ThinkingLevelName | undefined),
       );
       if (outcome.acted) {
         lastUsage = undefined; // 历史已就地重写，旧快照的 measuredLength 不再对应任何下标
@@ -607,6 +611,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
           opts.compactionModel,
           { maxTokens: userMaxTokens },
           signal,
+          (opts.thinking?.level as ThinkingLevelName | undefined),
         );
         if (compacted !== messages) {
           replaceMessages(messages, compacted);
