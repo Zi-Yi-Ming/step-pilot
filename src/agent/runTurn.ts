@@ -27,8 +27,8 @@ import { preprocessToolResult } from './toolResultPreprocess.js';
 import { ToolScheduler } from './toolScheduler.js';
 import { toWire } from './wire.js';
 
-/** 单回合结束原因。overflow = 上下文溢出，交外层循环压缩后重试。max_tokens = 输出达上限被截断。 */
-export type StopReason = 'end_turn' | 'tool_use' | 'aborted' | 'error' | 'overflow' | 'max_tokens';
+/** 单回合结束原因。overflow = 上下文溢出，交外层循环压缩后重试。max_tokens = 正文被截断。thinking_exhausted = 思考吃满预算、正文零输出。 */
+export type StopReason = 'end_turn' | 'tool_use' | 'aborted' | 'error' | 'overflow' | 'max_tokens' | 'thinking_exhausted';
 
 /**
  * 连续同工具失败上限：同一工具在单回合内连续失败超过此次数，判定为工具级重试循环。
@@ -42,12 +42,6 @@ export interface TurnOutcome {
   stopReason: StopReason;
   /** 本回合模型返回的真实 token usage（成功拿到 finalMessage 时带上，供压缩判断）。 */
   usage?: Anthropic.Usage;
-  /**
-   * 思考预算耗尽标记：stop_reason==='max_tokens' 且响应无正文/工具调用（仅 thinking 块）。
-   * 语义是「思考吃满了 max_tokens，正文没有空间生成」——与「正文写到一半被截断」不同，
-   * loop 据此给出「调大 max_tokens / 降 thinking 档位」的确定性提示，而非「回复继续」。
-   */
-  thinkingExhausted?: boolean;
   /**
    * 工具调用通道退化标记：本回合零 tool_use，但正文里出现了工具调用标签的特征形态。
    * 语义是「模型把工具调用打成了纯文本，工具从未执行」——这是模型侧退化（实证只在长上下文下
@@ -247,7 +241,7 @@ export async function* runTurn(
   // 注入的 user 消息也落盘），与循环外的统一 messages.push(final) 互斥。
   // 该路径即时落盘后把此标记置 true，跳过循环外的统一 push，避免重复落盘。
   let skipFinalPush = false;
-  // thinking 预算耗尽自动降档：首轮 thinkingExhausted 时把 thinking 降到 low 重试 1 次。
+  // thinking 预算耗尽自动降档：stopReason 为 thinking_exhausted 时把 thinking 降到 low 重试 1 次。
   // 成功后恢复原档位；失败退到 loop 的提示路径。最多 1 次，防死循环。
   let retriedDowngrade = false;
   // think-only 自动恢复：降档重试仍耗尽时，把耗尽轮次的 thinking 落盘为 assistant 消息，
@@ -348,14 +342,14 @@ export async function* runTurn(
       // 空响应契约：流正常结束但无正文也无工具调用。先按 stop_reason 分型：
       // - stop_reason==='max_tokens'：思考吃满了输出预算，正文没空间生成（配置性问题，
       //   重试无意义——预算组合不变必然复现）。不抛错，落 final 走下方 max_tokens 分支，
-      //   携带 thinkingExhausted 标记让 loop 给「调 max_tokens / 降档」的确定性提示。
+      //   以独立 stopReason=thinking_exhausted 让 loop 给「调 max_tokens / 降档」的确定性提示。
       // - 其余（end_turn 等）：真正的服务端瞬时空响应，抛 EmptyResponseError 走重试。
       //   emittedText 只标记正文；空响应诊断见下（hadReasoning 区分思考型空响应）。
       if (isEmptyResponse(msg)) {
         if (msg.stop_reason === 'max_tokens') {
-          // thinking 预算耗尽自动降档：首轮 thinkingExhausted（仅 thinking 块、无正文/工具调用）
+          // thinking 预算耗尽自动降档：stopReason 为 thinking_exhausted（仅 thinking 块、无正文/工具调用）
           // 且当前档位可降（不是 low、不是 off、未重试过），自动降到 low 重试 1 次。
-          // 重试成功后 activeThinking 还原为原档位，用户无感知；失败则走下方 thinkingExhausted 提示路径。
+          // 重试成功后 activeThinking 还原为原档位，用户无感知；失败则走下方 thinking_exhausted 提示路径。
           if (
             !retriedDowngrade &&
             thinking !== null &&
@@ -469,7 +463,7 @@ export async function* runTurn(
             final = retryMsg;
             break;
           }
-          // 不可降级（已是 low / off / 已重试过）：直接落 final，走 thinkingExhausted 提示路径
+          // 不可降级（已是 low / off / 已重试过）：直接落 final，走 thinking_exhausted 提示路径
           final = msg;
           break;
         }
@@ -534,12 +528,11 @@ export async function* runTurn(
   // 输出达 max_tokens 上限被截断：截断响应里的 tool_use 不执行——
   // 半截 JSON 参数可能解析出错误输入，执行有副作用风险。assistant 消息保留进历史，
   // 交外层 loop 发明确提示后结束回合（不自动续写）。
-  // thinkingExhausted：响应仅 thinking 块、无正文/工具调用——思考吃满预算，正文零输出，
-  // 与「正文写到一半被截断」区分开，loop 据此给「调 max_tokens / 降档」提示。
+  // thinking_exhausted：响应仅 thinking 块、无正文/工具调用——思考吃满预算，正文零输出，
+  // 以独立 stopReason 升格，不再靠调用方读布尔标记分派。
   if (final.stop_reason === 'max_tokens') {
-    const thinkingExhausted = isEmptyResponse(final);
-    return thinkingExhausted
-      ? { stopReason: 'max_tokens', usage, thinkingExhausted: true }
+    return isEmptyResponse(final)
+      ? { stopReason: 'thinking_exhausted', usage }
       : { stopReason: 'max_tokens', usage };
   }
 
