@@ -1,3 +1,0 @@
-[mcp_servers.firecrawl]
-type = "http"
-url = "https://mcp.firecrawl.dev/v2/mcp"
