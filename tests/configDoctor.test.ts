@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runDoctorConfig } from '../src/config/doctor.js';
 
@@ -82,5 +82,26 @@ describe('runDoctorConfig', () => {
     const res = await runDoctorConfig(p);
     expect(res.code).toBe(0);
     expect(res.stdout).toContain('event');
+  });
+
+  it('mcp.json 存在且配置合法时展示 callTimeoutMs 生效值', async () => {
+    const tomlPath = writeToml('config.toml', 'provider = "stepfun"\nmodel = "step-3.7-flash"\n');
+    const dir = dirname(tomlPath);
+    writeFileSync(join(dir, 'mcp.json'), JSON.stringify({ mcpServers: { github: { command: 'npx', callTimeoutMs: 12345 } } }), 'utf8');
+    const res = await runDoctorConfig(tomlPath);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain('mcp server "github" 配置合法');
+    expect(res.stdout).toContain('callTimeoutMs = 12345ms');
+    expect(res.stdout).toContain('单次工具调用超时');
+  });
+
+  it('mcp.json 存在但未配置 callTimeoutMs 时不展示超时信息', async () => {
+    const tomlPath = writeToml('config.toml', 'provider = "stepfun"\nmodel = "step-3.7-flash"\n');
+    const dir = dirname(tomlPath);
+    writeFileSync(join(dir, 'mcp.json'), JSON.stringify({ mcpServers: { github: { command: 'npx' } } }), 'utf8');
+    const res = await runDoctorConfig(tomlPath);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain('mcp server "github" 配置合法');
+    expect(res.stdout).not.toContain('callTimeoutMs');
   });
 });

@@ -6,11 +6,15 @@ import type { McpManager, McpServerState } from './manager.js';
 /** 单个 server 的状态行（名称 + transport + 状态 + 工具数/错误摘要）。 */
 function statusLine(s: McpServerState): string {
   const where = s.transport !== undefined ? ` [${s.transport}]` : '';
+  const timeout =
+    s.callTimeoutMs !== undefined
+      ? ` (${t('app.mcp.line.callTimeout', { ms: s.callTimeoutMs })})`
+      : '';
   switch (s.status) {
     case 'connected':
-      return t('app.mcp.line.connected', { name: s.name, count: s.toolCount }) + where;
+      return t('app.mcp.line.connected', { name: s.name, count: s.toolCount }) + where + timeout;
     case 'pending':
-      return t('app.mcp.line.pending', { name: s.name }) + where;
+      return t('app.mcp.line.pending', { name: s.name }) + where + timeout;
     case 'failed':
       return t('app.mcp.line.failed', { name: s.name, error: s.error ?? '' }) + where;
     case 'disabled':

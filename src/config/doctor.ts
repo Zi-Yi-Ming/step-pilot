@@ -16,6 +16,7 @@ import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import { resolvePermissionMode, resolveProxy, resolveThinkingConfig, type ModelEntry, type ProviderEntry } from './config.js';
+import { DEFAULT_CALL_TIMEOUT_MS } from '../mcp/manager.js';
 import { collectConfigWarnings, formatWarningZh } from './diagnostics.js';
 
 /** 1x1 像素浅绿色 PNG（base64）：实测 image_in 能力用。 */
@@ -306,7 +307,14 @@ export async function runDoctorConfig(
           for (const name of names) {
             const err = validateServerConfig(servers[name] as never);
             if (err !== null) lines.push(`warn: mcp server "${name}"：${err}`);
-            else lines.push(`ok: mcp server "${name}" 配置合法`);
+            else {
+              lines.push(`ok: mcp server "${name}" 配置合法`);
+              const rawConfig = servers[name] as Record<string, unknown>;
+              if (typeof rawConfig.callTimeoutMs === 'number') {
+                const ms = Math.max(0, Math.floor(rawConfig.callTimeoutMs));
+                lines.push(`info: mcp server "${name}" callTimeoutMs = ${ms}ms（单次工具调用超时；缺省 ${DEFAULT_CALL_TIMEOUT_MS}ms）`);
+              }
+            }
           }
         }
       }

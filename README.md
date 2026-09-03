@@ -35,8 +35,10 @@ It's built with **pi-tui** and speaks three protocols — Anthropic Messages, Op
 
 First run is interactive — it walks you through API key, provider, and model selection. No manual config editing required.
 
+Artifacts are distributed through GitHub Releases, not the npm public registry. Install the latest release tarball with npm:
+
 ```bash
-npm i -g step-pilot
+npm i -g https://github.com/Zi-Yi-Ming/step-pilot/releases/latest/download/step-pilot.tgz
 step-pilot
 ```
 
@@ -77,7 +79,7 @@ CI runs typecheck, build, and test on Ubuntu, Windows, and macOS. Development co
 
 ## Acknowledgements
 
-The source code of Step Pilot is written from scratch by this project; it is not affiliated with, sponsored by, or endorsed by any third-party project. Third-party open-source license texts are collected under [`licenses/`](./licenses/) for compliance, with details in [`licenses/NOTICE.md`](./licenses/NOTICE.md).
+Step Pilot is built on the pi open-source ecosystem — its TUI/agent shell uses [`@earendil-works/pi-tui`](https://github.com/earendil-works/pi) (`packages/tui` of the pi repository) — and is forked from the stepfun-ai `Step-Realtime-CLI` step-code-pi exploration line. This project independently fixes upstream issues and re-tunes the agent for small models such as Step 3.7 Flash; it is not affiliated with, sponsored by, or endorsed by earendil-works, stepfun-ai, or any other third-party project. Third-party open-source license texts are collected under [`licenses/`](./licenses/) for compliance, with details in [`licenses/NOTICE.md`](./licenses/NOTICE.md).
 
 ## License
 

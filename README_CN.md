@@ -35,8 +35,10 @@ step-pilot 是一个终端编码 agent CLI。模型通过工具读写真实文�
 
 首次运行是交互式向导 —— 它会引导你完成 API key、provider 和模型选择，无需手动编辑配置文件。
 
+制品通过 GitHub Releases 分发（不走 npm 公共仓库）。用 npm 安装最新 Release 的 tarball：
+
 ```bash
-npm i -g step-pilot
+npm i -g https://github.com/Zi-Yi-Ming/step-pilot/releases/latest/download/step-pilot.tgz
 step-pilot
 ```
 
@@ -75,7 +77,7 @@ CI 在 Ubuntu、Windows、macOS 三平台运行 typecheck、build 与 test。开
 
 ## 致谢
 
-Step Pilot 的源码由本项目自行编写，与任何第三方项目无隶属、赞助或背书关系。第三方开源许可证原文收录于 [`licenses/`](./licenses/) 目录作为合规留痕，详见 [`licenses/NOTICE.md`](./licenses/NOTICE.md)。
+step-pilot 基于 pi 开源生态构建——TUI/agent 壳使用 [`@earendil-works/pi-tui`](https://github.com/earendil-works/pi)（pi 仓库的 `packages/tui`），并 fork 自 stepfun-ai `Step-Realtime-CLI` 的 step-code-pi 探索线。本项目在此基础上独立修复上游问题、针对 Step 3.7 Flash 等小模型重新调优；与 earendil-works、stepfun-ai 等第三方项目无隶属、赞助或背书关系。第三方开源许可证原文收录于 [`licenses/`](./licenses/) 目录作为合规留痕，详见 [`licenses/NOTICE.md`](./licenses/NOTICE.md)。
 
 ## 许可证
 

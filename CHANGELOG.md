@@ -11,6 +11,23 @@
 - **MCP streamable http 真线协议集成测试**：进程内起真实的 streamable http MCP server（独立 fixture 进程、ephemeral 端口），manager 走真 HTTP 验证连接发现、工具调用、调用超时与 headers 鉴权（缺 token 401 拒绝 / 带 token 连通）。0.1.5 发布时登记的「从未连过真实 http server」未验证面就此关闭。
 - **`tool_search` 检索结果描述截断**：命中工具的描述在结果行里截断到 200 字符（全文仍会随加载进 tools 数组）——远程 server 的超长描述 × limit 条不再无谓灌爆上下文。
 
+## [0.1.6] - 2026-09-03
+
+### Added
+
+- **`step config export` 纳入 `mcp.json` 脱敏导出**：导出配置分享模板时，同时导出 `~/.step-pilot/mcp.json`（脱敏 headers 等敏感值）；缺失时跳过不报错。headers 的键名是任意的，分享模板里不应保留任何请求头值。
+- **MCP 重连策略配置化**：`mcp.json` 的 server 条目新增 `maxRetries`（clamp [0,10]）与 `reconnectDelayMs`（clamp [100,60000]），透传 StreamableHTTPClientTransport；未配置时尊重 SDK 默认。
+- **`/mcp` 面板展示 `callTimeoutMs` 生效值**：已配置单次工具调用超时的 server 状态行追加 `(调用超时 Xms)` 提示，未配置时仍保持原样。
+- **`step doctor config` 展示 `callTimeoutMs` 生效值**：mcp.json 校验通过后，若 server 声明了 `callTimeoutMs` 则打印生效值与缺省值说明。
+
+### Changed
+
+- **MCP 状态对象暴露 `callTimeoutMs`**：`McpServerState` 新增 `callTimeoutMs` 字段，供 `/mcp` 面板与外部消费方读取。
+
+### Fixed
+
+- **`tool_search` 截断行为补齐边界测试**：截断边界（200/201 字符）、limit 参数限制、默认 8 条行为均已有单测护栏。
+
 ## [0.1.5] - 2026-09-03
 
 ### Fixed

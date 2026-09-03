@@ -1,3 +1,5 @@
+import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
+
 /**
  * best-effort 脱敏工具：把日志与调试导出里最常见的密钥模式擦成 [REDACTED]。
  *
@@ -90,6 +92,33 @@ export function redactByKeyName(value: unknown, seen: WeakSet<object> = new Weak
   }
   return obj;
 }
+
+/**
+ * 脱敏 TOML 文本：解析 → 按 key 名 redact → 重新序列化 → 正文再擦一遍。解析失败退回正文擦除。
+ */
+export function redactToml(raw: string): string {
+  try {
+    const obj = parseToml(raw);
+    redactByKeyName(obj);
+    return redactSecrets(stringifyToml(obj));
+  } catch {
+    return redactSecrets(raw);
+  }
+}
+
+/**
+ * 脱敏 JSON 文本：JSON 解析 → 按 key 名 redact → 序列化 → 正文再擦一遍。解析失败退回正文擦除。
+ */
+export function redactJson(raw: string): string {
+  try {
+    const obj = JSON.parse(raw) as unknown;
+    redactByKeyName(obj);
+    return redactSecrets(JSON.stringify(obj, null, 2));
+  } catch {
+    return redactSecrets(raw);
+  }
+}
+
 
 // ── vendor 级别：内容与路径脱敏 ──────────────────────────────────
 

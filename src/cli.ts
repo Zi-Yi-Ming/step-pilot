@@ -33,6 +33,7 @@ import { buildAgentRegistry } from './agent/subagent/registry.js';
 import { loadConfig, resolveModelEntry, TomlParseError, type ConfigLoadDiagnostics, type StepPilotConfig } from './config/config.js';
 import { runDoctorConfig } from './config/doctor.js';
 import { exportConfigTemplate } from './config/exportConfig.js';
+import { exportMcpConfigTemplate } from './config/exportMcpConfig.js';
 import { collectConfigWarnings } from './config/diagnostics.js';
 import { configureWebResultCache } from './tools/webCache.js';
 import { renderConfigDiagnostics } from './chat/configWarningText.js';
@@ -129,6 +130,7 @@ if (program.args[0] === 'export-debug-zip') {
 // 小团队场景：一人调好渠道/模型配置，导出模板给队友填自己的 key。不进 TUI、不改原文件。
 // path 缺省为 ~/.step-pilot/config.toml；无 --out 时写 stdout。放在 loadConfig 之前，
 // 坏配置也能导出吗？不能——读不了就报错退出，导出以能加载的配置为前提。
+// 同时导出 ~/.step-pilot/mcp.json（脱敏 headers 等敏感值），缺失时跳过不报错。
 if (program.args[0] === 'config') {
   configureLogger({ mode: 'headless' });
   if (program.args[1] !== 'export') {
@@ -147,13 +149,31 @@ if (program.args[0] === 'config') {
     process.stderr.write(`配置文件不存在或无法读取：${srcPath}\n`);
     process.exit(1);
   }
-  const { output, stripped } = exportConfigTemplate(text);
+  const { output: configOutput, stripped } = exportConfigTemplate(text);
+  const { output: mcpOutput, redactedCount, missing: mcpMissing } = exportMcpConfigTemplate();
   if (outPath !== undefined) {
-    writeFileSync(outPath, output, 'utf8');
-    process.stdout.write(`已导出分享模板（剥离 ${stripped} 处 api_key）：${outPath}\n分享前请自查输出中是否残留其他敏感信息。\n`);
+    writeFileSync(outPath, configOutput, 'utf8');
+    const notes: string[] = [`已导出分享模板（剥离 ${stripped} 处 api_key）：${outPath}`];
+    if (!mcpMissing) {
+      const mcpOut = `${outPath}.mcp.json`;
+      writeFileSync(mcpOut, mcpOutput, 'utf8');
+      notes.push(`MCP 配置（脱敏 ${redactedCount} 处）：${mcpOut}`);
+    }
+    notes.push('分享前请自查输出中是否残留其他敏感信息。');
+    process.stdout.write(`${notes.join('；')}\n`);
   } else {
-    process.stdout.write(output);
-    if (stripped > 0) process.stderr.write(`\n（已剥离 ${stripped} 处 api_key；分享前请自查是否残留其他敏感信息。）\n`);
+    process.stdout.write(configOutput);
+    if (!mcpMissing) {
+      process.stdout.write(`\n\n# === mcp.json（已脱敏 ${redactedCount} 处敏感值）===\n`);
+      process.stdout.write(mcpOutput);
+    }
+    if (stripped > 0 || !mcpMissing) {
+      const parts: string[] = [];
+      if (stripped > 0) parts.push(`已剥离 ${stripped} 处 api_key`);
+      if (!mcpMissing) parts.push(`mcp.json 已脱敏 ${redactedCount} 处敏感值`);
+      parts.push('分享前请自查是否残留其他敏感信息。');
+      process.stderr.write(`\n（${parts.join('；')}）\n`);
+    }
   }
   process.exit(0);
 }

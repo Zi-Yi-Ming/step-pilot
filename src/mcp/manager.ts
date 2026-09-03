@@ -71,6 +71,44 @@ export interface McpServerConfig {
   startupTimeoutMs?: number;
   /** 单次工具调用超时（毫秒），缺省 60000。超时转 isError 结果回灌，不挂起回合。 */
   callTimeoutMs?: number;
+  /** http 类型：SSE 流断线重连最大次数（SDK 缺省 2）。clamp [0,10]。 */
+  maxRetries?: number;
+  /** http 类型：重连初始退避（毫秒），SDK 按指数增长到 maxReconnectionDelay。clamp [100,60000]。 */
+  reconnectDelayMs?: number;
+}
+
+/** SDK 重连参数的缺省值（与 StreamableHTTPClientTransport 内部默认对齐，此处显式便于组合）。 */
+const RECONNECT_GROW_FACTOR = 1.5;
+const RECONNECT_MAX_DELAY_DEFAULT = 30_000;
+
+/**
+ * 组装 http transport 的连接选项：headers 鉴权 + 重连策略。
+ * 未配置重连字段时返回不含 reconnectionOptions 的选项（尊重 SDK 默认）。
+ * 纯函数，便于单测。
+ */
+export function httpTransportOptions(config: McpServerConfig): {
+  requestInit: { headers?: Record<string, string> };
+  reconnectionOptions?: {
+    maxRetries: number;
+    initialReconnectionDelay: number;
+    maxReconnectionDelay: number;
+    reconnectionDelayGrowFactor: number;
+  };
+} {
+  const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
+  const opts: ReturnType<typeof httpTransportOptions> = {
+    requestInit: { headers: config.headers },
+  };
+  if (config.maxRetries !== undefined || config.reconnectDelayMs !== undefined) {
+    const initial = config.reconnectDelayMs !== undefined ? clamp(config.reconnectDelayMs, 100, 60_000) : 1000;
+    opts.reconnectionOptions = {
+      maxRetries: config.maxRetries !== undefined ? clamp(Math.floor(config.maxRetries), 0, 10) : 2,
+      initialReconnectionDelay: initial,
+      maxReconnectionDelay: Math.max(RECONNECT_MAX_DELAY_DEFAULT, initial),
+      reconnectionDelayGrowFactor: RECONNECT_GROW_FACTOR,
+    };
+  }
+  return opts;
 }
 
 /** server 类型判别：url 非空即 http（streamable），否则 stdio（command）。 */
@@ -109,6 +147,8 @@ export interface McpServerState {
   error?: string;
   /** transport 展示形态：'stdio: <command>' 或 'http: <url>'；配置未过校验时为 undefined。 */
   transport?: string;
+  /** 单次工具调用超时（毫秒）；配置未设置时为 undefined。 */
+  callTimeoutMs?: number;
 }
 
 export interface McpToolInfo {
@@ -219,7 +259,7 @@ export class McpManager {
         inputSchema: (tool.inputSchema ?? { type: 'object' }) as Anthropic.Tool['input_schema'],
       }));
       this.servers.set(name, { name, client, tools: infos, callTimeoutMs: config.callTimeoutMs });
-      this.states.set(name, { name, status: 'connected', toolCount: infos.length, transport });
+      this.states.set(name, { name, status: 'connected', toolCount: infos.length, transport, callTimeoutMs: config.callTimeoutMs });
       return true;
     } catch (e) {
       // 失败/超时后尽力关闭 client（会 kill stdio 子进程），避免进程泄漏
@@ -254,9 +294,7 @@ export class McpManager {
     config: McpServerConfig,
   ): Promise<Array<{ name: string; description?: string; inputSchema?: unknown }>> {
     const transport = isHttpServerConfig(config)
-      ? new StreamableHTTPClientTransport(new URL(config.url!), {
-          requestInit: { headers: config.headers },
-        })
+      ? new StreamableHTTPClientTransport(new URL(config.url!), httpTransportOptions(config))
       : new StdioClientTransport({
           command: config.command!,
           args: config.args ?? [],

@@ -245,3 +245,27 @@ describe('callTool 超时', () => {
     expect(r.content).toBe('pong');
   });
 });
+
+describe('httpTransportOptions 重连策略配置化', () => {
+  it('未配置重连字段时不出 reconnectionOptions（尊重 SDK 默认）', async () => {
+    const { httpTransportOptions } = await import('../../src/mcp/manager.js');
+    const o = httpTransportOptions({ url: 'https://x.example/mcp' });
+    expect(o.reconnectionOptions).toBeUndefined();
+    expect(o.requestInit.headers).toBeUndefined();
+  });
+
+  it('maxRetries / reconnectDelayMs 透传并 clamp 到合法区间', async () => {
+    const { httpTransportOptions } = await import('../../src/mcp/manager.js');
+    const o = httpTransportOptions({ url: 'https://x.example/mcp', maxRetries: 99, reconnectDelayMs: 10 });
+    expect(o.reconnectionOptions).toBeDefined();
+    expect(o.reconnectionOptions!.maxRetries).toBe(10); // 99 clamp 到 10
+    expect(o.reconnectionOptions!.initialReconnectionDelay).toBe(100); // 10 clamp 到 100
+    expect(o.reconnectionOptions!.maxReconnectionDelay).toBeGreaterThanOrEqual(30000);
+  });
+
+  it('headers 照常透传', async () => {
+    const { httpTransportOptions } = await import('../../src/mcp/manager.js');
+    const o = httpTransportOptions({ url: 'https://x.example/mcp', headers: { Authorization: 'Bearer t' } });
+    expect(o.requestInit.headers).toEqual({ Authorization: 'Bearer t' });
+  });
+});

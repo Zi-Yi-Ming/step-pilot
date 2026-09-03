@@ -72,4 +72,56 @@ describe('tool_search 描述截断', () => {
     expect(r.content).toContain('…（截断，全文见加载后的工具 schema）');
     expect(r.content).toContain('small desc');
   });
+
+  it('截断边界：刚好 200 字符的描述不截断，201 字符截断', async () => {
+    const exact200 = 'a'.repeat(200);
+    const over200 = 'b'.repeat(201);
+    const deferred = [
+      { name: 'exact', description: exact200, inputSchema: { type: 'object' } },
+      { name: 'over', description: over200, inputSchema: { type: 'object' } },
+    ];
+    const ctx = { cwd: process.cwd(), toolSearch: { deferred, load: () => {} } };
+    const r = await toolSearchTool.execute({ query: 'exact over' }, ctx);
+    expect(r.isError).toBe(false);
+    // 200 字符：原样出现
+    expect(r.content).toContain(exact200);
+    // 201 字符：被截断，输出里不应出现完整 201 字符串，但应出现截断标记
+    expect(r.content).not.toContain(over200);
+    expect(r.content).toContain('…（截断，全文见加载后的工具 schema）');
+  });
+
+  it('limit 参数限制返回条数', async () => {
+    const deferred = Array.from({ length: 5 }, (_, i) => ({
+      name: `tool_${i}`,
+      description: `desc ${i}`,
+      inputSchema: { type: 'object' },
+    }));
+    const loaded: string[] = [];
+    const ctx = {
+      cwd: process.cwd(),
+      toolSearch: { deferred, load: (names: string[]) => loaded.push(...names) },
+    };
+    const r = await toolSearchTool.execute({ query: 'tool', limit: 2 }, ctx);
+    expect(r.isError).toBe(false);
+    expect(loaded).toHaveLength(2);
+    expect(r.content).toContain('已加载 2 个工具');
+  });
+
+  it('未传 limit 时默认 8 条', async () => {
+    const deferred = Array.from({ length: 5 }, (_, i) => ({
+      name: `t${i}`,
+      description: `d${i}`,
+      inputSchema: { type: 'object' },
+    }));
+    const loaded: string[] = [];
+    const ctx = {
+      cwd: process.cwd(),
+      toolSearch: { deferred, load: (names: string[]) => loaded.push(...names) },
+    };
+    const r = await toolSearchTool.execute({ query: 't' }, ctx);
+    expect(r.isError).toBe(false);
+    expect(loaded).toHaveLength(5);
+    expect(r.content).toContain('已加载 5 个工具');
+  });
+
 });

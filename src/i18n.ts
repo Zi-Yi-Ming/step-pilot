@@ -508,6 +508,7 @@ const zh = {
   'app.mcp.line.pending': '- {name}：连接中…',
   'app.mcp.line.failed': '- {name}：连接失败：{error}',
   'app.mcp.line.disabled': '- {name}：已禁用',
+  'app.mcp.line.callTimeout': '调用超时 {ms}ms',
 
   // --- App /fork /new /compact /reflect /export-debug-zip ---
   'app.fork.busy': '会话进行中，无法 fork。请等待当前回合结束后再试。',
@@ -1264,6 +1265,7 @@ const en: Record<keyof typeof zh, string> = {
   'app.mcp.line.pending': '- {name}: connecting…',
   'app.mcp.line.failed': '- {name}: failed: {error}',
   'app.mcp.line.disabled': '- {name}: disabled',
+  'app.mcp.line.callTimeout': 'call timeout {ms}ms',
 
   'app.fork.busy': 'Session busy; cannot fork. Wait for the current turn to finish.',
   'app.fork.done': 'Forked session {from} into new session {to} (kept {messages} messages, {todos} tasks). The original session is untouched.',

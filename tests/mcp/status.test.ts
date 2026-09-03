@@ -76,4 +76,19 @@ describe('formatMcpStatus', () => {
       setLocale('zh');
     }
   });
+
+  it('connected 且配置 callTimeoutMs 时展示生效值提示', async () => {
+    const m = new FakeManager();
+    await m.connect('slow', { command: 'slow', callTimeoutMs: 12345 });
+    const text = formatMcpStatus(m);
+    expect(text).toContain('- slow：已连接，1 个工具 [stdio: slow] (调用超时 12345ms)');
+  });
+
+  it('未配置 callTimeoutMs 时不展示超时提示', async () => {
+    const m = new FakeManager();
+    await m.connect('default', { command: 'default' });
+    const text = formatMcpStatus(m);
+    expect(text).not.toContain('调用超时');
+    expect(text).toContain('- default：已连接，1 个工具 [stdio: default]');
+  });
 });
