@@ -17,28 +17,6 @@
 - **max_tokens 截断错误分型不依赖运行时标记**：`stop_reason=max_tokens` 升格为两个独立 stopReason——`max_tokens` 与 `thinking_exhausted`；循环守卫、compaction、wire 日志与 TUI 提示全部按类型分派，消除调用方漏读布尔位的风险。
 - **工具连续失败不触发重试循环**：retry loop 现在同时感知 `executeTool()` 抛错与 MCP 工具 `isError` 结果，连续失败达上限后主动终止该回合并发出 notice，避免无限重试消耗上下文。
 
-## [0.1.7] - 2026-09-03
-
-### Added
-
-- **MCP OAuth client-side authorization code flow**：`mcp.json` 的 streamable http server 条目支持 `auth.type = "oauth"`，连接时自动走浏览器授权 → 本地 callback 收 code → 换 access_token → 加密持久化到 `~/.step-pilot/mcp-oauth.json`；后续请求自动注入 `Authorization: Bearer <token>`。0.1.7 最小闭环不含 refresh_token / 过期检测 / PKCE。
-- **MCP streamable http 真线协议集成测试**：进程内起真实的 streamable http MCP server（独立 fixture 进程、ephemeral 端口），manager 走真 HTTP 验证连接发现、工具调用、调用超时与 headers 鉴权（缺 token 401 拒绝 / 带 token 连通）。0.1.5 发布时登记的「从未连过真实 http server」未验证面就此关闭。
-- **`tool_search` 检索结果描述截断**：命中工具的描述在结果行里截断到 200 字符（全文仍会随加载进 tools 数组）——远程 server 的超长描述 × limit 条不再无谓灌爆上下文。
-
-## [0.1.8] - 2026-09-03
-
-### Added
-
-- **工具失败重试循环拦截**：同一工具在单回合内连续失败 3 次后，agent 循环主动终止该回合并发出 notice，避免无限重试消耗上下文。建议用户检查工具参数或环境后重试；持续失败可 `/model` 换模型或 `/new` 重开会话。
-- **compaction 摘要质量自适应门槛**：摘要最小长度改为按被压缩历史体量的 2% 动态计算（上限 200 token，下限 20 token），tiny 历史不再被不合理门槛卡死，大历史则强制要求足够信息量的摘要。
-- **compaction 摘要 prompt 质量要求强化**：摘要指令显式要求笔记长度与历史规模相匹配，禁止只写概括性的话；要求包含具体命令、路径、数字、决策结果；要求明确记录错误与未完成的任务，避免下一轮重复已失败的尝试。
-- **降级交接门槛独立化**：闸门连续 3 次判定"过短"后的降级交接，使用独立门槛（1% / 下限 10 token），低于正常闸门但高于纯噪音，确保"过短但非空"的候选仍有机会保留压缩效果。
-
-### Fixed
-
-- **compaction 降级交接门槛同步自适应**：降级交接的最低 token 要求改为独立计算，不再复用正常闸门的 `adaptiveSummaryMinTokens`，避免"3 次过短后仍因门槛过高放弃压缩"。
-- **compaction 测试数据补齐**：集成测试中的摘要 mock 文本统一补足到自适应门槛以上，防止"工具 mock 过短 → 闸门拦截 → 测试误报为功能故障"。
-
 ## [0.1.9] - 2026-09-03
 
 ### Added
@@ -66,6 +44,14 @@
 
 - **compaction 降级交接门槛同步自适应**：降级交接的最低 token 要求改为独立计算，不再复用正常闸门的 `adaptiveSummaryMinTokens`，避免"3 次过短后仍因门槛过高放弃压缩"。
 - **compaction 测试数据补齐**：集成测试中的摘要 mock 文本统一补足到自适应门槛以上，防止"工具 mock 过短 → 闸门拦截 → 测试误报为功能故障"。
+
+## [0.1.7] - 2026-09-03
+
+### Added
+
+- **MCP OAuth client-side authorization code flow**：`mcp.json` 的 streamable http server 条目支持 `auth.type = "oauth"`，连接时自动走浏览器授权 → 本地 callback 收 code → 换 access_token → 加密持久化到 `~/.step-pilot/mcp-oauth.json`；后续请求自动注入 `Authorization: Bearer <token>`。0.1.7 最小闭环不含 refresh_token / 过期检测 / PKCE。
+- **MCP streamable http 真线协议集成测试**：进程内起真实的 streamable http MCP server（独立 fixture 进程、ephemeral 端口），manager 走真 HTTP 验证连接发现、工具调用、调用超时与 headers 鉴权（缺 token 401 拒绝 / 带 token 连通）。0.1.5 发布时登记的「从未连过真实 http server」未验证面就此关闭。
+- **`tool_search` 检索结果描述截断**：命中工具的描述在结果行里截断到 200 字符（全文仍会随加载进 tools 数组）——远程 server 的超长描述 × limit 条不再无谓灌爆上下文。
 
 ## [0.1.6] - 2026-09-03
 
