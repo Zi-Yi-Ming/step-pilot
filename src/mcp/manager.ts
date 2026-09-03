@@ -162,11 +162,11 @@ export const DEFAULT_STARTUP_TIMEOUT_MS = 30_000;
  */
 export const DEFAULT_CALL_TIMEOUT_MS = 60_000;
 
-/** 带超时的 promise 包装：超时即拒，原 promise 挂 catch 防止 unhandled rejection。 */
-async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+/** 带超时的 promise 包装：超时即拒，原 promise 挂 catch 防止 unhandled rejection。label 区分「启动/调用」语境。 */
+async function withTimeout<T>(p: Promise<T>, ms: number, label = '启动'): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`启动超时（超过 ${ms}ms）`)), ms);
+    timer = setTimeout(() => reject(new Error(`${label}超时（超过 ${ms}ms）`)), ms);
   });
   try {
     return await Promise.race([p, timeout]);
@@ -319,6 +319,7 @@ export class McpManager {
       const result = await withTimeout(
         found.client.callTool({ name: found.info.toolName, arguments: args }),
         timeoutMs,
+        '调用',
       );
       // 归一结果：取 text 内容
       const blocks = (result as { content?: Array<{ type: string; text?: string }> }).content ?? [];

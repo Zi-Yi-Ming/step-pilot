@@ -228,7 +228,7 @@ describe('callTool 超时', () => {
     const r = await m.callTool('mcp__slow__hang', {});
     const elapsed = Date.now() - t0;
     expect(r.isError).toBe(true);
-    expect(r.content).toContain('启动超时');
+    expect(r.content).toContain('调用超时');
     expect(elapsed).toBeLessThan(3000);
   });
 

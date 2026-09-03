@@ -57,3 +57,19 @@ describe('tool_search 工具', () => {
     expect(r.content).toContain('没有找到');
   });
 });
+
+describe('tool_search 描述截断', () => {
+  it('超长描述截断到 200 字符 + 截断标记；短描述原样', async () => {
+    const long = 'x'.repeat(5000);
+    const deferred = [
+      { name: 'mcp__r__big', description: long, inputSchema: { type: 'object' } },
+      { name: 'mcp__r__small', description: 'small desc', inputSchema: { type: 'object' } },
+    ];
+    const ctx = { cwd: process.cwd(), toolSearch: { deferred, load: () => {} } };
+    const r = await toolSearchTool.execute({ query: 'big small' }, ctx);
+    expect(r.isError).toBe(false);
+    expect(r.content).not.toContain(long);
+    expect(r.content).toContain('…（截断，全文见加载后的工具 schema）');
+    expect(r.content).toContain('small desc');
+  });
+});

@@ -26,7 +26,18 @@ export const toolSearchTool: ToolDef<z.infer<typeof schema>> = {
       return ok(`没有找到与「${input.query}」匹配的外部工具。`);
     }
     ctx.toolSearch.load(hits.map((h) => h.name));
-    const names = hits.map((h) => `- ${h.name}：${h.description}`).join('\n');
+    // 描述截断到 200 字符：同一描述下一轮会原样进 tools 数组，检索结果行里再全文
+    // 渲染一份纯属重复；远程 server 的超长描述 × limit 条会无谓灌爆上下文。
+    const SEARCH_DESC_MAX = 200;
+    const names = hits
+      .map((h) => {
+        const desc =
+          h.description.length > SEARCH_DESC_MAX
+            ? `${[...h.description].slice(0, SEARCH_DESC_MAX).join('')}…（截断，全文见加载后的工具 schema）`
+            : h.description;
+        return `- ${h.name}：${desc}`;
+      })
+      .join('\n');
     return ok(`已加载 ${hits.length} 个工具，下一轮即可调用：\n${names}`);
   },
 };
