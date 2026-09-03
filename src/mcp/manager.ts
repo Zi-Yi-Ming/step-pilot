@@ -243,6 +243,39 @@ function oneLine(message: string): string {
   return message.replace(/\s+/g, ' ').trim();
 }
 
+/** MCP 工具调用失败分类：把原始异常转成用户可执行的提示。 */
+function formatMcpToolError(
+  e: unknown,
+  qualifiedName: string,
+  server: { name: string; callTimeoutMs?: number; transport?: string },
+): string {
+  const raw = oneLine((e as Error).message);
+  const lower = raw.toLowerCase();
+  const serverLabel = server.name ?? qualifiedName;
+
+  if (lower.includes('timeout') || lower.includes('timed out')) {
+    const limit = server.callTimeoutMs ?? DEFAULT_CALL_TIMEOUT_MS;
+    return 'MCP 工具调用超时（' + qualifiedName + '）：等待超过 ' + limit + 'ms。可检查该工具是否卡住，或使用 `/mcp` 调整 callTimeoutMs 后重试。';
+  }
+  if (lower.includes('econnrefused') || lower.includes('enotfound') || lower.includes('fetch failed')) {
+    return 'MCP 工具调用网络失败（' + qualifiedName + '）：无法连接到 ' + serverLabel + '（' + (server.transport ?? 'MCP server') + '）。请检查服务是否启动，或使用 `/mcp` 查看状态。';
+  }
+  if (lower.includes('401') || lower.includes('403') || lower.includes('auth') || lower.includes('token')) {
+    return 'MCP 工具调用鉴权失败（' + qualifiedName + '）：' + serverLabel + ' 拒绝访问。请检查 API key / OAuth token 是否有效，或使用 `/mcp` 查看配置。';
+  }
+  if (lower.includes('not found') || lower.includes('unknown tool')) {
+    return 'MCP 工具不存在（' + qualifiedName + '）：' + serverLabel + ' 未提供该工具。请检查工具名，或使用 `/mcp` 查看已发现工具列表。';
+  }
+  if (lower.includes('invalid') || lower.includes('schema') || lower.includes('arguments')) {
+    return 'MCP 工具参数错误（' + qualifiedName + '）：' + raw + '。请检查参数类型与必填项后重试。';
+  }
+  if (lower.includes('iserror') || lower.includes('server error') || lower.includes('internal')) {
+    return 'MCP 工具执行失败（' + qualifiedName + '）：服务端返回错误。原始信息：' + raw;
+  }
+
+  return 'MCP 工具调用失败（' + qualifiedName + '）：' + raw;
+}
+
 /** MCP 连接管理器：并行连接配置的 server（stdio / streamable http），发现工具，统一调用，暴露 per-server 状态。 */
 export class McpManager {
   private readonly servers = new Map<string, ConnectedServer>();
@@ -405,7 +438,7 @@ export class McpManager {
       const isError = (result as { isError?: boolean }).isError === true;
       return { content: text === '' ? '[无输出]' : text, isError };
     } catch (e) {
-      return { content: `MCP 工具调用失败：${oneLine((e as Error).message)}`, isError: true };
+      return { content: formatMcpToolError(e, qualifiedName, found.server), isError: true };
     }
   }
 }
