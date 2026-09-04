@@ -105,7 +105,7 @@ describe('压缩失败不再静默', () => {
   it('历史太短压不动 ≠ 压缩失败：不发失败提示、不置饱和', async () => {
     // 未超阈值时预检根本不动手，既不该有压缩提示也不该有失败提示。
     const { provider, streamCalls } = makeFakeProvider([
-      { textChunks: ['短答'], finalContent: [textBlock('短答')] },
+      { textChunks: ['短答'], finalContent: [textBlock('短答')], usage: { input_tokens: 10, output_tokens: 2 } },
     ]);
     const events = await collect(
       runAgent({

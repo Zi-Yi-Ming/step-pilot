@@ -28,11 +28,11 @@ Removed sections include: redundant self-description, model training cutoff remi
 
 ### 2. Tightened tool result cap
 
-The tool result ceiling dropped from 400K to 200K characters, aligned with `web_fetch`'s per-call limit. For small models especially: shorter context means more stable instruction following.
+The tool result ceiling is capped at 400K characters. For small models especially: shorter context means more stable instruction following.
 
 ### 3. Earlier compaction trigger
 
-Default compaction trigger ratio dropped from 85% to 75%. During summarization, only the last 4 messages are retained (down from 6), and the user message fidelity budget is reduced from 20K to 10K tokens. Compaction fires earlier and more aggressively, preventing tool results from blowing up the context.
+Default compaction trigger ratio is 75%. During summarization, the last 6 messages are retained, and the user message fidelity budget is 20K tokens. Compaction fires earlier and more aggressively, preventing tool results from blowing up the context.
 
 ### 4. Semantic tool-result preprocessing
 
@@ -103,15 +103,13 @@ What stays: identity, working environment, core behavioral rules, tool usage dis
 
 What we intentionally kept unchanged: permission system, plan mode, sub-agent delegation rules — these are safety boundaries that don't change with model size.
 
-### Why the tool result cap dropped from 400K to 200K
+### Why the tool result cap is 400K
 
-The two 2026-08-02 OOM crashes proved that an uncapped tool result is dangerous. But 400K is fine for large models and only hurts Flash.
-
-200K aligns with `web_fetch`'s per-call limit, creating a unified mental model: "any single tool result over 200K gets truncated."
+Uncapped tool results can flood the context window. 400K is the current ceiling, aligned with `web_fetch`'s per-call limit. For small models especially: shorter context means more stable instruction following.
 
 ### Why compaction is more aggressive
 
-Default trigger ratio dropped from 85% to 75%. Retained messages dropped from 6 to 4 during summarization. User message fidelity budget dropped from 20K to 10K tokens.
+Default trigger ratio is 75%. Retained messages are the last 6 during summarization. User message fidelity budget is 20K tokens.
 
 Reason: Flash's context quality degrades more steeply than large models. At 85% utilization, the model has already "forgotten" many early instructions. The 75% trigger + aggressive retention strategy is the sweet spot for Flash between "compaction quality" and "context freshness."
 
