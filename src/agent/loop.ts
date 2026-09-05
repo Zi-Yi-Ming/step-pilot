@@ -26,6 +26,7 @@ import type { WireEvent } from './wirelog.js';
 import { runTurn } from './runTurn.js';
 import { emptyContinuationState, advanceContinuation, checkContinuationSafety } from './continuation.js';
 import { createRoundLoopDetector, fingerprintRound } from './roundLoop.js';
+import { collectFullSuiteCandidates, pickPostGreen } from './postGreen.js';
 
 function getEmptyContext(
   cause: unknown,
@@ -162,6 +163,17 @@ export interface RunAgentOptions {
    * background.notify_delivered）经它追加进 wire.jsonl。缺省 = 只走快照与消息日志通道。
    */
   onWireEvent?: (event: WireEvent) => void;
+  /**
+   * Post-green termination（Step ⑤ intervention，默认 false = 关闭）。
+   *
+   * 开启后：本 run 内一旦某批工具结果中出现了**完整 vitest suite 的全绿**
+   * （`npx vitest run` 无过滤、failed===0 且 passed>0、suite 总数不小于此前任何
+   * 全量 checkpoint——防删测试凑绿），在当前回合收尾时提前终止本 run，走既有
+   * result-success 下游语义，模型不再产生收尾轮。
+   * 动机：Step ④ 的 A4 在 0F@12 后仅 ~5.6s 收尾文本即被 300s timeout 杀死。
+   * 关闭（缺省）时代码路径与干预前完全一致。
+   */
+  postGreenTermination?: boolean;
 }
 
 /** 就地把 target 的内容替换为 next（保持外部引用不变，压缩结果对调用方可见）。 */
@@ -360,6 +372,12 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
    * 检测器内部有状态（streak），由本函数持有生命周期。
    */
   const roundLoopDetector = createRoundLoopDetector();
+  /**
+   * Post-green termination 的 suite 不收缩守卫：本 run 内所有全量 vitest checkpoint
+   * （无论绿红）的最大 total。绿 checkpoint 的 total 低于此值 = 套件收缩（删测试凑绿），
+   * 不触发提前终止。首绿时为 0（任何 total 均可触发）。
+   */
+  let maxSuiteTotal = 0;
 
   for (let iter = 0; iter < maxIterations; iter++) {
     // step 边界注入：上一回合期间终态的后台任务通知在此 flush 进 messages，
@@ -746,6 +764,33 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
             measuredLength: messages.length,
             billedDelta: billedTokens(outcome.usage),
           };
+        }
+        // Post-green termination（Step ⑤ intervention，postGreenTermination 开启时生效）：
+        // 本批工具结果中出现完整 vitest suite 全绿且套件不收缩 → 提前终止本 run，
+        // 走既有 result-success 下游语义。关闭或任一条件不满足时完全回落自然行为。
+        if (opts.postGreenTermination === true) {
+          const assistantMsg = messages[messages.length - 2];
+          const toolResultMsg = messages[messages.length - 1];
+          if (
+            assistantMsg !== undefined &&
+            toolResultMsg !== undefined &&
+            assistantMsg.message.role === 'assistant' &&
+            toolResultMsg.origin.kind === 'tool'
+          ) {
+            const candidates = collectFullSuiteCandidates(assistantMsg.message, toolResultMsg.message);
+            // 先更新再判定：green 以「含本批在内」的最大 total 为基准——否则同一批次内
+            // [全量 10F@15, 全量 0F@12] 会用旧 max 放过 12（同批内收缩被错误接受）。
+            for (const c of candidates) maxSuiteTotal = Math.max(maxSuiteTotal, c.total);
+            const green = pickPostGreen(candidates, maxSuiteTotal);
+            if (green !== null) {
+              yield {
+                type: 'notice',
+                message: t('loop.postGreenTerminate', { passed: green.passed, total: green.total }),
+              };
+              yield { type: 'turn_done' };
+              return;
+            }
+          }
         }
         // 跨回合零进展检测：在本轮 assistant + tool_result 完整落地后、下一回合继续前检查。
         // 只挂 tool_use 分支——end_turn 直接收尾、max_tokens 走 continuation 守卫，

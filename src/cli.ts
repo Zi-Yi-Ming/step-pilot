@@ -1015,6 +1015,8 @@ async function runPrint(prompt: string): Promise<void> {
       headTokens: config.compaction.userMessageHeadTokens,
     },
     todos: todosStore.items,
+    // Post-green termination（Step ⑤ intervention，[agent] post_green_termination，默认关闭）
+    postGreenTermination: config.agent?.postGreenTermination === true,
     // 循环内非消息事件（压缩应用、通知送达）落盘到事件日志
     onWireEvent: (event: WireEvent) => {
       try {

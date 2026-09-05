@@ -253,6 +253,17 @@ export interface MemoryConfig {
 /**
  * MCP 可观察性配置（[mcp] 段）。
  */
+/**
+ * Agent 循环行为配置（[agent] 段）。
+ */
+export interface AgentConfig {
+  /**
+   * 全量测试套件全绿后提前终止本 run（Step ⑤ post-green termination intervention）。
+   * 默认 false = 关闭，行为与干预前完全一致。研究用途的 opt-in 开关。
+   */
+  postGreenTermination?: boolean;
+}
+
 export interface McpConfig {
   /** retry loop 触发时是否自动禁用该工具（默认 true）。 */
   autoDisableOnRetryLoop?: boolean;
@@ -307,6 +318,8 @@ export interface StepPilotConfig {
   search?: SearchConfig;
   /** MCP 可观察性配置（[mcp] 段）。未配置时键不进结果对象。 */
   mcp?: McpConfig;
+  /** Agent 循环行为配置（[agent] 段）。未配置时键不进结果对象。 */
+  agent?: AgentConfig;
   /** 网页结果缓存容量配置（[tools.web] 段）。未配置时使用内置默认值（条目数 100 / 总字节 32MB / 单条 2MB）。 */
   web?: WebCacheConfig;
   /** 界面语言（TUI/CLI 给人看的文案）。缺省 'zh'；给模型看的文案恒中文，不受其影响。 */
@@ -571,6 +584,7 @@ interface TomlConfigShape {
   hooks?: unknown;
   tui?: unknown;
   mcp?: unknown;
+  agent?: unknown;
 }
 
 /**
@@ -927,6 +941,21 @@ export function resolveMcpConfig(raw: unknown): McpConfig | undefined {
 }
 
 /**
+ * 从 [agent] 段解析 Agent 循环行为配置。纯函数，便于单测。
+ * 未配置或类型非法时键不进结果对象（下游 toEqual 精确断言依赖此形态）。
+ */
+export function resolveAgentConfig(raw: unknown): AgentConfig | undefined {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined;
+  const t = raw as Record<string, unknown>;
+  const out: AgentConfig = {};
+  if ('post_green_termination' in t && typeof t['post_green_termination'] === 'boolean') {
+    out.postGreenTermination = t['post_green_termination'];
+  }
+  return Object.keys(out).length === 0 ? undefined : out;
+}
+
+/**
+ * 从 [tui] 段解析 TUI 渲染配置。纯函数，便于单测。
  * 从 [tui] 段解析 TUI 渲染配置。纯函数，便于单测。
  *
  * error_preview_lines 缺省 4，clamp [1, 20]；terminal_title 缺省 true（不进结果对象）。
@@ -1308,6 +1337,9 @@ export function loadConfig(
   // MCP 可观察性配置：未配置时键不进结果对象
   const mcp = resolveMcpConfig(toml.mcp);
   if (mcp !== undefined) cfg.mcp = mcp;
+  // Agent 循环行为配置：未配置时键不进结果对象
+  const agent = resolveAgentConfig(toml.agent);
+  if (agent !== undefined) cfg.agent = agent;
   // TUI 渲染配置：未配置时键不进结果对象，消费方用 ?? 落默认
   const tui = resolveTuiConfig(toml.tui);
   if (tui !== undefined) cfg.tui = tui;
