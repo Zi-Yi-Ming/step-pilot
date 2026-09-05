@@ -23,7 +23,7 @@ function statusLine(s: McpServerState): string {
     case 'failed':
       return t('app.mcp.line.failed', { name: s.name, error: s.error ?? '' }) + where + disabled;
     case 'disabled':
-      return t('app.mcp.line.disabled', { name: s.name }) + where + disabled;
+      return t('app.mcp.line.disabled', { name: s.name }) + where;
   }
 }
 
