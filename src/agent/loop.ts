@@ -1,7 +1,7 @@
 import type { ChatProvider, ThinkingParam } from '../provider/types.js';
 import type { ThinkingLevelName } from '../config/config.js';
 import { t } from '../i18n.js';
-import { toAnthropicTools } from '../tools/index.js';
+import { toAnthropicTools, defaultToolNames } from '../tools/index.js';
 import { filterToolsByCapabilities } from '../tools/capabilities.js';
 import type { ToolContext } from '../tools/types.js';
 import {
@@ -294,13 +294,12 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
   // 能力门控的工具卸载：模型未声明对应能力（如 image_in）时，门控工具（如 read_media）
   // 不进 tools 数组也不进执行白名单——模型看不到就不会尝试调用；工具内运行时检查保留为兜底。
   // ctx.capabilities 随 /model、/provider 切换刷新，本过滤每 run 生效、逐回合一致。
-  const allowedTools =
+  const allowedSet =
     opts.allowedTools === undefined
       ? undefined
-      : filterToolsByCapabilities(opts.allowedTools, ctx.capabilities);
+      : new Set(filterToolsByCapabilities(opts.allowedTools, ctx.capabilities));
   const hooks = opts.hooks ?? {};
   const maxIterations = opts.maxIterations ?? 500;
-  const allowedSet = allowedTools === undefined ? undefined : new Set(allowedTools);
   let overflowRetries = 0;
   /**
    * 单轮步数上限前的分级提醒标记：每档在一轮交互内只触发一次。
@@ -340,7 +339,15 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
    * 取一次不逐回合重算：动态注册的工具会让 tools 略有变化，量级远小于本项修正的偏差。
    */
   const frameworkTokens =
-    estimateTextTokens(system) + estimateTextTokens(JSON.stringify(toAnthropicTools(allowedTools)));
+    estimateTextTokens(system) +
+    estimateTextTokens(
+      JSON.stringify(
+        toAnthropicTools(
+          allowedSet === undefined ? undefined : [...allowedSet],
+          { experimentalToolsEnabled: true },
+        ),
+      ),
+    );
   /**
    * 纯估算口径下的「当前总占用」：历史估算 + 框架固定开销。
    *
@@ -499,7 +506,10 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     }
     // 每回合重新组装 tools：tool_search 等动态注册的工具（DYNAMIC_TOOLS）在下一回合
     // 就要带完整 schema 进请求，不能在循环外取一次快照复用
-    const tools = toAnthropicTools(allowedTools);
+    const tools = toAnthropicTools(
+      allowedSet === undefined ? defaultToolNames(ctx) : [...allowedSet],
+      ctx,
+    );
     const lenBefore = messages.length;
     const turn = runTurn({ provider, system, tools, ctx, messages, hooks, signal, allowedTools: allowedSet, model, thinking, providerName });
     let step = await turn.next();

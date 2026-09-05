@@ -46,6 +46,7 @@ export const CONFIG_TOP_LEVEL_KEYS = [
   'tui',
   'mcp',
   'agent',
+  'experimental_tools',
 ] as const;
 
 /**

@@ -253,6 +253,11 @@ export interface MemoryConfig {
 /**
  * MCP 可观察性配置（[mcp] 段）。
  */
+export interface McpConfig {
+  /** retry loop 触发时是否自动禁用该工具（默认 true）。 */
+  autoDisableOnRetryLoop?: boolean;
+}
+
 /**
  * Agent 循环行为配置（[agent] 段）。
  */
@@ -262,11 +267,6 @@ export interface AgentConfig {
    * 默认 false = 关闭，行为与干预前完全一致。研究用途的 opt-in 开关。
    */
   postGreenTermination?: boolean;
-}
-
-export interface McpConfig {
-  /** retry loop 触发时是否自动禁用该工具（默认 true）。 */
-  autoDisableOnRetryLoop?: boolean;
 }
 
 /**
@@ -322,6 +322,8 @@ export interface StepPilotConfig {
   agent?: AgentConfig;
   /** 网页结果缓存容量配置（[tools.web] 段）。未配置时使用内置默认值（条目数 100 / 总字节 32MB / 单条 2MB）。 */
   web?: WebCacheConfig;
+  /** 是否启用实验性工具（Team / Dynamic Workflow）。缺省 false。 */
+  experimentalToolsEnabled?: boolean;
   /** 界面语言（TUI/CLI 给人看的文案）。缺省 'zh'；给模型看的文案恒中文，不受其影响。 */
   language?: Locale;
   /**
@@ -585,6 +587,8 @@ interface TomlConfigShape {
   tui?: unknown;
   mcp?: unknown;
   agent?: unknown;
+  /** 是否启用实验性工具（Team / Dynamic Workflow）。 */
+  experimental_tools?: unknown;
 }
 
 /**
@@ -664,6 +668,10 @@ function asString(value: unknown): string | undefined {
 
 function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function asBoolean(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined;
 }
 
 /** 取整并夹到 [min,max]；value 缺失或非法时用 dflt。 */
@@ -955,7 +963,6 @@ export function resolveAgentConfig(raw: unknown): AgentConfig | undefined {
 }
 
 /**
- * 从 [tui] 段解析 TUI 渲染配置。纯函数，便于单测。
  * 从 [tui] 段解析 TUI 渲染配置。纯函数，便于单测。
  *
  * error_preview_lines 缺省 4，clamp [1, 20]；terminal_title 缺省 true（不进结果对象）。
@@ -1348,6 +1355,9 @@ export function loadConfig(
   // 网页结果缓存容量：三个维度全部可选，未配置时使用内置默认值
   const webCache = resolveWebCacheConfig(toml.tools);
   if (webCache !== undefined) cfg.web = webCache;
+  // 实验性工具开关：默认关闭
+  const experimentalToolsEnabled = asBoolean(toml.experimental_tools);
+  if (experimentalToolsEnabled === true) cfg.experimentalToolsEnabled = true;
   // 自定义加载路径：未配置或非法时键不进结果对象（下游 toEqual 精确断言依赖此形态）
   const agentsPaths = resolveStringArray(toml.agents_paths);
   if (agentsPaths !== undefined) cfg.agentsPaths = agentsPaths;

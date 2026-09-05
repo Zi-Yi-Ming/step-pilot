@@ -528,7 +528,9 @@ ctx.imageMaxEdgePx = config.imageMaxEdgePx;
 ctx.imageBudgetBytes = config.imageBudgetBytes;
 ctx.videoBudgetBytes = config.videoBudgetBytes;
 // bash 前台超时自动转后台开关（[background].bash_auto_background_on_timeout，默认 true）
-ctx.bashAutoBackgroundOnTimeout = config.background?.bashAutoBackgroundOnTimeout ?? true;
+ctx.bashAutoBackgroundOnTimeout = config.background?.bashAutoBackgroundOnTimeout ?? true;
+// 实验性工具开关（Team / Dynamic Workflow）
+ctx.experimentalToolsEnabled = config.experimentalToolsEnabled === true;
 
 // MCP 接入：读 ~/.step-pilot/mcp.json 拿到 server 配置（仅解析，连接不阻塞启动）。
 const mcpManager = new McpManager();

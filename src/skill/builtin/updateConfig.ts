@@ -53,6 +53,7 @@ const UPDATE_CONFIG_BODY = `# update-config：step-pilot 自身配置的查询�
 | skill_listing_budget | number | 8000 | system prompt 中可用技能清单的字符预算；超预算先压缩描述，再截断尾部技能。技能较多时可调大（如 20000），让更多技能名称和描述常驻；也可始终用 skill_search 工具搜索被截断的技能 |
 | continuation | table | 无 | 输出截断自动续写配置（[continuation] 段） |
 | tools | table | 无 | 网页结果缓存配置（[tools.web] 段），未配置时使用内置默认值 |
+| experimental_tools | boolean | false | 是否启用实验性工具（Team / Dynamic Workflow）。默认关闭 |
 
 顶层没有 api_key 键。密钥只能配在 [providers.<id>] 渠道或 [models.<别名>] 上，或由环境变量提供
 （STEP_PILOT_API_KEY，或按 provider 类型的惯例变量：anthropic→ANTHROPIC_API_KEY、

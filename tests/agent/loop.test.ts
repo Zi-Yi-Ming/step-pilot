@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { describe, expect, it } from 'vitest';
 import { runAgent } from '../../src/agent/loop.js';
 import { estimateTextTokens, estimateTokens } from '../../src/agent/compaction/compact.js';
-import { toAnthropicTools } from '../../src/tools/index.js';
+import { toAnthropicTools, defaultToolNames } from '../../src/tools/index.js';
 import { GoalMode } from '../../src/agent/goal/mode.js';
 import { stored, type StoredMessage } from '../../src/agent/message.js';
 import { collect, makeFakeProvider, textBlock, thinkingBlock, toolUseBlock } from '../helpers/fakeProvider.js';
@@ -24,7 +24,7 @@ const baseOpts = (
  * 拿裸历史估算去比会必然失败（本仓库工具表本身约 8k tok）。
  */
 function frameworkTokensOf(system: string): number {
-  return estimateTextTokens(system) + estimateTextTokens(JSON.stringify(toAnthropicTools(undefined)));
+  return estimateTextTokens(system) + estimateTextTokens(JSON.stringify(toAnthropicTools(undefined, { experimentalToolsEnabled: true })));
 }
 
 describe('runAgent', () => {

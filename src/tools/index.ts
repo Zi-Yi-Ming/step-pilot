@@ -36,40 +36,40 @@ import { writeFileTool } from './write.js';
 
 /** 全部工具，按注册顺序。 */
 const ALL_TOOLS: ToolDef<any>[] = [
-  readFileTool,
-  readMediaTool,
-  writeFileTool,
-  editFileTool,
-  listDirTool,
-  globTool,
-  grepTool,
-  bashTool,
-  webSearchTool,
-  webFetchTool,
-  imageSearchTool,
-  spawnAgentTool,
-  exitPlanModeTool,
-  askUserTool,
-  todoListTool,
-  taskListTool,
-  taskOutputTool,
-  taskStopTool,
-  skillTool,
-  skillSearchTool,
-  createGoalTool,
-  updateGoalTool,
-  setGoalBudgetTool,
-  getGoalTool,
-  teamInitTool,
-  teamPlanTool,
-  teamSpawnTool,
-  teamSendTool,
-  teamInboxTool,
-  teamStatusTool,
-  teamMergeTool,
-  teamTeardownTool,
-  toolSearchTool,
-  dynamicWorkflowTool,
+  { ...readFileTool, tier: 'core' },
+  { ...readMediaTool, tier: 'core' },
+  { ...writeFileTool, tier: 'core' },
+  { ...editFileTool, tier: 'core' },
+  { ...listDirTool, tier: 'core' },
+  { ...globTool, tier: 'core' },
+  { ...grepTool, tier: 'core' },
+  { ...bashTool, tier: 'core' },
+  { ...webSearchTool, tier: 'core' },
+  { ...webFetchTool, tier: 'core' },
+  { ...imageSearchTool, tier: 'core' },
+  { ...spawnAgentTool, tier: 'core' },
+  { ...exitPlanModeTool, tier: 'core' },
+  { ...askUserTool, tier: 'core' },
+  { ...todoListTool, tier: 'core' },
+  { ...taskListTool, tier: 'core' },
+  { ...taskOutputTool, tier: 'core' },
+  { ...taskStopTool, tier: 'core' },
+  { ...skillTool, tier: 'core' },
+  { ...skillSearchTool, tier: 'core' },
+  { ...createGoalTool, tier: 'core' },
+  { ...updateGoalTool, tier: 'core' },
+  { ...setGoalBudgetTool, tier: 'core' },
+  { ...getGoalTool, tier: 'core' },
+  { ...toolSearchTool, tier: 'core' },
+  { ...teamInitTool, tier: 'experimental' },
+  { ...teamPlanTool, tier: 'experimental' },
+  { ...teamSpawnTool, tier: 'experimental' },
+  { ...teamSendTool, tier: 'experimental' },
+  { ...teamInboxTool, tier: 'experimental' },
+  { ...teamStatusTool, tier: 'experimental' },
+  { ...teamMergeTool, tier: 'experimental' },
+  { ...teamTeardownTool, tier: 'experimental' },
+  { ...dynamicWorkflowTool, tier: 'experimental' },
 ];
 
 const TOOL_MAP = new Map<string, ToolDef<any>>(ALL_TOOLS.map((t) => [t.name, t]));
@@ -108,25 +108,47 @@ export function coerceToolResult(value: unknown): ToolResult {
 }
 
 /** 生成 Anthropic Messages API 的 tools 数组。传入 names 则只取白名单内的工具（供子 agent 收窄工具集）。 */
-export function toAnthropicTools(names?: readonly string[]): Anthropic.Tool[] {
+export function toAnthropicTools(
+  names?: readonly string[],
+  ctx?: { experimentalToolsEnabled?: boolean },
+): Anthropic.Tool[] {
   const set = names === undefined ? undefined : new Set(names);
   // 动态工具并入，但若与静态工具同名（如覆盖注册）则不重复，以静态定义为准
   const dynamic = [...DYNAMIC_TOOLS.values()].filter((t) => !TOOL_MAP.has(t.name));
   const all = [...ALL_TOOLS, ...dynamic];
-  return all.filter((t) => set === undefined || set.has(t.name)).map((tool) => {
-    const jsonSchema = z.toJSONSchema(tool.schema) as Record<string, unknown>;
-    delete jsonSchema['$schema'];
-    return {
-      name: tool.name,
-      description: tool.description,
-      input_schema: jsonSchema as Anthropic.Tool.InputSchema,
-    };
-  });
+  const experimentalEnabled = ctx?.experimentalToolsEnabled === true;
+  return all
+    .filter((t) => {
+      if (set !== undefined && !set.has(t.name)) return false;
+      if (t.tier === 'experimental' && !experimentalEnabled) return false;
+      return true;
+    })
+    .map((tool) => {
+      const jsonSchema = z.toJSONSchema(tool.schema) as Record<string, unknown>;
+      delete jsonSchema['$schema'];
+      return {
+        name: tool.name,
+        description: tool.description,
+        input_schema: jsonSchema as Anthropic.Tool.InputSchema,
+      };
+    });
 }
 
 /** 全部已注册工具名（含动态注册）。 */
 export function allToolNames(): string[] {
   return [...ALL_TOOLS.map((t) => t.name), ...DYNAMIC_TOOLS.keys()];
+}
+
+/**
+ * 默认工具名列表：按 tier 过滤（core/advanced 始终暴露，experimental 需 ctx.experimentalToolsEnabled）。
+ * 动态注册的工具（MCP 等）始终包含在默认列表中。
+ * 当调用方未显式指定 allowedTools 时使用。
+ */
+export function defaultToolNames(ctx: { experimentalToolsEnabled?: boolean }): string[] {
+  const experimental = ctx.experimentalToolsEnabled === true;
+  const staticNames = ALL_TOOLS.filter((t) => t.tier !== 'experimental' || experimental).map((t) => t.name);
+  const dynamicNames = [...DYNAMIC_TOOLS.keys()];
+  return [...staticNames, ...dynamicNames];
 }
 
 /**

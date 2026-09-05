@@ -50,6 +50,8 @@ export interface ToolContext {
   mcpManager?: import('../mcp/manager.js').McpManager;
   /** MCP 配置（组合根注入）。缺失时回退内置默认。 */
   mcpConfig?: import('../config/config.js').McpConfig;
+  /** 是否启用实验性工具（Team / Dynamic Workflow）。缺失时视为 false。 */
+  experimentalToolsEnabled?: boolean;
   /** 引用式附件存储（组合根注入）：发 provider 前把消息里的 stepref 图片还原成 base64。缺失表示不做 rehydrate。 */
   attachments?: import('../session/attachments.js').AttachmentStore;
   /** 向用户提问回调（组合根注入，前台阻塞收集答案）。缺失表示当前上下文不支持提问（如子 agent 无 UI）。 */
@@ -120,6 +122,11 @@ export interface ToolDef<T = unknown> {
    * 缺省 = all（独占串行）：副作用不可判定的工具不声明即为安全行为。
    */
   access?(input: T, ctx: ToolContext): ToolAccess;
+  /**
+   * 工具分层：core 始终暴露；advanced 默认暴露；experimental 需显式启用。
+   * 缺省 = core。
+   */
+  tier?: 'core' | 'advanced' | 'experimental';
 }
 
 export function ok(content: string): ToolResult {

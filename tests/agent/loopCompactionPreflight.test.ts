@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { describe, expect, it } from 'vitest';
 import { runAgent } from '../../src/agent/loop.js';
 import { estimateTextTokens, estimateTokens } from '../../src/agent/compaction/compact.js';
-import { toAnthropicTools } from '../../src/tools/index.js';
+import { toAnthropicTools, defaultToolNames, allToolNames } from '../../src/tools/index.js';
 import { stored, type StoredMessage } from '../../src/agent/message.js';
 import { collect, makeFakeProvider, textBlock, toolUseBlock } from '../helpers/fakeProvider.js';
 
@@ -32,7 +32,7 @@ const baseOpts = (
   provider: ReturnType<typeof makeFakeProvider>['provider'],
   messages: StoredMessage[],
   signal?: AbortSignal,
-) => ({ provider, system: 'sys', ctx: { cwd: process.cwd(), signal }, messages, signal });
+) => ({ provider, system: 'sys', ctx: { cwd: process.cwd(), signal, experimentalToolsEnabled: true }, messages, signal });
 
 /** 造一段远超阈值的历史（8 条 × 100 字符填充，估算 ≫ maxContextSize×triggerRatio）。 */
 function bigHistory(): StoredMessage[] {
@@ -53,8 +53,11 @@ const THRESHOLDS = { maxContextSize: 200, triggerRatio: 0.85, reservedTokens: 10
  * 「历史估算 + 框架开销」，拿裸历史估算去比必然失败（本仓库工具表本身就有约 8k tok）。
  * 这正是被修复的那个 bug 在测试侧的镜像，故这里刻意复算而不是放宽阈值。
  */
-function frameworkTokensOf(system: string): number {
-  return estimateTextTokens(system) + estimateTextTokens(JSON.stringify(toAnthropicTools(undefined)));
+function frameworkTokensOf(system: string, ctx: { experimentalToolsEnabled?: boolean }): number {
+  return (
+    estimateTextTokens(system) +
+    estimateTextTokens(JSON.stringify(toAnthropicTools(undefined, ctx)))
+  );
 }
 
 describe('发请求前的压缩预检', () => {
@@ -102,7 +105,7 @@ describe('发请求前的压缩预检', () => {
         : sm({ role: 'assistant', content: [textBlock(`回复${'y'.repeat(100)}`)] }, 'assistant'),
     );
     // 同口径基线：状态栏报的是「历史估算 + 框架开销」，基线也必须含框架开销
-    const beforeSameUnit = estimateTokens(messages) + frameworkTokensOf('sys');
+    const beforeSameUnit = estimateTokens(messages) + frameworkTokensOf('sys', { experimentalToolsEnabled: true });
 
     const events = await collect(
       runAgent({ ...baseOpts(provider, messages), compaction: THRESHOLDS }),
@@ -115,7 +118,7 @@ describe('发请求前的压缩预检', () => {
     // 压缩后的估算必须低于压缩前，否则「立即回落」没有意义
     expect(usage!.totalTokens).toBeLessThan(beforeSameUnit);
     // 且必须仍然含框架开销：低于框架开销说明又退回了裸历史口径（口径不一致的回归信号）
-    expect(usage!.totalTokens).toBeGreaterThanOrEqual(frameworkTokensOf('sys'));
+    expect(usage!.totalTokens).toBeGreaterThanOrEqual(frameworkTokensOf('sys', { experimentalToolsEnabled: true }));
     // usage 事件必须排在任何模型输出之前 —— 这是「预检发生在发请求前」的直接证据
     const usageIdx = events.findIndex((e) => e.type === 'usage');
     const firstTextIdx = events.findIndex((e) => e.type === 'text');
