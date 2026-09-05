@@ -23,6 +23,6 @@ export default defineConfig({
      * 每个活跃工作间里的测试副本会被 vitest 重复扫描执行（同一用例跑 N+1 遍，
      * 还会因 worktree 缺 node_modules 报出误导性失败）。
      */
-    exclude: ['**/node_modules/**', '**/.teams/**'],
+    exclude: ['**/node_modules/**', '**/.teams/**', '**/bench-setup-*/**', '**/benchmark/**'],
   },
 });
