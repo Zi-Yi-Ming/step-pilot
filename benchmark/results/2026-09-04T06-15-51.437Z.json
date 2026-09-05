@@ -1,0 +1,134 @@
+{
+  "benchmark_version": "0.1.0",
+  "timestamp": "2026-09-04T06:15:51.436Z",
+  "model": "step-3.7-flash",
+  "provider": "stepfun",
+  "step_pilot_commit": "unknown",
+  "profiles": [
+    "full"
+  ],
+  "results": [
+    {
+      "task_id": "long-horizon-001",
+      "category": "long-horizon",
+      "profile": "full",
+      "model": "step-3.7-flash",
+      "provider": "stepfun",
+      "step_pilot_commit": "unknown",
+      "run_index": 1,
+      "success": false,
+      "duration_ms": 0,
+      "turns": 0,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "retries": 0,
+      "compactions": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "total_tokens": 0,
+      "stop_reason": null,
+      "failure_reason": "Setup failed for task long-horizon-001: Error: exit=127 stderr=D:\\桌面\\step-cli-pi\\benchmark\\tasks\\long-horizon\\001-debug-failing-test\\bench-setup-b45aJG\\setup.sh: line 1: benchmark/tasks/long-horizon/001-debug-failing-test/setup.sh: No such file or directory\n stdout=",
+      "checks_passed": 0,
+      "checks_failed": 0,
+      "events": []
+    },
+    {
+      "task_id": "multi-file-bug-001",
+      "category": "multi-file-bug-fix",
+      "profile": "full",
+      "model": "step-3.7-flash",
+      "provider": "stepfun",
+      "step_pilot_commit": "unknown",
+      "run_index": 1,
+      "success": false,
+      "duration_ms": 0,
+      "turns": 0,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "retries": 0,
+      "compactions": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "total_tokens": 0,
+      "stop_reason": null,
+      "failure_reason": "Setup failed for task multi-file-bug-001: Error: exit=127 stderr=D:\\桌面\\step-cli-pi\\benchmark\\tasks\\multi-file-bug\\001-api-contract\\bench-setup-z0NSaj\\setup.sh: line 1: benchmark/tasks/multi-file-bug/001-api-contract/setup.sh: No such file or directory\n stdout=",
+      "checks_passed": 0,
+      "checks_failed": 0,
+      "events": []
+    },
+    {
+      "task_id": "single-file-bug-001",
+      "category": "single-file-bug-fix",
+      "profile": "full",
+      "model": "step-3.7-flash",
+      "provider": "stepfun",
+      "step_pilot_commit": "unknown",
+      "run_index": 1,
+      "success": false,
+      "duration_ms": 0,
+      "turns": 0,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "retries": 0,
+      "compactions": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "total_tokens": 0,
+      "stop_reason": null,
+      "failure_reason": "Setup failed for task single-file-bug-001: Error: exit=127 stderr=D:\\桌面\\step-cli-pi\\benchmark\\tasks\\single-file-bug\\001-off-by-one\\bench-setup-yp28oH\\setup.sh: line 1: benchmark/tasks/single-file-bug/001-off-by-one/setup.sh: No such file or directory\n stdout=",
+      "checks_passed": 0,
+      "checks_failed": 0,
+      "events": []
+    }
+  ],
+  "summaries": {
+    "long-horizon-001": {
+      "task_id": "long-horizon-001",
+      "runs": 1,
+      "success_rate": 0,
+      "mean_duration_ms": 0,
+      "median_duration_ms": 0,
+      "mean_turns": 0,
+      "mean_tool_calls": 0,
+      "mean_tool_errors": 0,
+      "mean_retries": 0,
+      "mean_compactions": 0,
+      "mean_total_tokens": 0,
+      "failure_taxonomy": {
+        "test_failure": 1
+      }
+    },
+    "multi-file-bug-001": {
+      "task_id": "multi-file-bug-001",
+      "runs": 1,
+      "success_rate": 0,
+      "mean_duration_ms": 0,
+      "median_duration_ms": 0,
+      "mean_turns": 0,
+      "mean_tool_calls": 0,
+      "mean_tool_errors": 0,
+      "mean_retries": 0,
+      "mean_compactions": 0,
+      "mean_total_tokens": 0,
+      "failure_taxonomy": {
+        "other": 1
+      }
+    },
+    "single-file-bug-001": {
+      "task_id": "single-file-bug-001",
+      "runs": 1,
+      "success_rate": 0,
+      "mean_duration_ms": 0,
+      "median_duration_ms": 0,
+      "mean_turns": 0,
+      "mean_tool_calls": 0,
+      "mean_tool_errors": 0,
+      "mean_retries": 0,
+      "mean_compactions": 0,
+      "mean_total_tokens": 0,
+      "failure_taxonomy": {
+        "other": 1
+      }
+    }
+  }
+}

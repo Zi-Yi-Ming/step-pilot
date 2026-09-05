@@ -57,6 +57,8 @@ import {
   agentEventLine,
   sessionNotFoundEvent,
   resultEvent,
+  createStreamInstrument,
+  stampedLine,
 } from './session/streamJson.js';
 import { runExportDebugZip } from './session/debugCli.js';
 import { pickSessionStandalone, relativeTime } from './tui-pi/pickers.js';
@@ -648,7 +650,10 @@ if (opts.resume !== undefined) {
     process.stderr.write(`错误：会话 ${opts.session} 未找到（sessions 目录：${sessionsDir}）。\n`);
     if (opts.outputFormat === 'stream-json') {
       const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      process.stdout.write(`${JSON.stringify(sessionNotFoundEvent(opts.session, requestId, sessionsDir))}\n`);
+      // 主循环尚未开始，turn 恒为 0（与 StreamClock 语义一致）
+      process.stdout.write(
+        `${stampedLine(sessionNotFoundEvent(opts.session, requestId, sessionsDir), { ts: Date.now(), mono: performance.now(), turn: 0 })}\n`,
+      );
     }
     process.exitCode = 2;
     await mcpManager.closeAll();
@@ -786,6 +791,9 @@ function nonInteractiveHooks(): LoopHooks {
 async function runPrint(prompt: string): Promise<void> {
   const streamJson = opts.outputFormat === 'stream-json';
   const jsonOutput = opts.outputFormat === 'json';
+  // stream-json v4 instrumentation（纯 emission 层标注，不进入任何 agent 行为路径）：
+  // 双钟（墙钟 ts + 单调钟 mono）+ 主循环 turn 计数，语义见 StreamClock。
+  const instrument = createStreamInstrument();
 
   // 用户 hooks：notice 走 stderr（与 agent 循环 notice 同一出口）
   let hookContext = '';
@@ -846,7 +854,8 @@ async function runPrint(prompt: string): Promise<void> {
       return;
     }
     if (streamJson) {
-      process.stdout.write(`${agentEventLine(ev)}\n`);
+      if (ev.type === 'thinking_start') instrument.onThinkingStart();
+      process.stdout.write(`${agentEventLine(ev, instrument.sample())}\n`);
       // result 摘要同样需要本分支的收集：只写 stdout 不收集会让 result 事件成空壳
       if (ev.type === 'text') roundText += ev.text;
       if (ev.type === 'tool_start') roundToolUses++;
@@ -969,9 +978,10 @@ async function runPrint(prompt: string): Promise<void> {
       parentSessionId: session.id,
       skills: ctx.skills, // 子 agent 共享 skill
       onEvent: (id, ev) => {
-        // stream-json：五种事件全量进 stdout，保留 id 供并行子 agent 归属
+        // stream-json：五种事件全量进 stdout，保留 id 供并行子 agent 归属；
+        // turn 为父循环轮次（子 agent 总在父回合的某个 tool 执行期内活动）
         if (streamJson) {
-          process.stdout.write(`${JSON.stringify(toSubagentStreamEvent(id, ev))}\n`);
+          process.stdout.write(`${stampedLine(toSubagentStreamEvent(id, ev), instrument.sample())}\n`);
           return;
         }
         const line = subagentTextLine(ev);
@@ -1086,8 +1096,8 @@ async function runPrint(prompt: string): Promise<void> {
       sessionId: session.id,
       subtype: hadError ? 'error' : 'success',
     });
-    process.stdout.write(`${JSON.stringify(result)}\n`);
-    process.stdout.write(`${JSON.stringify(resumeHintMeta(session.id))}\n`);
+    process.stdout.write(`${stampedLine(result, instrument.sample())}\n`);
+    process.stdout.write(`${stampedLine(resumeHintMeta(session.id), instrument.sample())}\n`);
   } else {
     process.stderr.write(`${resumeHintText(session.id)}\n`);
   }

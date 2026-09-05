@@ -1,0 +1,19 @@
+id: multi-file-bug-001
+category: multi-file-bug-fix
+difficulty: medium
+description: "Fix the API contract mismatch in src/client.ts. The renderProfile() function uses data.name but formatUser() returns fullName. Change data.name to data.fullName and remove data.name references."
+repository: benchmark/tasks/multi-file-bug/001-api-contract/repo
+setup: benchmark/tasks/multi-file-bug/001-api-contract/setup.sh
+verify:
+  - type: test
+    command: "npx vitest run"
+    expect:
+      exit_code: 0
+      stdout_contains: "1 passed"
+      stderr_not_contains: "FAIL"
+success_criteria:
+  tests_pass: true
+  max_turns: 12
+timeout: 300
+metadata:
+  tags: [api-contract, multi-file, typescript]

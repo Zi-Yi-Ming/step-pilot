@@ -102,7 +102,8 @@ describe('stream-json 信封统一', () => {
   });
 
   it('协议版本号已定义', () => {
-    expect(STREAM_JSON_PROTOCOL_VERSION).toBe(3);
+    // v4：每条事件新增 ts/mono/turn instrumentation 字段（纯增量，见 StreamClock）
+    expect(STREAM_JSON_PROTOCOL_VERSION).toBe(4);
   });
 });
 

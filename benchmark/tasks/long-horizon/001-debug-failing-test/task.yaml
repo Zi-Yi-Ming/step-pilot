@@ -1,0 +1,18 @@
+id: long-horizon-001
+category: long-horizon
+difficulty: hard
+description: "Debug the failing test suite in this repo. Run 'npx vitest run' to see failing tests, then fix the bug in src/checkout.ts. The discountTotal() function returns negative values when discount exceeds total, but the test expects 0 in that case."
+repository: benchmark/tasks/long-horizon/001-debug-failing-test/repo
+setup: benchmark/tasks/long-horizon/001-debug-failing-test/setup.sh
+verify:
+  - type: test
+    command: "npx vitest run"
+    expect:
+      exit_code: 0
+      stdout_contains: "3 passed"
+success_criteria:
+  tests_pass: true
+  max_turns: 15
+timeout: 300
+metadata:
+  tags: [debug, failing-test, long-horizon, typescript]

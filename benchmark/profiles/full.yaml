@@ -1,0 +1,14 @@
+id: full
+name: "step-pilot full"
+description: "完整 reliability 优化"
+config:
+  compaction:
+    trigger_ratio: 0.75
+    reserved_tokens: 10000
+    user_message_max_tokens: 20000
+  tools:
+    preprocess: true
+  retry:
+    auto_disable: true
+  prompt:
+    trimmed: true

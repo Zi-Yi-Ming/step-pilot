@@ -15,8 +15,72 @@ import type { SubagentProgressEvent } from '../agent/events.js';
 
 /** 当前 stream-json 协议版本。信封结构或事件语义发生不兼容变更时递增。
  * v2：移除 resumeHintMeta 的 `role` 字段。
- * v3：新增 `session.not_found` 与 `result` 事件。 */
-export const STREAM_JSON_PROTOCOL_VERSION = 3;
+ * v3：新增 `session.not_found` 与 `result` 事件。
+ * v4：每条事件新增 instrumentation 字段 `ts` / `mono` / `turn`（纯增量，旧字段语义不变，
+ *     消费方按「字段在不在」兼容）。 */
+export const STREAM_JSON_PROTOCOL_VERSION = 4;
+
+/**
+ * stream-json 每条事件的 instrumentation 标注（v4 起所有 stdout 事件都携带）。
+ *
+ * 双钟设计，各答一个问题，缺一不可：
+ * - `ts`：墙钟（epoch 毫秒，`Date.now()`）。答「绝对时刻」——与外部系统对齐、
+ *   折算真实挂钟预算。**非单调**：NTP 校准会让它回跳，禁止用它算事件间时长。
+ * - `mono`：单调钟（`performance.now()` 毫秒，进程起点为 0）。答「过了多久」——
+ *   事件间 duration 与 per-turn duration 的**主时钟**，对校时跳变免疫。
+ * - `turn`：主循环轮次（1-based，`thinking_start` 计数，与 benchmark 后验分析的
+ *   `segmentTurns` 口径逐字一致）；`0` = 首轮 thinking_start 之前（meta / 早期事件）。
+ *   子 agent 事件带的是**父循环**轮次。
+ */
+export interface StreamClock {
+  ts: number;
+  mono: number;
+  turn: number;
+}
+
+/** 时钟源（默认真实双钟；单测注入假钟验证单调性与 turn 标注）。 */
+export interface StreamClockSource {
+  wall(): number;
+  mono(): number;
+}
+
+/**
+ * stream-json 发射侧的 instrumentation 状态：turn 计数 + 双钟取样。
+ *
+ * 只被 emission 层（cli 的 emit / onEvent / 终态事件写出行）消费，不进入任何
+ * agent 行为路径——instrumentation 必须 observationally neutral：多出的三个字段
+ * 只改变 JSON 行的形状，不改变任何事件的触发时机、内容或顺序。
+ */
+export function createStreamInstrument(clock: StreamClockSource = { wall: () => Date.now(), mono: () => performance.now() }): {
+  /** `thinking_start` 边界回调：递增轮次。其余事件不得调用。 */
+  onThinkingStart(): void;
+  /** 取样当前发射时钟（ts/mono/turn 一次取齐，保证同一事件三个字段同源）。 */
+  sample(): StreamClock;
+  /** 当前轮次（终态事件 / 调试用）。 */
+  readonly turn: number;
+} {
+  let turn = 0;
+  return {
+    onThinkingStart(): void {
+      turn++;
+    },
+    sample(): StreamClock {
+      return { ts: clock.wall(), mono: clock.mono(), turn };
+    },
+    get turn(): number {
+      return turn;
+    },
+  };
+}
+
+/**
+ * 给非 agentEventLine 通道的 stream-json 事件（subagent.* / result / session.*）
+ * 附加 instrumentation 标注并序列化为一行。stamp 显式覆盖：三个标注字段的值
+ * 恒取发射时刻的时钟取样，不信任事件体内可能存在的同名字段。
+ */
+export function stampedLine<T extends object>(ev: T, clock: StreamClock): string {
+  return JSON.stringify({ ...ev, ts: clock.ts, mono: clock.mono, turn: clock.turn });
+}
 
 /**
  * 子 agent 进度事件的 stream-json 形态。
@@ -127,12 +191,16 @@ export function errorEventFromThrown(e: unknown): { type: 'error'; message: stri
  * 带 headers 的响应对象挂在上面，认证信息会直接出现在 stdout。对外只保留 message。
  *
  * 其余事件原样输出：它们的字段本就是对外契约的一部分。
+ *
+ * `clock` 提供时（v4 instrumentation），附加 `ts`/`mono`/`turn` 三个标注字段；
+ * 省略时输出与 v3 逐字节一致（旧消费方与单测的兼容锚点）。
  */
-export function agentEventLine(ev: { type: string; [k: string]: unknown }): string {
+export function agentEventLine(ev: { type: string; [k: string]: unknown }, clock?: StreamClock): string {
   if (ev.type === 'error') {
-    return JSON.stringify({ type: 'error', message: ev.message });
+    const base = { type: 'error', message: ev.message };
+    return JSON.stringify(clock === undefined ? base : { ...base, ts: clock.ts, mono: clock.mono, turn: clock.turn });
   }
-  return JSON.stringify(ev);
+  return JSON.stringify(clock === undefined ? ev : { ...ev, ts: clock.ts, mono: clock.mono, turn: clock.turn });
 }
 
 /**

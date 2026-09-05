@@ -1,0 +1,14 @@
+id: ablation
+name: "step-pilot ablation"
+description: "关闭 reliability 优化"
+config:
+  compaction:
+    trigger_ratio: 0.95
+    reserved_tokens: 1000
+    user_message_max_tokens: 5000
+  tools:
+    preprocess: false
+  retry:
+    auto_disable: false
+  prompt:
+    trimmed: false

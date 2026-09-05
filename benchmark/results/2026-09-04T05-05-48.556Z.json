@@ -1,0 +1,54 @@
+{
+  "benchmark_version": "0.1.0",
+  "timestamp": "2026-09-04T05:05:48.555Z",
+  "model": "step-3.7-flash",
+  "provider": "stepfun",
+  "step_pilot_commit": "unknown",
+  "profiles": [
+    "full"
+  ],
+  "results": [
+    {
+      "task_id": "single-file-bug-001",
+      "category": "single-file-bug-fix",
+      "profile": "full",
+      "model": "step-3.7-flash",
+      "provider": "stepfun",
+      "step_pilot_commit": "unknown",
+      "run_index": 1,
+      "success": false,
+      "duration_ms": 0,
+      "turns": 0,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "retries": 0,
+      "compactions": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "total_tokens": 0,
+      "stop_reason": null,
+      "failure_reason": "Invalid regular expression: /for (let i = 0; i < values.length; i++)/: Nothing to repeat",
+      "checks_passed": 0,
+      "checks_failed": 0,
+      "events": []
+    }
+  ],
+  "summaries": {
+    "single-file-bug-001": {
+      "task_id": "single-file-bug-001",
+      "runs": 1,
+      "success_rate": 0,
+      "mean_duration_ms": 0,
+      "median_duration_ms": 0,
+      "mean_turns": 0,
+      "mean_tool_calls": 0,
+      "mean_tool_errors": 0,
+      "mean_retries": 0,
+      "mean_compactions": 0,
+      "mean_total_tokens": 0,
+      "failure_taxonomy": {
+        "other": 1
+      }
+    }
+  }
+}

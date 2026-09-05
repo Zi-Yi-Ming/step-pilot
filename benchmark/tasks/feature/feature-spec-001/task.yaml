@@ -1,0 +1,18 @@
+id: feature-spec-001
+category: feature
+difficulty: hard
+description: "Implement a task management API with user validation, permissions, caching, audit logging, and CSV export. Read the existing code and tests in src/ and src/__tests__/integration.test.ts, then complete the missing implementations in users.ts, tasks.ts, permissions.ts, cache.ts, audit.ts, and exporter.ts. Run 'npx vitest run' to verify."
+repository: benchmark/tasks/feature/feature-spec-001/repo
+setup: benchmark/tasks/feature/feature-spec-001/setup.sh
+timeout: 300
+verify:
+  - type: test
+    command: "npx vitest run"
+    expect:
+      exit_code: 0
+      stdout_contains: "12 passed"
+success_criteria:
+  tests_pass: true
+  max_turns: 20
+metadata:
+  tags: [feature, context-heavy, long-horizon, multi-file]

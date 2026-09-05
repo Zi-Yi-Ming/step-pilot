@@ -22,3 +22,8 @@ Thumbs.db
 .idea/
 design/
 test_file.txt
+
+# benchmark：per-run 生成的 agent 工作目录与 setup 临时目录（结果 JSON 是 evidence，保留 track）
+benchmark/tasks/**/repo/
+bench-setup-*/
+test-bash-*/

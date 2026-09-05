@@ -4,6 +4,13 @@
 
 本项目的所有重要变更记录于此。格式沿用 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Research / Instrumentation
+
+- **stream-json 协议 v4：事件级时间戳标注**：`-p --output-format stream-json` 的每条事件新增 `ts`（墙钟 epoch ms）、`mono`（performance.now 单调钟，duration 计算主时钟）、`turn`（thinking_start 计数轮次）三个字段。纯 emission 层 instrumentation，事件触发时机、内容与顺序零变化；省略时钟参数时输出与 v3 逐字节一致。配套 `StreamClock` / `createStreamInstrument` / `stampedLine` 基础设施与 10 例单测。
+- **validation-loop 后验分析工具**：新增 `benchmark/analysis/`——`validationMetrics.ts`（regression_count / max_validation_gap / final_validation_gap / monotonicity / suite mutation 检测，25 tests）与 `wallClock.ts`（model/tool/test/wait 归因状态机，15 tests），附只读 CLI。输入 benchmark 结果 JSON，输出结构化分析，不依赖 Agent runtime。
+- **benchmark 基础设施与 feature-spec-001 研究数据入库**：benchmark harness（runner / reporter / profiles / tasks）与 feature-spec-001 任务首次纳入版本管理；sealed baseline（ab-A1..B5.json）与 instrumented 受控实验（v4-A1..B5.json）作为 evidence 保留。研究结论见 `docs/research/feature-spec-001-validation-analysis-2026-09.md`（observational association，无因果声明）。
 ## [0.1.10] - 2026-09-04
 
 ### Added

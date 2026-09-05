@@ -1,0 +1,19 @@
+id: single-file-bug-001
+category: single-file-bug-fix
+difficulty: easy
+description: "Fix the off-by-one error in src/utils.ts. The sum() function has a loop boundary bug: change 'i <= values.length' to 'i < values.length'. Then run tests to verify."
+repository: benchmark/tasks/single-file-bug/001-off-by-one/repo
+setup: benchmark/tasks/single-file-bug/001-off-by-one/setup.sh
+verify:
+  - type: test
+    command: "npx vitest run"
+    expect:
+      exit_code: 0
+      stdout_contains: "1 passed"
+      stderr_not_contains: "FAIL"
+success_criteria:
+  tests_pass: true
+  max_turns: 10
+timeout: 300
+metadata:
+  tags: [loop, off-by-one, typescript]

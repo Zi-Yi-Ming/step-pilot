@@ -1,0 +1,380 @@
+{
+  "benchmark_version": "0.1.0",
+  "timestamp": "2026-09-04T05:09:59.063Z",
+  "model": "step-3.7-flash",
+  "provider": "stepfun",
+  "step_pilot_commit": "unknown",
+  "profiles": [
+    "full"
+  ],
+  "results": [
+    {
+      "task_id": "single-file-bug-001",
+      "category": "single-file-bug-fix",
+      "profile": "full",
+      "model": "step-3.7-flash",
+      "provider": "stepfun",
+      "step_pilot_commit": "unknown",
+      "run_index": 1,
+      "success": false,
+      "duration_ms": 5569,
+      "turns": 1,
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "retries": 0,
+      "compactions": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "total_tokens": 0,
+      "stop_reason": null,
+      "failure_reason": null,
+      "checks_passed": 1,
+      "checks_failed": 2,
+      "events": [
+        {
+          "type": "thinking_start"
+        },
+        {
+          "type": "thinking_delta",
+          "text": "The"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " user just"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " said"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " \"undefined\"."
+        },
+        {
+          "type": "thinking_delta",
+          "text": " This seems"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " like they"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " might be testing something"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " or there's an"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " issue."
+        },
+        {
+          "type": "thinking_delta",
+          "text": " Let me check if"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " there's any context"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " I"
+        },
+        {
+          "type": "thinking_delta",
+          "text": "'m missing. Looking"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " at the current working"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " directory, this"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " appears"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " to be inside"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " the step"
+        },
+        {
+          "type": "thinking_delta",
+          "text": "-cl"
+        },
+        {
+          "type": "thinking_delta",
+          "text": "i-pi"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " repository"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " at"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " a"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " benchmark task path"
+        },
+        {
+          "type": "thinking_delta",
+          "text": ".\n\nSince"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " the user just"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " said \"undefined\""
+        },
+        {
+          "type": "thinking_delta",
+          "text": " without any clear"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " request"
+        },
+        {
+          "type": "thinking_delta",
+          "text": ", I should probably"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " ask what"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " they want to"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " do."
+        },
+        {
+          "type": "thinking_delta",
+          "text": " But wait -"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " let"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " me check"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " if maybe"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " this"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " is related"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " to some"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " task or"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " if"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " there's something in"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " the environment"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " that"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " needs"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " attention"
+        },
+        {
+          "type": "thinking_delta",
+          "text": ".\n\nActually, the"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " message"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " \""
+        },
+        {
+          "type": "thinking_delta",
+          "text": "undefined\" could"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " be an"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " error or"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " a test"
+        },
+        {
+          "type": "thinking_delta",
+          "text": ". Since"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " I"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " don't have clear"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " instructions on what to"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " do,"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " I should ask"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " the user what"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " they need"
+        },
+        {
+          "type": "thinking_delta",
+          "text": " help with."
+        },
+        {
+          "type": "thinking_end"
+        },
+        {
+          "type": "text",
+          "text": "看起来"
+        },
+        {
+          "type": "text",
+          "text": "你"
+        },
+        {
+          "type": "text",
+          "text": "还没有"
+        },
+        {
+          "type": "text",
+          "text": "输入"
+        },
+        {
+          "type": "text",
+          "text": "具体内容"
+        },
+        {
+          "type": "text",
+          "text": "。有什么"
+        },
+        {
+          "type": "text",
+          "text": "需要"
+        },
+        {
+          "type": "text",
+          "text": "我帮忙"
+        },
+        {
+          "type": "text",
+          "text": "的吗"
+        },
+        {
+          "type": "text",
+          "text": "？"
+        },
+        {
+          "type": "usage",
+          "totalTokens": 19776,
+          "measuredLength": 2,
+          "billedDelta": 19776
+        },
+        {
+          "type": "turn_done"
+        },
+        {
+          "type": "result",
+          "subtype": "success",
+          "text": "看起来你还没有输入具体内容。有什么需要我帮忙的吗？",
+          "durationMs": 4014,
+          "toolUses": 0,
+          "usage": {
+            "totalTokens": 19776,
+            "billedTotal": 19776
+          },
+          "sessionId": "20260904050953-998b34"
+        },
+        {
+          "type": "session.resume_hint",
+          "session_id": "20260904050953-998b34",
+          "command": "step -r 20260904050953-998b34",
+          "content": "To resume this session: step -r 20260904050953-998b34"
+        }
+      ]
+    }
+  ],
+  "summaries": {
+    "single-file-bug-001": {
+      "task_id": "single-file-bug-001",
+      "runs": 1,
+      "success_rate": 0,
+      "mean_duration_ms": 5569,
+      "median_duration_ms": 5569,
+      "mean_turns": 1,
+      "mean_tool_calls": 0,
+      "mean_tool_errors": 0,
+      "mean_retries": 0,
+      "mean_compactions": 0,
+      "mean_total_tokens": 0,
+      "failure_taxonomy": {
+        "unknown": 1
+      }
+    }
+  }
+}

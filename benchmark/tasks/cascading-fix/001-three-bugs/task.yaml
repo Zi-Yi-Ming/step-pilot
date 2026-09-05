@@ -1,0 +1,18 @@
+id: cascading-fix-001
+category: recovery
+difficulty: hard
+description: "Debug the failing test suite in this repo. There are 3 independent bugs across 3 source files. Fix them one at a time: start with the JSON parser, then the active filter, then the HTML formatter. Run 'npx vitest run' after each fix to reveal the next bug."
+repository: benchmark/tasks/cascading-fix/001-three-bugs/repo
+setup: benchmark/tasks/cascading-fix/001-three-bugs/setup.sh
+verify:
+  - type: test
+    command: "npx vitest run"
+    expect:
+      exit_code: 0
+      stdout_contains: "3 passed"
+success_criteria:
+  tests_pass: true
+  max_turns: 20
+  timeout: 300
+metadata:
+  tags: [cascading, recovery, multi-file, typescript]
