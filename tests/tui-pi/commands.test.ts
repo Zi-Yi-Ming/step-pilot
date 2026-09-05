@@ -18,7 +18,6 @@ describe('parseSlash（pi 版分发依赖的语义）', () => {
     expect(parseSlash('/quit')).toEqual({ name: 'exit', args: '' });
     expect(parseSlash('/sessions')).toEqual({ name: 'resume', args: '' });
     expect(parseSlash('/?')).toEqual({ name: 'help', args: '' });
-    expect(parseSlash('/cron')).toEqual({ name: 'loop', args: '' });
   });
 
   it('参数保留原样（trim 后），命令名大小写不敏感', () => {
@@ -144,7 +143,6 @@ describe('NOT_WIRED', () => {
       'loop',
       'skill',
       'agents',
-      'reflect',
       'plugin',
       'provider',
       'reload',

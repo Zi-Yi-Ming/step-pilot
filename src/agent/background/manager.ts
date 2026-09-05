@@ -760,7 +760,6 @@ export class BackgroundManager {
    * 为什么必须先置空回调再杀任务：rebindBackground 只换 this.background 引用、不终止旧
    * 管理器，旧管理器的在途任务 settle 时回调经捕获的 PiChat this 回灌到新 session——污染
    * 新会话的转录 note、误报终端通知、把旧任务结果 silent 注入新回合（污染模型上下文）。
-   * 这正是 cron 跨 session 串台的 P0 同源泄露（cwd 维度存储 + sessionless 的回调触发）。
    * 先置空 onSettle/onSettleEvent，后续 stop() 触发的 settle 全部短路，零回灌。
    * 每个任务也补清 onStop/proc/getPartialOutput 三字段，防 4GB OOM（终态后这些字段无读取方）。
    */

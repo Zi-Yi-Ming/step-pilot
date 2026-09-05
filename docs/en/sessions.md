@@ -65,11 +65,7 @@ When the conversation grows long and approaches the context limit, compaction ru
 
 Once generated, the summary must pass a quality check (non-empty, carrying a certain proportion of the information volume that was compacted, free of history-rendering markers); a summary that fails the check causes a retry with a smaller input, and after repeated failures this compaction is abandoned and the history is kept in full. See [the `[compaction]` section of the configuration reference](./configuration.md#compaction-context-compaction).
 
-The complete raw history is unaffected by compaction: each session also keeps an append-only full log (`<id>.full.jsonl`) for `/reflect` to use.
-
-## Review (/reflect)
-
-`/reflect` walks the full conversation history in segments and prints out reusable methodological lessons distilled from it. Run it once when wrapping up a long session to capture how this one got done. The non-interactive equivalent is `step --reflect -c`.
+The complete raw history is unaffected by compaction: each session also keeps an append-only full log (`<id>.full.jsonl`).
 
 ## Export
 

@@ -126,26 +126,12 @@ export function formatTeamStatus(
   return t('app.team.statusBody', { base, dir, body });
 }
 
-/** `/loop` 的定时任务清单文本。 */
-export function formatCronJobs(
-  jobs: readonly { id: string; cron: string; prompt: string; recurring: boolean; nextFireAt: Date }[],
-): string {
-  if (jobs.length === 0) return t('commandText.cron.empty');
-  const lines = jobs.map((j) => {
-    const kind = j.recurring ? t('commandText.cron.recurring') : t('cronCard.oneShot');
-    const prompt = j.prompt.length > 50 ? j.prompt.slice(0, 47) + '...' : j.prompt;
-    return t('commandText.cron.line', { id: j.id, cron: j.cron, kind, next: j.nextFireAt.toLocaleString() }) +
-      `\n    ${prompt}`;
-  });
-  return t('commandText.cron.header', { count: jobs.length }) + '\n' + lines.join('\n');
-}
-
 /**
  * `/history` 的可回退轮次清单（最近的排最前）。
  *
  * ，但那个函数住在 HistoryPanel.tsx 里，
  * 从 .tsx 取它会把 React 一起拖进 pi 侧的模块图，所以这里按同规则重写一份：
- * 只有 origin.kind === 'user' 的消息算可撤销的轮（hook 注入、cron 触发、
+ * 只有 origin.kind === 'user' 的消息算可撤销的轮（hook 注入、skill 激活、
  * 续接注入这些不是用户发的，不占轮次）。
  */
 export function collectUndoTurns(history: readonly StoredMessage[]): { turns: number; label: string }[] {

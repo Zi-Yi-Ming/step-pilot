@@ -175,11 +175,6 @@ export class SessionStore {
     return join(this.baseDir, workdirKey(cwd));
   }
 
-  /** cron 任务持久化目录：<baseDir>/cron/<workdirKey>（按 cwd 分桶，不属于任何单个会话）。 */
-  cronDirFor(cwd: string): string {
-    return join(this.baseDir, 'cron', workdirKey(cwd));
-  }
-
   /** 子 agent 会话持久化目录：<baseDir>/<workdirKey>/subagents（独立命名空间，不进主会话桶）。 */
   subagentDirFor(cwd: string): string {
     return join(this.dirFor(cwd), 'subagents');
@@ -511,7 +506,7 @@ export class SessionStore {
    * 向全量历史日志追加消息：语义不变（按 id 去重、只追加），
    * 底层写为 context.append_message 事件进 wire.jsonl。
    * 压缩链路（loop.replaceMessages / /compact）只动 history.current 与 JSON 快照，
-   * 绝不触碰事件日志——它是 /reflect 能遍历完整历史的唯一保证。
+   * 绝不触碰事件日志——全量历史依赖它，压缩链路只动 history.current 与 JSON 快照。
    */
   appendFull(cwd: string, id: string, messages: readonly StoredMessage[]): number {
     const events: WireEvent[] = messages.map((m) => ({
@@ -652,7 +647,7 @@ export class SessionStore {
       if (!existsSync(file)) return false;
       unlinkSync(file);
       // 事件日志与后台任务持久化目录一并删除：快照没了之后这些文件不再有入口
-      // （/resume、/reflect 都按快照定位），留下只会随会话越删越多形成孤儿文件。
+      // （/resume 按快照定位），留下只会随会话越删越多形成孤儿文件。
       // seen-id 与条数缓存同步失效，避免同名 id 复用时跳过写入。
       rmSync(this.wireFileFor(cwd, id), { force: true });
       rmSync(this.tasksDirFor(cwd, id), { recursive: true, force: true });

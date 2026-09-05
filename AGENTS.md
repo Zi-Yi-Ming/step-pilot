@@ -58,14 +58,12 @@ src/
 │   ├── systemPrompt.ts       # 系统提示词
 │   ├── agentsMd.ts           # AGENTS.md 加载
 │   ├── turns.ts              # 轮次派生：消息条数 → 对话轮数、按轮截断
-│   ├── reflect.ts            # /reflect 方法论回顾
 │   ├── toolSearch.ts         # 外部工具（MCP）懒加载检索
 │   ├── dynamicWorkflow/      # 动态工作流：sandbox(quickjs) / primitives / runner / journal / scriptStore
 │   ├── permission/mode.ts    # 权限判定 manual/auto/yolo + plan 模式硬拦守卫
 │   ├── subagent/             # 子 agent：types / registry(内置+md) / runner(嵌套)
 │   ├── goal/                 # 自主目标：mode(状态机+双预算+持久化) + drive(纯函数续跑裁决)
 │   ├── team/                 # 团队模式：types(任务模型) + git(worktree/merge 封装) + store(规则：互斥/门控/五道门/信箱) + mode(session 状态)
-│   ├── cron/                 # 定时/循环任务：cronexpr + scheduler + store(按 cwd 持久化)
 │   ├── background/           # 后台任务：manager + notify + terminal-notify(BEL/OSC 9)
 │   └── compaction/compact.ts # token 估算 + 微压缩 + 全量摘要压缩
 ├── session/
@@ -82,12 +80,12 @@ src/
 ├── tools/                # 各工具（zod schema + execute）+ index.ts 注册表
 │                         #   read_file/write_file/edit_file/list_dir/glob/grep/bash
 │                         #   spawn_agent/dynamic_workflow/task_*/todo_list/*_goal/team_*/exit_plan_mode/ask_user
-│                         #   skill/tool_search/cron_*/web_search/web_fetch/web_image_search
+│                         #   skill/tool_search/web_search/web_fetch/web_image_search
 │                         #   access.ts(资源声明) / webCache.ts(搜索·抓取共享缓存)
 │                         #   shellResolve.ts(跨平台 shell 探测) / fsutil.ts / searchBase.ts
 ├── tui/                  # Ink 组件与交互逻辑：
 │                         #   App / StatusBar / MessageList / ToolCall / Markdown / diffView
-│                         #   ApprovalPrompt / QuestionPrompt / GoalPanel / TodoPanel / CronCard
+│                         #   ApprovalPrompt / QuestionPrompt / GoalPanel / TodoPanel
 │                         #   DynamicWorkflowPanel / AgentGroup / WorkingStatus / QueuePreview
 │                         #   SessionPicker / ModelPicker / ThinkPicker / UndoPicker
 │                         #   ExpandedReview(Ctrl+O 展开层) / LiveViewport(动态区视口化)
@@ -244,7 +242,7 @@ git worktree add ../step-pilot-worktrees/<名字> -b wt/<名字>
 
 ## 已具备能力
 
-工具循环 + 错误回灌、权限系统（manual/auto/yolo + 审批）、计划模式（`/plan`）、Esc 中断、指数退避重试（`Retry-After` 优先 + 并行子 agent 429 重排队）、Anthropic prompt cache 注入、会话持久化（`--continue` / `--session` / `--resume` / `/fork`）、上下文压缩（micro / full 两级 + `/compact`）、斜杠命令、`--output-format stream-json`、内置联网搜索（`web_search` + `web_image_search`）、markdown 终端渲染、发送缓冲队列、斜杠命令补全、输入框按键导航（Home/End、Ctrl+A/E/W/U/K、词移动）、图片粘贴输入（Alt+V）、thinking 推理过程呈现（流式暗色预览 + 完成折叠）、动态区视口化（防长输出滚动跳顶）、子 agent（`spawn_agent`，内置 general/explore + `.step-pilot/agents/*.md` 自定义）、并行工具执行（资源冲突驱动）+ 子 agent 并发上限、动态工作流（`dynamic_workflow`，模型写 JS 脚本编排子 agent，TUI 实时显示 phase 阶段）、任务清单（`todo_list`）、自主目标（`create_goal` 等，轮次 + token 双预算、随会话持久化）、后台任务（`bash run_in_background` + `task_*`，step 边界注入通知）、定时任务（`cron_*`，按 cwd 持久化 + 恢复）、技能懒加载（`skill`）、插件（`~/.step-pilot/plugins/`，skills + mcpServers + hooks + 命令 + `/plugin` 管理）、用户可配置 hooks（`[[hooks]]`，5 事件）、外部工具懒加载（`tool_search`）、MCP 接入（stdio）、多协议 provider（anthropic / openai / openai_responses）与多渠道多模型（`[providers]` + `[models]` + `/model` 选择器）、子 agent 角色模型按别名跨渠道解析、自定义子 agent 角色进入主 agent system prompt、恢复会话时模型别名失效自动回退默认模型、工具调用通道退化检测（模型把调用打成纯文本时发 notice，不静默）、国际化（中 / 英）、启动期 config.toml 轻量自检（语法错误 fail-fast + 语义错误警告 + 别名引用检查，与 `step doctor config` 共用规则）。
+工具循环 + 错误回灌、权限系统（manual/auto/yolo + 审批）、计划模式（`/plan`）、Esc 中断、指数退避重试（`Retry-After` 优先 + 并行子 agent 429 重排队）、Anthropic prompt cache 注入、会话持久化（`--continue` / `--session` / `--resume` / `/fork`）、上下文压缩（micro / full 两级 + `/compact`）、斜杠命令、`--output-format stream-json`、内置联网搜索（`web_search` + `web_image_search`）、markdown 终端渲染、发送缓冲队列、斜杠命令补全、输入框按键导航（Home/End、Ctrl+A/E/W/U/K、词移动）、图片粘贴输入（Alt+V）、thinking 推理过程呈现（流式暗色预览 + 完成折叠）、动态区视口化（防长输出滚动跳顶）、子 agent（`spawn_agent`，内置 general/explore + `.step-pilot/agents/*.md` 自定义）、并行工具执行（资源冲突驱动）+ 子 agent 并发上限、动态工作流（`dynamic_workflow`，模型写 JS 脚本编排子 agent，TUI 实时显示 phase 阶段）、任务清单（`todo_list`）、自主目标（`create_goal` 等，轮次 + token 双预算、随会话持久化）、后台任务（`bash run_in_background` + `task_*`，step 边界注入通知）、技能懒加载（`skill`）、插件（`~/.step-pilot/plugins/`，skills + mcpServers + hooks + 命令 + `/plugin` 管理）、用户可配置 hooks（`[[hooks]]`，5 事件）、外部工具懒加载（`tool_search`）、MCP 接入（stdio）、多协议 provider（anthropic / openai / openai_responses）与多渠道多模型（`[providers]` + `[models]` + `/model` 选择器）、子 agent 角色模型按别名跨渠道解析、自定义子 agent 角色进入主 agent system prompt、恢复会话时模型别名失效自动回退默认模型、工具调用通道退化检测（模型把调用打成纯文本时发 notice，不静默）、国际化（中 / 英）、启动期 config.toml 轻量自检（语法错误 fail-fast + 语义错误警告 + 别名引用检查，与 `step doctor config` 共用规则）。
 
 ## 尚未实现（后续迭代）
 

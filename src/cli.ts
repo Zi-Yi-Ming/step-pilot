@@ -16,7 +16,6 @@ import { join, resolve } from 'node:path';
 import { Command } from 'commander';
 import { runAgent } from './agent/loop.js';
 import { estimateTokens, microCompact } from './agent/compaction/compact.js';
-import { runReflect } from './agent/reflect.js';
 import type { AgentEvent } from './agent/events.js';
 import type { LoopHooks } from './agent/hooks.js';
 import { composeLoopHooks, HookEngine } from './agent/hooks/engine.js';
@@ -75,7 +74,6 @@ program
   .allowExcessArguments(true)
   .allowUnknownOption(true)  // doctor config 的 --test-capabilities 是位置参数，不是 commander 选项
   .option('-p, --print [prompt]', '非交互模式：执行单条指令，流式打印结果后退出。prompt 可省略，从 stdin 读取')
-  .option('--reflect', '非交互模式：回顾指定/最近会话的完整历史，提炼可复用方法论经验后打印退出')
   .option('-C, --cwd <dir>', '指定工作目录，默认当前目录')
   .option('-y, --yolo', '权限模式 yolo：全部工具放行，从不确认')
   .option('--auto', '权限模式 auto：写文件放行，bash 需确认')
@@ -93,7 +91,6 @@ program
 
 const opts = program.opts<{
   print?: string;
-  reflect?: boolean;
   cwd?: string;
   yolo?: boolean;
   auto?: boolean;
@@ -207,8 +204,8 @@ try {
 } catch (e) {
   // 坏 TOML + 交互模式：不把「手改文件」的成本甩给用户——给一条现场修复路径。
   // 坏文件先改名备份（不覆盖，用户可能要抢救），再进引导写入新配置。
-  // 非交互模式（-p/--reflect）照旧报错退出，不阻塞脚本。
-  if (e instanceof TomlParseError && opts.print === undefined && opts.reflect !== true) {
+  // 非交互模式（-p）照旧报错退出，不阻塞脚本。
+  if (e instanceof TomlParseError && opts.print === undefined) {
     const recovered = await runBrokenConfigRecovery(e);
     // 用户取消：process.exit(0) 退出，此处无悬挂资源
     if (recovered === null) process.exit(0);
@@ -242,9 +239,9 @@ configureWebResultCache(config);
 // 交互 TUI 走转录区 note（交互模式独占终端，绝不写 stderr/stdout），非交互走 stderr。
 const configWarnings = configDiagnostics !== undefined ? collectConfigWarnings(configDiagnostics.rawToml) : [];
 const ignoredBadConfig = configDiagnostics?.ignoredBadFile;
-// 非交互模式（-p / --reflect / stream-json）的呈现通道：只写 stderr。stdout 是数据/协议
+// 非交互模式（-p / stream-json）的呈现通道：只写 stderr。stdout 是数据/协议
 // 通道，混入诊断会破坏下游解析。交互模式不在此处输出（交互模式独占终端），改由 App 呈现。
-if (opts.print !== undefined || opts.reflect === true) {
+if (opts.print !== undefined) {
   const diagText = renderConfigDiagnostics(configWarnings, ignoredBadConfig);
   if (diagText !== undefined) process.stderr.write(`${diagText}\n`);
 }
@@ -403,7 +400,7 @@ try {
 } catch (e) {
   const msg = (e as Error).message;
   // 交互模式 + 缺 API key：不直接退出，给一次现场配置的机会（对齐主流 CLI 的引导体验）
-  if (opts.print === undefined && opts.reflect !== true && msg.includes('缺少 API key')) {
+  if (opts.print === undefined && msg.includes('缺少 API key')) {
     const configured = await runFirstRunSetup();
     if (configured.kind === 'configured') {
       // 重新加载配置（用户刚写入的 api_key 已落盘）
@@ -531,7 +528,7 @@ ctx.imageMaxEdgePx = config.imageMaxEdgePx;
 ctx.imageBudgetBytes = config.imageBudgetBytes;
 ctx.videoBudgetBytes = config.videoBudgetBytes;
 // bash 前台超时自动转后台开关（[background].bash_auto_background_on_timeout，默认 true）
-ctx.bashAutoBackgroundOnTimeout = config.background?.bashAutoBackgroundOnTimeout ?? true;
+ctx.bashAutoBackgroundOnTimeout = config.background?.bashAutoBackgroundOnTimeout ?? true;
 
 // MCP 接入：读 ~/.step-pilot/mcp.json 拿到 server 配置（仅解析，连接不阻塞启动）。
 const mcpManager = new McpManager();
@@ -1105,32 +1102,9 @@ async function runPrint(prompt: string): Promise<void> {
   }
 }
 
-/**
- * 非交互 reflect 模式：读取当前已解析会话的完整历史（优先全量日志，回退快照 messages），
- * 用真实模型跑 runReflect，把方法论经验清单打到 stdout 后退出。
- * 通常配合 -c（最近会话）或 --session <id> 用；单独 --reflect 会解析成空的新会话 → 走友好提示。
- */
-async function runReflectPrint(): Promise<void> {
-  const full = store.loadFull(cwd, session.id);
-  const source = full.length > 0 ? full : session.messages;
-  if (source.length === 0) {
-    process.stderr.write(`${t('cli.reflect.noHistory')}\n`);
-    process.exitCode = 1;
-    return;
-  }
-  process.stderr.write(`${t('cli.reflect.running', { count: source.length })}\n`);
-  try {
-    const text = await runReflect(provider, source, {});
-    process.stdout.write(`${text}\n`);
-  } catch (e) {
-    process.stderr.write(`[reflect:error] ${(e as Error).message}\n`);
-    process.exitCode = 1;
-  }
-}
-
 // 非交互模式保持旧行为：开跑前等全部 MCP server 连接就绪（本轮即可用其工具），失败逐条打 stderr。
 // 交互 TUI 不等待：render 立即进行，连接在后台完成，结果可用 /mcp 查看。
-if (opts.reflect === true || opts.print !== undefined) {
+if (opts.print !== undefined) {
   await mcpReady;
   for (const s of mcpManager.statuses()) {
     if (s.status === 'failed' && s.error !== undefined) {
@@ -1139,12 +1113,7 @@ if (opts.reflect === true || opts.print !== undefined) {
   }
 }
 
-if (opts.reflect === true) {
-  configureLogger({ mode: 'headless' });
-  await runReflectPrint();
-  // 非交互模式跑完关闭 MCP 连接：stdio 子进程不 kill 会让进程永不退出
-  await mcpManager.closeAll();
-} else if (opts.print !== undefined) {
+if (opts.print !== undefined) {
   configureLogger({ mode: 'headless' });
   // prompt 来源优先级：位置参数 > -p 紧跟值 > stdin。
   // 位置参数存在时（如 `step "prompt" -p` 或 `step -p --output-format stream-json "prompt"`），

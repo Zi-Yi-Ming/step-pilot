@@ -140,7 +140,5 @@ describe('planTurnEnd 回合收尾决策', () => {
   // settleHandler 空闲路径同样传 fromQueue: true（系统合成注入，不清草稿）。
   //
   // 用户主动提交（Enter / busy 时入队）不走 fromQueue，setInput('') 正常执行。
-  // cronFire / skillInject 走 silent 路径在 busy 分支 return，不进入非 busy 分支，
-  // 因此不受 fromQueue 影响，行为不变。
   // ─────────────────────────────────────────────────────────────────
 });

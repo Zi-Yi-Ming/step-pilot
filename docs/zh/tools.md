@@ -33,9 +33,6 @@
 | `update_goal` | 更新 goal 状态 | [子 agent 与自动化](./agents.md) |
 | `set_goal_budget` | 为 goal 设轮次/token 预算 | [子 agent 与自动化](./agents.md) |
 | `get_goal` | 查看当前 goal 与用量 | [子 agent 与自动化](./agents.md) |
-| `cron_create` | 创建定时任务 | [子 agent 与自动化](./agents.md) |
-| `cron_list` | 列出定时任务 | [子 agent 与自动化](./agents.md) |
-| `cron_delete` | 删除定时任务 | [子 agent 与自动化](./agents.md) |
 | `tool_search` | 检索并懒加载外部工具（如 MCP） | [技能、插件与 MCP](./skills-and-mcp.md) |
 | `dynamic_workflow` | 用现写的 JS 脚本动态编排子 agent | [子 agent 与自动化](./agents.md) |
 

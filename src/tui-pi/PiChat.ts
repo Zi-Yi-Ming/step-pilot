@@ -25,8 +25,6 @@ import { createSubagentRunner } from '../agent/subagent/runner.js';
 import type { SubagentStore } from '../agent/subagent/store.js';
 import type { AgentDefinition } from '../agent/subagent/types.js';
 import { BackgroundManager, type BackgroundTask } from '../agent/background/manager.js';
-import { CronScheduler } from '../agent/cron/scheduler.js';
-import { CronJobStore } from '../agent/cron/store.js';
 import { assembleGoalInject, decideGoalTurn } from '../agent/goal/drive.js';
 import { GoalMode, type GoalChangeEvent } from '../agent/goal/mode.js';
 import { initTeam } from '../agent/team/mode.js';
@@ -57,7 +55,6 @@ import { TerminalTitleWriter } from '../chat/terminalTitle.js';
 import { aggregateModelUsage } from '../session/usageReport.js';
 import type { WireEvent } from '../agent/wirelog.js';
 import { renderSkillActivation, skillListing, type SkillRegistry } from '../skill/registry.js';
-import { REFLECT_EMPTY_HISTORY, REFLECT_NO_FINDINGS, runReflect } from '../agent/reflect.js';
 import { expandPluginCommand, type PluginCommand } from '../plugin/manager.js';
 import { runPluginCommand } from '../chat/pluginCommand.js';
 import { clearDynamicTools } from '../tools/index.js';
@@ -81,7 +78,6 @@ import { applyCtrlB } from '../chat/ctrlB.js';
 import { versionLine } from '../buildInfo.js';
 import {
   collectUndoTurns,
-  formatCronJobs,
   formatGoalPanel,
   formatMemoryList,
   formatTaskList,
@@ -246,17 +242,6 @@ export class PiChat {
   private readonly sessionApprovals = new Set<string>();
   /** 自主目标（会话级）：跨轮持有，active 时回合收尾自动续跑。 */
   private readonly goal = new GoalMode();
-  /**
-   * 定时任务（**会话级**，不是 cwd 级）。
-   *
-   * 调度器是纯内存引擎，持久化叠在这一层：create/delete 走 onJobChange 落盘，
-   * 触发后 recurring 补写新游标、一次性任务直接清盘。每个 job 打上创建它的 sessionId，
-   * 装配层只装回本会话的任务——旧会话的 cron 不能在新会话触发（P0：cron 跨 session 串台）。
-   * 切会话（/new、/resume）时经 reloadCron 重绑 sessionId 并重装，否则旧任务残留触发、
-   * 新任务被打上陈旧 sessionId 下次加载不到。
-   */
-  private readonly cronStore: CronJobStore;
-  private readonly cron: CronScheduler;
   /** plugin 命令表：`<pluginId>:<name>` → 模板。这些名字不在 SLASH_COMMANDS 里，要单独喂给 parseSlash。 */
   private readonly pluginCommandMap: Map<string, PluginCommand>;
   /** 团队模式（会话级）：档案目录快照随会话落盘。 */
@@ -469,7 +454,7 @@ export class PiChat {
     this.editor.onAltV = attach;
     // ↑ 取回队列尾部一条进输入框编辑：busy + 空输入时生效。
     // 发送从头部消费（drainQueue shift），编辑从尾部取回（pop），两个方向不冲突。
-    // 系统合成注入（后台通知 / cron / skill 正文）不给取回——正文是给模型看的 XML，
+    // 系统合成注入（后台通知 / skill 正文）不给取回——正文是给模型看的 XML，
     // 用户改完提交会以真人身份进历史。取回即从 notifyPrepared 摘除。
     this.editor.onUpArrow = () => this.recallQueuedOne();
     // Ctrl+B 转后台：busy 且有前台任务时全部 detach（进程继续跑、终态自动通知）；
@@ -487,35 +472,10 @@ export class PiChat {
     this.editor.onCtrlO = () => this.openExpandViewer();
     // Ctrl+G 外部编辑器：把当前输入框内容丢进 $EDITOR 编辑，保存后回填。
     // busy 时也允许——编辑的是草稿，不碰在跑的回合。终端输入框写长 prompt 是痛点，
-    // 主流 CLI 编辑器普遍提供此能力。找不到编辑器时返回 false（不消费按键）。
+    // 主流 CLI 编辑器普遍提供此能力。找不到编辑器时返回 false → 不消费按键。
     this.editor.onCtrlG = () => this.openExternalEditor();
 
-    // cron 装配：到点把 prompt 静默注入跑一轮；isIdle 闸门保证回合进行中不触发
-    // （错过的会在下个空闲 tick 合并补投，coalesced 计数进卡片）。
     this.pluginCommandMap = new Map((deps.pluginCommands ?? []).map((c) => [c.name, c]));
-    this.cronStore = new CronJobStore(deps.store, () => {
-      // 落盘失败只能忽略：TUI 模式下 console.warn 会写进终端，把渲染帧搅乱
-    });
-    this.cron = new CronScheduler(
-      (job, coalesced) => {
-        this.push({
-          kind: 'cron',
-          data: { id: job.id, cron: job.cron, prompt: job.prompt, recurring: job.recurring, coalesced },
-        });
-        void this.runTurn(job.prompt, { silent: true });
-        // 触发时 nextFireAt 已在 tick 内同步推进，这里补写的是新游标
-        if (job.recurring) queueMicrotask(() => void this.cronStore.save(this.deps.ctx.cwd, job));
-        else void this.cronStore.remove(this.deps.ctx.cwd, job.id);
-      },
-      () => !this.busy && !this.promptActive,
-      this.session.id,
-    );
-    this.cron.onJobChange = (kind, job) => {
-      if (kind === 'create') void this.cronStore.save(this.deps.ctx.cwd, job);
-      else void this.cronStore.remove(this.deps.ctx.cwd, job.id);
-    };
-    // session 隔离：只装回本会话的 cron 任务（构造与切会话都走 reloadCron，避免旧任务串台）
-    this.reloadCron();
 
     // goal 快照恢复：active 会被降级为 paused（防重启后无人看着就自动续跑）
     this.goal.restore(deps.session.goal);
@@ -974,7 +934,7 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
       return true;
     }
     if (this.queue.length > 0) {
-      // 系统合成注入（后台通知信封 / cron prompt / skill 正文）不进输入框草稿：正文是给
+      // 系统合成注入（后台通知信封 / skill 正文）不进输入框草稿：正文是给
       // 模型看的 XML，用户既不该编辑也读不懂，灌进去只会得到一段标签。这些条目随队列一起
       // 丢弃（与本分支的清空语义一致），但单独报数——静默消失比丢弃更糟。
       const dropped = this.queue.filter((s) => this.notifyPrepared.has(s));
@@ -1215,7 +1175,7 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
    */
   private handleCtrlS(): boolean {
     if (!this.busy) return true;
-    // 系统注入（后台通知信封/cron prompt 等）留在队列走原机制，不插队——那些是给模型
+    // 系统注入（后台通知信封/skill 正文等）留在队列走原机制，不插队——那些是给模型
     // 看的结构化正文，和用户插话的时序语义不同
     const { steer, rest, clearEditor } = computeCtrlSSteer(this.queue, this.notifyPrepared, this.editor.getText());
     if (steer.length === 0) {
@@ -1268,7 +1228,6 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
     if (this.ticker !== undefined) clearInterval(this.ticker);
     if (this.spinnerTimer !== undefined) clearInterval(this.spinnerTimer);
     this.stopHeapWatch?.();
-    this.cron.stop();
     this.persist();
     // tab 标题清空，让终端回落自身默认（不清会残留到用户后续的其它命令上）
     this.termTitle.reset();
@@ -1537,20 +1496,12 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
         this.runGoal(args);
         return;
 
-      case 'loop':
-        this.push({ kind: 'note', text: formatCronJobs(this.cron.list()) });
-        return;
-
       case 'skill':
         await this.runSkill(args);
         return;
 
       case 'agents':
         this.openAgentsOverlay();
-        return;
-
-      case 'reflect':
-        await this.runReflectCommand();
         return;
 
       case 'plugin':
@@ -2141,51 +2092,6 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
     this.push({ kind: 'note', text: '已退出子 agent 浏览，返回主会话' });
   }
 
-  /**
-   * /reflect：对本会话历史提炼方法论清单。
-   *
-   * 读的是不受压缩触碰的全量日志，旧会话或未落盘时回退内存历史。产出同步注入会话流，
-   * 否则用户说「记住第 2 条」时模型上下文里没有这份清单，两段动作就断开了。
-   */
-  private async runReflectCommand(): Promise<void> {
-    if (this.busy) return;
-    this.busy = true;
-    this.activity.setBusy(true);
-    this.activity.setTip('提炼经验');
-    this.syncStatus();
-    this.push({ kind: 'note', text: '正在回顾本会话历史…' });
-    try {
-      const full = this.deps.store.loadFull(this.session.cwd, this.session.id);
-      const source = full.length > 0 ? full : this.history;
-      const text = await runReflect(this.provider, source, {});
-      this.push({ kind: 'note', text: `基于 ${source.length} 条消息的回顾：\n\n${text}` });
-      if (text !== REFLECT_EMPTY_HISTORY && text !== REFLECT_NO_FINDINGS) {
-        this.history.push(
-          stored(
-            {
-              role: 'user',
-              content:
-                '以下是 /reflect 对本次会话历史提炼的方法论清单（用户刚在界面上看过）。' +
-                '如果用户从中挑选条目让你沉淀（如「记住第 2 条」），按记忆机制写入对应目录；' +
-                '用户没有此类要求时不需要主动写。\n\n' +
-                text,
-            },
-            { kind: 'injection' },
-          ),
-        );
-        this.persist();
-      }
-    } catch (e) {
-      this.push({ kind: 'error', text: `回顾失败：${(e as Error).message}` });
-    } finally {
-      this.busy = false;
-      this.activity.setBusy(false);
-      this.activity.setTip('');
-      this.syncStatus();
-      this.tui.requestRender();
-    }
-  }
-
   // ---------------------------------------------------------------- 状态类命令
 
   /** 权限模式切换：内存态 + 状态栏 + 落盘，并落一条 wire 事件（重放时要能还原当时的模式）。 */
@@ -2346,9 +2252,6 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
     this.queue = [];
     this.notifyPrepared.clear();
     this.rebindBackground();
-    // cron 与 compactionModelOverride 都是内存态、跨会话无意义：不重载 cron，旧会话任务会在新会话
-    // 触发（P0 同源）；不重置 override，新会话压缩会用错模型。二者都不落盘，切会话必须手动处理。
-    this.reloadCron();
     this.compactionModelOverride = undefined;
     this.planMode = false;
     this.prePlanMode = null;
@@ -2414,9 +2317,6 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
     const oldBg = this.background;
     this.rebindBackground();
     oldBg.shutdown();
-    // cron 与 compactionModelOverride 都是内存态：fork 是新 sessionId，cron 不重建则旧 sessionId
-    // 任务残留 tick 触发（P0）；override 不重置会串走。
-    this.reloadCron();
     this.compactionModelOverride = undefined;
     this.persist();
     this.push({
@@ -2484,34 +2384,12 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
 
   /** 后台任务管理器换绑当前会话（任务落盘目录随会话 id 走）。 */
   private rebindBackground(): void {
-    const prev = this.background;
     this.background = new BackgroundManager(10, {
       taskTimeoutS: this.deps.config.background?.bashTaskTimeoutS ?? 600,
       tasksDir: this.deps.store.tasksDirFor(this.session.cwd, this.session.id),
       onSettleEvent: (task) => this.appendWire({ type: 'background.task_settle', ts: new Date().toISOString(), task }),
       onSettle: (task) => this.onBackgroundSettle(task),
     });
-    // 旧管理器的在途任务属于上个会话，必须先整体终止并断开结算回调，否则它们 settle 时
-    // 回调经捕获的 this 回灌到新会话（污染转录 / 误报通知 / 注入模型上下文），与 cron
-    // 跨 session 串台同源。rebind 只换引用不终止是这条泄露的结构前提。
-    prev.shutdown();
-  }
-
-  /**
-   * 按当前 sessionId 重载 cron 任务表。构造、/new、/resume 三处都要调用。
-   *
-   * 切会话时必须做，否则两类 P0 同源泄露：
-   * - 旧任务留在内存，tick 到点照常 onFire → 旧会话定时任务在新会话触发；
-   * - 新会话 create 的任务被打上陈旧 sessionId，下次启动按新 sessionId 过滤加载不到。
-   * rebindSession 清空内存表并换 sessionId，再 restore 只装回本会话自己的任务。
-   */
-  private reloadCron(): number {
-    this.cron.rebindSession(this.session.id);
-    const allJobs = this.cronStore.load(this.deps.ctx.cwd);
-    const myJobs = allJobs.filter((j) => j.sessionId === this.session.id);
-    const staleIds = this.cron.restore(myJobs);
-    for (const id of staleIds) void this.cronStore.remove(this.deps.ctx.cwd, id);
-    return myJobs.length;
   }
 
   /**
@@ -2830,17 +2708,14 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
     // 换绑：tasksDir 由 session.id 算出，恢复到别的会话后不换绑，新起的后台任务会写进
     // 上一个会话的任务目录（这里原先只有下面那句对账，注释写着「换绑后」而实际没换过）。
     this.rebindBackground();
-    // cron 跟着目标会话走：旧会话的任务属旧现场，必须清空重装本会话自己的（同 newSession）。
-    const restoredCronCount = this.reloadCron();
     // 换绑后立刻对账：这批任务的 onSettle 属于上个会话，本会话从未触发过。
     // 切会话即换了 delivered 集合的作用域，内存里那份属于旧会话，清掉重来。
     this.deliveredWritten = new Set(r.deliveredNotifications);
     this.reconcileBackground(this.deliveredWritten);
     const replay = historyToDisplayItems(data.messages);
-    // 恢复感知：告诉用户 resume 后挂了多少队列消息与定时任务——此前静默换绑，用户根本不知道
+    // 恢复感知：告诉用户 resume 后挂了多少队列消息——此前静默换绑，用户根本不知道
     const restoredParts: string[] = [];
     if (restoredQueue.length > 0) restoredParts.push(`${restoredQueue.length} 条排队消息`);
-    if (restoredCronCount > 0) restoredParts.push(`${restoredCronCount} 个定时任务`);
     const restoredHint = restoredParts.length > 0 ? `\n恢复了${restoredParts.join('、')}（切走后保留，回来继续）` : '';
     this.transcript.reset(
       [
@@ -3193,7 +3068,7 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
       this.push({ kind: 'error', text: t('app.image.modelNoImageIn', { count: extracted.imageCount }) });
       return;
     }
-    // 附带状态快照：在首次改动 history 之前压栈。silent 注入（goal 续接、cron、技能正文）
+    // 附带状态快照：在首次改动 history 之前压栈。silent 注入（goal 续接、技能正文）
     // 不是用户的一轮输入，不压栈——否则 /history 的「撤销 N 轮」与快照栈深度错位。
     if (opts?.silent !== true) {
       pushUndoSnapshot(this.undoStack, {
@@ -3285,13 +3160,12 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
           runSubagent,
           // dynamic_workflow 的阶段进度：phase 事件按 title 追加（index 是哨兵 -1，
           // 阶段在运行时才知道，不能按 index 定位），同样挂在工具卡片上。
-          onWorkflowStep: (info) => this.applyWorkflowStep(info),
+          onWorkflowStep: (info: import('../agent/events.js').WorkflowStepEvent) => this.applyWorkflowStep(info),
           todos: this.todos,
           background: this.background,
           goal: this.goal,
           team: this.team,
-          cron: this.cron,
-          askUser: (req) => this.askUserQuestion(req),
+          askUser: (req: import('../tools/askUser.js').AskUserRequest) => this.askUserQuestion(req),
           // 子 agent 并发上限：不传会退到 runTurn.ts 里的硬编码 4，与 [subagent] max_concurrent 脱节
           subagentMaxConcurrent: this.deps.config.subagent.maxConcurrent,
         },

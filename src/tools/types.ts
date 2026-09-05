@@ -44,8 +44,6 @@ export interface ToolContext {
   goal?: import('../agent/goal/mode.js').GoalMode;
   /** team 团队模式状态（组合根注入）。缺失表示当前上下文不支持 team。 */
   team?: import('../agent/team/mode.js').TeamMode;
-  /** cron 调度器（组合根注入，定时任务）。缺失表示当前上下文不支持定时任务。 */
-  cron?: import('../agent/cron/scheduler.js').CronScheduler;
   /** tool_search 外部工具注册表（组合根注入，懒加载）。缺失表示无可搜索外部工具。 */
   toolSearch?: import('./toolSearch.js').ToolSearchRegistry;
   /** MCP 连接管理器（组合根注入）。缺失表示当前上下文不支持 MCP。 */

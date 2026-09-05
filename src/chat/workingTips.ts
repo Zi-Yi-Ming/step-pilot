@@ -11,7 +11,6 @@ export const WORKING_TIPS: string[] = [
   '/compact 压缩上下文腾出窗口',
   '/model 切换模型 · /permission 切权限模式',
   '/sessions 浏览历史会话 · /resume 恢复',
-  '/reflect 回顾对话、沉淀可复用方法论',
   '/fork 从当前会话分叉副本',
   '/loop 建定时或循环任务',
 ];
@@ -27,7 +26,6 @@ export const WORKING_TIPS_EN: string[] = [
   '/compact compresses context to free up the window',
   '/model to switch model · /permission to switch permission mode',
   '/sessions to browse past sessions · /resume to restore',
-  '/reflect reviews the conversation and distills reusable methodology',
   '/fork to branch a copy of the current session',
   '/loop to create scheduled or recurring tasks',
 ];

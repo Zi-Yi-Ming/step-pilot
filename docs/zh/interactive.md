@@ -36,12 +36,11 @@ pi-tui 终端界面：顶部欢迎框，中间是会话流（你的输入、模�
 | `/provider [名称]` | 无参打开渠道管理面板（切换/新增/删除）；`list` 出静态文本列表；带参直切（自定义渠道 id 优先于预设名）；`/provider add` 唤起新增渠道向导（手动录入或 models.dev 目录导入） |
 | `/goal [pause\|resume\|cancel]` | 无参或 `status` 出目标状态面板，带子命令控制目标状态 |
 | `/team <子命令>` | 多 agent 团队模式：`init [--dir <路径>]` 初始化（`--dir` 放仓外支持跨仓）、`status` 看任务清单、`exit` 退出（状态保留可重进）、`teardown [force]` 收尾清工作间 |
-| `/loop`（别名 `/cron`） | 列出定时/循环任务及下次触发时间（只读；创建由模型调 `cron_create`） |
+| `/loop` | 列出定时/循环任务及下次触发时间（只读） |
 | `/fork` | 从当前点分叉出新会话副本，原会话不动 |
 | `/new` | 开新会话（清空上下文、任务清单、计划模式、动态工具与思考档位覆盖） |
 | `/compact` | 手动压缩上下文，打印压缩前后 token 数 |
 | `/history [N]`（别名 `/undo`） | 无参打开本会话输入历史面板（Enter 回退到该轮并取回原文重发，Tab 仅取回文本）；带参直接撤销最近 N 轮，不开面板 |
-| `/reflect` | 回顾完整会话历史，提炼可复用方法论并打印；产出同时注入会话流——可直接说「记住第 N 条」让 agent 沉淀到记忆目录 |
 | `/agents` | 列出当前会话派生的子 agent 会话，选中可下钻只读回看该子 agent 的历史 |
 | `/export-debug-zip` | 导出会话调试包（会话正文 + 脱敏配置 + 运行日志） |
 | `/usage [--all]` | 按模型分组展示本会话的 token 用量与缓存命中率；`--all` 汇总本工作目录全部会话（含无快照的崩溃残留会话）。只读，忙碌时也可即时执行 |
@@ -267,7 +266,6 @@ step export-debug-zip [sessionId]       # 导出调试包
 | `--model <name>` | 模型名 |
 | `-C, --cwd <dir>` | 工作目录（所有相对路径的基准） |
 | `--output-format <fmt>` | 非交互输出格式：`text`（默认）或 `stream-json` |
-| `--reflect` | 非交互跑 /reflect（配合 `-c` / `--session`） |
 | `-V, --version` / `-h, --help` | 版本号 / 帮助 |
 
 无头子命令（不进 TUI）：`step sessions list`、`step sessions show <id>`、`step sessions delete <id>`、`step sessions rename <id> <名字>`、`step doctor config [path]`、`step export-debug-zip [sessionId]`。`doctor config` 与 `export-debug-zip` 都在读配置之前执行，配置坏了也能校验、也能导出调试包。

@@ -37,11 +37,7 @@ const SUBAGENT_INDEX_VERSION = 1;
  * 独立子目录是为了不污染主会话桶（SessionStore.list 只扫桶根，/resume 与 --continue 看不到子会话）。
  * 注入现有 SessionStore：复用 baseDir 分桶、attachments offload 与 deriveTitle，不另起第二套存储语义。
  *
- * 边界确认：/reflect 按主会话 id 经 SessionStore.loadFull 直读 `<workdirKey>/<mainId>.wire.jsonl`（无目录扫描），
- * 本目录下的子会话日志天然不在其遍历范围内——子 agent 历史面向事后追查，不进方法论回顾。
- *
- * id 用 randomUUID：秒级时间戳 + 短随机的 randomId 在同秒并发派生时有碰撞风险，
- * 碰撞后果是两个无关任务的历史写入同一文件，UUID 直接消除。
+ * 注入现有 SessionStore：复用 baseDir 分桶、attachments offload 与 deriveTitle，不另起第二套存储语义。
  */
 export class SubagentStore {
   constructor(private readonly sessions: SessionStore) {}

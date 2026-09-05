@@ -1,9 +1,9 @@
 /**
  * 宽度溢出回归测试：所有 block 类型的 render 输出不得超过终端宽度。
  *
- * 2026-08-17 第二次崩溃：cron prompt 992 字符作为单行输出，终端只有 67 列。
+ * 2026-08-17 第二次崩溃：长 prompt 作为单行输出时可能超宽。
  * pi-tui 的 doRender 有断言：Rendered line exceeds terminal width → 进程崩溃。
- * 之前已修过 thinking 预览的 spinner 前缀超宽，这次是 cron block 同类型问题。
+ * 之前已修过 thinking 预览的 spinner 前缀超宽。
  */
 import { describe, expect, it } from 'vitest';
 import { visibleWidth } from '@earendil-works/pi-tui';
@@ -25,11 +25,6 @@ function checkNoOverflow(label: string, item: DisplayItem, widths: number[]): vo
 
 describe('block 渲染不得超宽', () => {
   const widths = [40, 60, 80];
-
-  it('cron：长 prompt 不超宽', () => {
-    const longPrompt = 'cron: 定时检查 AIASys 两条上游 PR 的 CI 状态。'.repeat(20);
-    checkNoOverflow('cron', { kind: 'cron', data: { id: '1', cron: '* * * * *', prompt: longPrompt, recurring: true, coalesced: 0 } }, widths);
-  });
 
   it('goalPanel：长 objective 不超宽', () => {
     const longObj = '在 step-pilot-pi 实验仓完成 Ink → pi-tui 的 TUI 层迁移。'.repeat(10);

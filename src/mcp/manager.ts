@@ -553,7 +553,7 @@ export class McpManager {
 
   /**
    * 关闭全部已连接 server（逐个尽力 client.close()，会 kill stdio 子进程），并清空登记。
-   * 非交互模式（-p / --reflect）跑完必须调用：stdio 子进程挂着会让事件循环永不排空、进程不退出。
+   * 非交互模式（-p）跑完必须调用：stdio 子进程挂着会让事件循环永不排空、进程不退出。
    */
   async closeAll(): Promise<void> {
     for (const s of this.servers.values()) {

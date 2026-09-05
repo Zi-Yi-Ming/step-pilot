@@ -15,7 +15,6 @@ describe('parseSlash', () => {
   it('解析别名到规范名', () => {
     expect(parseSlash('/q')?.name).toBe('exit');
     expect(parseSlash('/?')?.name).toBe('help');
-    expect(parseSlash('/cron')?.name).toBe('loop');
   });
 
   it('大小写不敏感、去除首尾空白', () => {
@@ -123,7 +122,7 @@ describe('helpText', () => {
 
 describe('busyRoute', () => {
   it('只读/纯 UI 命令 busy 时即时执行', () => {
-    for (const name of ['help', 'goal', 'loop']) {
+    for (const name of ['help', 'goal']) {
       expect(busyRoute(name, '')).toBe('instant');
     }
   });
@@ -141,7 +140,7 @@ describe('busyRoute', () => {
   });
 
   it('改动 turn 前提的命令 busy 时排队', () => {
-    for (const name of ['yolo', 'auto', 'plan', 'fork', 'new', 'compact', 'history', 'reflect', 'export-debug-zip', 'reload', 'exit']) {
+    for (const name of ['yolo', 'auto', 'plan', 'fork', 'new', 'compact', 'history', 'export-debug-zip', 'reload', 'exit']) {
       expect(busyRoute(name, '')).toBe('queue');
     }
     // /resume 无参只打开会话选择器（只读 UI），busy 时即时；带参才涉及状态变更，排队

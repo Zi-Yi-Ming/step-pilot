@@ -306,12 +306,6 @@ export class ItemBlock implements Component {
         // 逐回合折叠的摘要占位：一行 dim，告知更早的块已被折成摘要释放内存。
         // 正文/user/assistant 不折叠（用户最常回看），只有 tool/thinking 等旧块进摘要。
         return [...hanging(wrap(c.dim(`↳ 折叠了 ${it.count} 个旧块（更早的轮次，仍在历史中）`), width - 2), c.dim('· '), 2), ''];
-      case 'cron':
-        // cron prompt 可能很长（几百字符），必须先 wrap 再逐行着色。
-        // 原来直接 `c.accent(prompt)` 整段当一行返回，992 字符 > 67 列终端宽度
-        // → pi-tui doRender 断言崩溃（2026-08-17 第二次宽度溢出）。
-        // 先 wrap 再 map(c.accent)：每个换行后的子行独立着色，不丢失颜色。
-        return [...wrap(`cron: ${it.data.prompt ?? ''}`, width - 2).map((l) => c.accent(l)), ''];
       default:
         return [];
     }

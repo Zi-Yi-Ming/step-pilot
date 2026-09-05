@@ -41,12 +41,11 @@ All 26 commands (the table below has 27 rows, because `/skill reload` is listed 
 | `/provider [name]` | With no argument, opens the provider channel panel (switch / add / delete); `list` prints a static text list; with an argument, switches directly (a custom channel id takes priority over a preset name); `/provider add` launches the add-channel wizard (manual entry or import from the models.dev catalog) |
 | `/goal [pause\|resume\|cancel]` | With no argument or `status`, shows the goal status panel; with a subcommand, controls the goal state |
 | `/team <subcommand>` | Multi-agent team mode: `init [--dir <path>]` initializes (`--dir` stores state outside the repo for cross-repo work), `status` shows missions, `exit` leaves with state preserved, `teardown [force]` wraps up and removes worktrees |
-| `/loop` (alias `/cron`) | List scheduled and recurring tasks with their next trigger time (read-only; creation is done by the model calling `cron_create`) |
+| `/loop` | List scheduled and recurring tasks with their next trigger time (read-only) |
 | `/fork` | Fork a new session copy from the current point, leaving the original session untouched |
 | `/new` | Start a new session (clears the context, todo list, plan mode, dynamic tools, and thinking level override) |
 | `/compact` | Compact the context manually, printing the token count before and after |
 | `/history [N]` (alias `/undo`) | With no argument, opens the input history panel for this session (Enter backtracks to that turn and recalls the original text for resending, Tab only recalls the text); with an argument, undoes the last N turns directly without opening the panel |
-| `/reflect` | Review the full session history, distill reusable methodology, and print it; the output also enters the conversation stream, so you can say "remember item N" to have the agent save it to memory |
 | `/agents` | List sub-agent sessions spawned from the current session; select one to drill in and read back its history |
 | `/export-debug-zip` | Export a session debug bundle (session body + redacted config + runtime logs) |
 | `/usage [--all]` | Show per-model token usage and cache hit rate for this session; `--all` aggregates every session in this working directory (including crash leftovers that have an event log but no snapshot). Read-only, runs instantly while busy |
@@ -272,7 +271,6 @@ step export-debug-zip [sessionId]       # export a debug bundle
 | `--model <name>` | Model name |
 | `-C, --cwd <dir>` | Working directory (the basis for every relative path) |
 | `--output-format <fmt>` | Non-interactive output format: `text` (default) or `stream-json` |
-| `--reflect` | Run /reflect non-interactively (together with `-c` / `--session`) |
 | `-V, --version` / `-h, --help` | Version number / help |
 
 Headless subcommands (they do not enter the TUI): `step sessions list`, `step sessions show <id>`, `step sessions delete <id>`, `step sessions rename <id> <name>`, `step doctor config [path]`, `step export-debug-zip [sessionId]`. Both `doctor config` and `export-debug-zip` run before the config is read, so you can validate and export a debug bundle even when the config is broken.

@@ -675,8 +675,8 @@ it('常驻面板（ChromePanels.ts）：TODO 三态计数 / 折叠提示 / 队�
     expect(cjkIn(ov.render(80)), '查看器标题或底部键位出现中文').toEqual([]);
   });
 
-  it('commandText.ts：/tasks /memory /goal /team /loop 纯文本生成', async () => {
-    const { formatTaskList, formatMemoryList, notWiredText, formatGoalPanel, formatTeamStatus, formatCronJobs } = await import('../src/tui-pi/commandText.js');
+  it('commandText.ts：/tasks /memory /goal /team 纯文本生成', async () => {
+    const { formatTaskList, formatMemoryList, notWiredText, formatGoalPanel, formatTeamStatus } = await import('../src/tui-pi/commandText.js');
     setLocale('en');
     const now = Date.now();
     // /tasks 空态 / 有内容
@@ -698,16 +698,12 @@ it('常驻面板（ChromePanels.ts）：TODO 三态计数 / 折叠提示 / 队�
     expect(cjkIn([formatTeamStatus('main', '.step-pilot/team', [])])).toEqual([]);
     expect(cjkIn([formatTeamStatus('main', '.step-pilot/team', [{ id: 'm1', status: 'doing', title: 't', kind: 'code', scope: ['a', 'b'], deps: ['m0'] }])])).toEqual([]);
 
-    // /loop 空 / 有任务
-    expect(cjkIn([formatCronJobs([])])).toEqual([]);
-    expect(cjkIn([formatCronJobs([{ id: 'j1', cron: '*/5 * * * *', prompt: 'ping', recurring: true, nextFireAt: new Date(now + 100000) }])])).toEqual([]);
-
     // 上面的渲染断言走不到的分支（memory broken、goal 终态 reason、任务异常态等）用表级
     // 断言兜底：commandText.ts 引用的 key 组在 en 表里逐条查中文。渲染断言只能覆盖被构造
     // 出来的那几条路径，漏掉的分支不会报错——这一条补的就是那部分。
     const { I18N_TABLES } = await import('../src/i18n.js');
     const en = I18N_TABLES.en;
-    const prefixes = ['commandText.', 'goalPanel.', 'cronCard.', 'app.memory.', 'app.team.'];
+    const prefixes = ['commandText.', 'goalPanel.', 'app.memory.', 'app.team.'];
     const keys = Object.keys(en).filter((k) => prefixes.some((p) => k.startsWith(p)));
     expect(keys.length, '应能取到 commandText 引用的 key 组').toBeGreaterThan(30);
     expect(cjkIn(keys.map((k) => en[k] ?? '')), 'en 表里 commandText 相关 key 仍有中文').toEqual([]);

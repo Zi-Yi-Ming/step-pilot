@@ -309,16 +309,16 @@ const zh = {
 
   // --- App 发送队列与中断 ---
   'app.queue.added': '已加入发送队列（第 {index} 条）：{text}',
-  // 系统合成注入（后台通知 XML 信封 / cron prompt / skill 正文 / goal 续跑文本）入队：
+  // 系统合成注入（后台通知 XML 信封 / skill 正文 / goal 续跑文本）入队：
   // 只报条数不回显正文——正文是给模型看的，可能上万字，打进转录区既刷屏又像系统冒充用户说话
   'app.queue.addedSilent': '已加入发送队列（第 {index} 条，系统注入）',
   'app.queue.restored': '已把发送队列的内容合并回输入框，可编辑后再发送。',
-  // Esc 清空队列时，队列里混有系统合成注入（后台通知信封 / cron prompt / skill 正文）：
+  // Esc 清空队列时，队列里混有系统合成注入（后台通知信封 / skill 正文）：
   // 它们不进输入框草稿（正文是给模型看的，灌进去只是一段 XML），随队列一起丢弃，单独报数
   'app.queue.restoredDropped': '已把发送队列的真人输入合并回输入框；另丢弃 {count} 条系统注入（含后台任务通知，不会再补投）。',
   'app.queue.previewTitle': '📤 发送队列 {count} 条 · 回合结束后按序发送 · Esc 中断后立即发送',
   // 队列预览里系统注入条目的占位：不展示 XML 信封/技能正文原文，只说明这是什么
-  'app.queue.previewSystemEntry': '（系统注入：后台通知 / 定时任务 / 技能正文，正文略）',
+  'app.queue.previewSystemEntry': '（系统注入：后台通知 / 技能正文，正文略）',
   'app.queue.previewMore': '  … 还有 {count} 条',
   'app.queue.recallHint': '  ↑ 取回末条编辑',
   'app.aborted.resumeQueue': '已中断（Esc）。继续发送队列中的 {count} 条消息。',
@@ -470,10 +470,6 @@ const zh = {
   'app.goal.overBudgetTokens': 'goal 已达 token 预算，已标记 blocked。/goal resume 可复活，但不调高预算会立刻再次 blocked。',
   'app.goal.steerAdded': '已记录你的留言，将在下一个自主轮生效',
   'app.goal.resumedPaused': '目标已暂停：{objective}。运行 /goal resume 可继续推进。',
-  'app.loop.none': '当前没有定时/循环任务。告诉我周期与要做的事（如"每 5 分钟检查一次 X"），我会用 cron_create 创建。',
-  'app.loop.jobLine': '{id} · {cron}{oneShot} · 下次 {next}',
-  'app.loop.oneShot': '（一次性）',
-  'app.loop.list': '定时/循环任务：\n{lines}',
 
   // --- goal 面板 / 生命周期 marker / 状态栏 ---
   'goalPanel.title': 'Goal · {status}',
@@ -495,11 +491,6 @@ const zh = {
   'goal.blocked.turns': '已达轮次预算',
   'goal.blocked.tokens': '已达 token 预算',
   'goal.budgetWarning': '预算将尽：收敛收尾完成当前目标，不要开新的可选工作。',
-
-  // --- cron 触发卡片 ---
-  'cronCard.title': '定时任务触发',
-  'cronCard.oneShot': '一次性',
-  'cronCard.coalesced': '合并 {count} 次',
 
   // --- App /mcp 状态面板 ---
   'app.mcp.none': '未配置 MCP server。在 {path} 中添加 mcpServers 配置后重启即可接入。',
@@ -523,7 +514,7 @@ const zh = {
   'app.mcp.reset': '已重置所有自动禁用的 MCP 工具。',
   'app.mcp.usage': '用法：/mcp [enable <tool> | disable <tool> | reset]',
 
-  // --- App /fork /new /compact /reflect /export-debug-zip ---
+  // --- App /fork /new /compact /export-debug-zip ---
   'app.fork.busy': '会话进行中，无法 fork。请等待当前回合结束后再试。',
   'app.fork.done': '已从会话 {from} fork 出新会话 {to}（保留 {messages} 条历史、{todos} 项任务）。原会话不受影响。',
   'app.new.started': '已开始新会话 {id}。',
@@ -532,9 +523,6 @@ const zh = {
   'app.compact.nochange': '未能压缩：多次尝试均未产出可用摘要，历史已原样保留（失败原因已记入运行日志）。',
   'app.compact.aborted': '已取消压缩，历史保持原样。',
   'app.compact.failed': '压缩失败：{message}',
-  'app.reflect.running': '正在回顾完整对话历史、提炼可复用的方法论经验…',
-  'app.reflect.done': '📝 对话经验沉淀（{count} 条历史）：\n\n{text}',
-  'app.reflect.failed': '回顾失败：{message}',
   'app.export.busy': '会话进行中，导出请等当前回合结束后再试。',
   'app.export.running': '正在打包调试 zip（当前会话 + 脱敏配置 + 运行日志现场）…',
   'app.export.done': '已导出调试包：{path}\n包含：{files}\n{warning}',
@@ -662,16 +650,12 @@ const zh = {
   'commandText.team.noScope': '无范围限制',
   'commandText.team.missionLine': '  {id} [{status}] {title}（{kind}，{scope}）{deps}',
   'commandText.team.depSuffix': ' ← 依赖 {deps}',
-  'commandText.cron.empty': '当前没有定时任务（说清要定时做什么，我会用 cron_create 创建）',
-  'commandText.cron.recurring': '周期',
-  'commandText.cron.line': '  {id} · {cron} · {kind} · 下次 {next}',
-  'commandText.cron.header': '定时任务（{count}）：',
 
   'cmd.goal.sub.status': '查看目标状态',
   'cmd.goal.sub.pause': '暂停目标',
   'cmd.goal.sub.resume': '恢复目标',
   'cmd.goal.sub.cancel': '取消目标',
-  'cmd.loop': '查看定时或循环任务（cron）',
+  'cmd.loop': '查看定时或循环任务',
   'cmd.fork': '从当前会话分叉出新会话副本（保留当前历史与任务清单），原会话不动',
   'cmd.new': '开始新会话（清空上下文并新建会话记录）',
   'cmd.compact': '压缩上下文：把较早对话总结为摘要以腾出窗口',
@@ -680,7 +664,6 @@ const zh = {
   'cmd.history': '回顾本会话的输入历史并回退到指定轮（回滚上下文与任务清单/计划模式，代码改动不受影响）：/history [N]',
   'cmd.history.sub.n': '撤销最近 N 轮（输入数字）',
   'cmd.restore': '回滚 edit_file/write_file 对文件的最近一次改动（文件级 checkpoint）：/restore <文件路径>',
-  'cmd.reflect': '回顾完整对话历史，沉淀可复用的方法论经验（打印到终端）',
   'cmd.export-debug-zip': '导出调试 zip（发给我们排查 bug，请勿公开分享）',
   'cmd.usage': '查看本会话的 token 与缓存命中统计：/usage（加 --all 汇总本目录全部会话）',
   'cmd.sessions': '列出本工作目录下的历史会话',
@@ -710,7 +693,7 @@ const zh = {
   'cmd.helpText.aliasSuffix': '（/{aliases}）',
   'cmd.helpText.line': '/{name}{alias} — {describe}',
 
-  // --- cli.ts CLI 输出（sessions 子命令 / mcp / 非交互 / reflect）---
+  // --- cli.ts CLI 输出（sessions 子命令 / mcp / 非交互）---
   'cli.sessions.line': '{id}  {title}  {updated}  {count} 条',
   'cli.sessions.showUsage': '用法：step sessions show <id>',
   'cli.sessions.label.title': '标题: ',
@@ -740,8 +723,6 @@ const zh = {
   'cli.subagents.unknownSub': '未知子命令：{sub}（可用：list / show <id> / delete <id>）',
   'cli.mcp.connectFailed': '[mcp] 连接 {name} 失败：{message}',
   'cli.print.aborted': '已中断',
-  'cli.reflect.noHistory': '没有可回顾的对话历史。请配合 -c（最近会话）或 --session <id> 指定一个有历史的会话。',
-  'cli.reflect.running': '[reflect] 正在回顾 {count} 条历史、提炼可复用方法论经验…',
 
   // --- agent 循环经 notice/error 事件显示给用户的提示 ---
   'loop.overflow.noCompact': '上下文超出模型窗口，且无法进一步压缩。请用 /compact 或 /new 重开会话。',
@@ -1102,7 +1083,7 @@ const en: Record<keyof typeof zh, string> = {
   'app.queue.restored': 'Queued messages merged back into the input box; edit before sending.',
   'app.queue.restoredDropped': 'Merged queued human input back into the input box; dropped {count} system injection(s) (including background task notifications — they will not be redelivered).',
   'app.queue.previewTitle': '📤 Send queue {count} · sent in order at end of turn · Esc interrupts and sends now',
-  'app.queue.previewSystemEntry': '(system injection: background notification / cron / skill body — body omitted)',
+  'app.queue.previewSystemEntry': '(system injection: background notification / skill body — body omitted)',
   'app.queue.previewMore': '  … {count} more',
   'app.queue.recallHint': '  ↑ recall last entry for editing',
   'app.aborted.resumeQueue': 'Aborted (Esc). Continuing with {count} queued messages.',
@@ -1248,10 +1229,6 @@ const en: Record<keyof typeof zh, string> = {
   'app.goal.overBudgetTokens': 'Goal hit its token budget; marked blocked. /goal resume revives it, but without raising the budget it will block again immediately.',
   'app.goal.steerAdded': 'Noted — will take effect on the next goal turn',
   'app.goal.resumedPaused': 'Goal paused: {objective}. Run /goal resume to continue.',
-  'app.loop.none': 'No scheduled/loop tasks. Tell me the period and the task (e.g. "check X every 5 minutes") and I will create it with cron_create.',
-  'app.loop.jobLine': '{id} · {cron}{oneShot} · next {next}',
-  'app.loop.oneShot': ' (one-shot)',
-  'app.loop.list': 'Scheduled/loop tasks:\n{lines}',
 
   'goalPanel.title': 'Goal · {status}',
   'goalPanel.status.active': 'active',
@@ -1272,10 +1249,6 @@ const en: Record<keyof typeof zh, string> = {
   'goal.blocked.turns': 'turn budget exhausted',
   'goal.blocked.tokens': 'token budget exhausted',
   'goal.budgetWarning': 'Budget nearly exhausted: converge and wrap up the current goal; do not start new optional work.',
-
-  'cronCard.title': 'Scheduled task fired',
-  'cronCard.oneShot': 'one-shot',
-  'cronCard.coalesced': '{count} fires coalesced',
 
   'app.mcp.none': 'No MCP servers configured. Add mcpServers to {path} and restart.',
   'app.mcp.title': 'MCP server status:',
@@ -1306,9 +1279,6 @@ const en: Record<keyof typeof zh, string> = {
   'app.compact.nochange': 'Not compacted: no usable summary after several attempts; history kept as-is (details in the log).',
   'app.compact.aborted': 'Compaction cancelled; history left unchanged.',
   'app.compact.failed': 'Compaction failed: {message}',
-  'app.reflect.running': 'Reviewing full conversation history, distilling reusable methodology…',
-  'app.reflect.done': '📝 Lessons from this conversation ({count} messages):\n\n{text}',
-  'app.reflect.failed': 'Reflect failed: {message}',
   'app.export.busy': 'Session busy; export after the current turn finishes.',
   'app.export.running': 'Packing debug zip (current session + redacted config + run logs)…',
   'app.export.done': 'Debug bundle exported: {path}\nIncludes: {files}\n{warning}',
@@ -1435,16 +1405,12 @@ const en: Record<keyof typeof zh, string> = {
   'commandText.team.noScope': 'no scope limit',
   'commandText.team.missionLine': '  {id} [{status}] {title} ({kind}, {scope}){deps}',
   'commandText.team.depSuffix': ' ← deps {deps}',
-  'commandText.cron.empty': 'No scheduled tasks (tell me what to schedule and I will create it with cron_create)',
-  'commandText.cron.recurring': 'recurring',
-  'commandText.cron.line': '  {id} · {cron} · {kind} · next {next}',
-  'commandText.cron.header': 'Scheduled tasks ({count}):',
 
   'cmd.goal.sub.status': 'View goal status',
   'cmd.goal.sub.pause': 'Pause goal',
   'cmd.goal.sub.resume': 'Resume goal',
   'cmd.goal.sub.cancel': 'Cancel goal',
-  'cmd.loop': 'View scheduled or loop tasks (cron)',
+  'cmd.loop': 'View scheduled or loop tasks',
   'cmd.fork': 'Fork a copy of the current session (keeping history and tasks); the original is untouched',
   'cmd.new': 'Start a new session (clear context, create a new session record)',
   'cmd.compact': 'Compact context: summarize earlier conversation to free up window',
@@ -1453,7 +1419,6 @@ const en: Record<keyof typeof zh, string> = {
   'cmd.history': 'Review inputs of this session and backtrack to a turn (rolls back context and todo/plan state; code changes are not reverted): /history [N]',
   'cmd.history.sub.n': 'Undo last N turns (enter a number)',
   'cmd.restore': 'Revert the most recent edit_file/write_file change to a file (file-level checkpoint): /restore <file path>',
-  'cmd.reflect': 'Review full conversation history and distill reusable methodology (prints to terminal)',
   'cmd.export-debug-zip': 'Export a debug zip (send to us for troubleshooting; do not share publicly)',
   'cmd.usage': 'Show token and cache-hit stats for this session: /usage (--all aggregates every session in this directory)',
   'cmd.sessions': 'List past sessions in this working directory',
@@ -1512,8 +1477,6 @@ const en: Record<keyof typeof zh, string> = {
   'cli.subagents.unknownSub': 'Unknown subcommand: {sub} (available: list / show <id> / delete <id>)',
   'cli.mcp.connectFailed': '[mcp] failed to connect {name}: {message}',
   'cli.print.aborted': 'aborted',
-  'cli.reflect.noHistory': 'No conversation history to review. Use -c (latest session) or --session <id> to specify a session with history.',
-  'cli.reflect.running': '[reflect] reviewing {count} messages, distilling reusable methodology…',
 
   'loop.overflow.noCompact': 'Context exceeds the model window and cannot be compacted further. Use /compact or /new to restart the session.',
   'loop.overflow.nothing': 'Context exceeds the model window with nothing to compact. Use /new to restart the session.',

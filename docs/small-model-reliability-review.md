@@ -29,7 +29,6 @@
 | MCP 生态深耕 | 已具备 stdio + HTTP + OAuth + timeout + retry + auto-disable + env expansion | **已足够**。继续加 feature 边际收益递减 |
 | Team 模式 | 已实现（git worktree 隔离 + 五道门） | **P2**。真实有用但非小模型可靠性核心 |
 | Dynamic Workflow | QuickJS 沙箱 + JS 编排 | **P2**。小模型写 JS 编排本身是额外负担 |
-| Cron / Background | 已实现 | **P1 边缘**。对 coding agent 有用但非核心 |
 | Sub-agent | 已实现 | **P1**。小模型受益于拆分任务，但当前实现已够用 |
 | TUI Polish | pi-tui 渲染层大量文件 | **P1 边缘**。可用即可，不需持续投入 |
 | Plugin 系统 | 发现 + 能力合流 | **P1 边缘**。生态尚未形成，先保证核心体验 |
@@ -60,7 +59,7 @@
 
 ### 3.4 事件日志无界增长
 
-`.wire.jsonl` 单调增长，无旋转/压缩策略。长会话文件可变得极大，`/reflect` 需要全量重放。
+`.wire.jsonl` 单调增长，无旋转/压缩策略。长会话文件可变得极大。
 
 ---
 
@@ -128,7 +127,6 @@ step-pilot 的不同之处：
 | VS Code 扩展 | 扩大覆盖面，非小模型可靠性核心 |
 | Team 模式 | 已实现，非当前瓶颈 |
 | Dynamic Workflow | 小模型写 JS 编排是额外负担 |
-| Cron / Background | 对 coding agent 有用但非核心 |
 | TUI 持续 polish | 可用即可 |
 
 ### DROP — 暂时冻结

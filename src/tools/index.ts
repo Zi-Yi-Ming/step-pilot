@@ -2,7 +2,6 @@ import { z } from 'zod';
 import type Anthropic from '@anthropic-ai/sdk';
 import { askUserTool } from './askUser.js';
 import { bashTool } from './bash.js';
-import { cronCreateTool, cronDeleteTool, cronListTool } from './cron.js';
 import { dynamicWorkflowTool } from './dynamicWorkflow.js';
 import { editFileTool } from './edit.js';
 import { exitPlanModeTool } from './exitPlanMode.js';
@@ -69,9 +68,6 @@ const ALL_TOOLS: ToolDef<any>[] = [
   teamStatusTool,
   teamMergeTool,
   teamTeardownTool,
-  cronCreateTool,
-  cronListTool,
-  cronDeleteTool,
   toolSearchTool,
   dynamicWorkflowTool,
 ];

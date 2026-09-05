@@ -15,7 +15,6 @@ describe('decide', () => {
       expect(decide('task_list', mode, NONE)).toBe('allow');
       expect(decide('task_output', mode, NONE)).toBe('allow');
       expect(decide('get_goal', mode, NONE)).toBe('allow');
-      expect(decide('cron_list', mode, NONE)).toBe('allow');
     }
   });
 
@@ -55,7 +54,6 @@ describe('isReadOnly', () => {
     expect(isReadOnly('task_list')).toBe(true);
     expect(isReadOnly('task_output')).toBe(true);
     expect(isReadOnly('get_goal')).toBe(true);
-    expect(isReadOnly('cron_list')).toBe(true);
     expect(isReadOnly('write_file')).toBe(false);
     expect(isReadOnly('bash')).toBe(false);
   });
@@ -76,7 +74,6 @@ describe('planModeDenyReason', () => {
     expect(planModeDenyReason('task_list')).toBeNull();
     expect(planModeDenyReason('task_output')).toBeNull();
     expect(planModeDenyReason('get_goal')).toBeNull();
-    expect(planModeDenyReason('cron_list')).toBeNull();
   });
 
   it('plan mode deny reason 文案包含 exit_plan_mode 引导', () => {

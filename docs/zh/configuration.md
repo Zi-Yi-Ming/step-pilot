@@ -536,7 +536,6 @@ timeout = 30                                 # 秒，可选，默认 30，硬顶
 | `sessions/<工作目录键>/` | 会话快照 `<id>.json` 与全量历史 `<id>.full.jsonl`，按工作目录分桶 |
 | `sessions/<工作目录键>/subagents/` | 子 agent 会话快照、全量日志与运行期活跃锁（`.lock`），独立于主会话桶，见[会话管理](./sessions.md#子-agent-会话) |
 | `sessions/<工作目录键>/attachments/` | 图片附件按内容寻址落盘（文件名为 sha256），会话里只留引用指针 |
-| `sessions/cron/<工作目录键>/` | 定时任务持久化，按工作目录分桶、每任务一 JSON，见[子 agent 与自动化](./agents.md) |
 | `input-history/` | 输入历史，按工作目录隔离 |
 | `debug-<会话 id>-<时间戳>.zip` | `/export-debug-zip` 导出的调试包（脱敏后的会话、配置、日志与环境元数据） |
 

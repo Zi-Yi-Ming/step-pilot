@@ -70,8 +70,7 @@ export type DisplayItem =
       count: number;
     }
   | { kind: 'error'; text: string }
-  | { kind: 'goalPanel'; data: GoalPanelData }
-  | { kind: 'cron'; data: CronCardData };
+  | { kind: 'goalPanel'; data: GoalPanelData };
 
 /** dynamic_workflow 的阶段面板状态（原住 DynamicWorkflowPanel.tsx，与渲染无关，迁移时下沉到这里）。 */
 export interface DynamicWorkflowPanelState {
@@ -96,13 +95,4 @@ export interface GoalPanelData {
   tokenBudget?: number;
   terminalReason?: string;
   elapsedMs: number;
-}
-
-/** cron 触发卡片的展示数据。 */
-export interface CronCardData {
-  id: string;
-  cron: string;
-  prompt: string;
-  recurring: boolean;
-  coalesced: number;
 }

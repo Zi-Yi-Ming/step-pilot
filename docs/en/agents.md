@@ -5,7 +5,7 @@
 
 # Sub-agents and automation
 
-This page covers the mechanisms that let the model work in parallel, on a schedule, or continuously on your behalf: sub-agents, dynamic_workflow, autonomous goals, and cron jobs, plus the background task management that supports them.
+This page covers the mechanisms that let the model work in parallel, on a schedule, or continuously on your behalf: sub-agents, dynamic_workflow, autonomous goals, and background task management.
 
 ## Sub-agents (spawn_agent)
 
@@ -258,7 +258,7 @@ Tokens spent while paused or blocked do not count toward the goal's ledger, so t
 | `/goal resume` | Restores it to active |
 | `/goal cancel` | Cancels and clears the goal |
 
-`/goal resume` only changes the status and does not itself start any turn: after resuming, the goal sits in an "active but nobody driving it" state, waiting for your next message (or a cron trigger) to pick it up. For a goal that is already blocked and whose budget has not been loosened, resume will **run one full turn first** before being blocked again at the turn boundary, and the cost of that turn is really incurred. There is no command-level entry point for adjusting budgets; loosening a budget goes through natural language, having the model call `set_goal_budget`.
+`/goal resume` only changes the status and does not itself start any turn: after resuming, the goal sits in an "active but nobody driving it" state, waiting for your next message to pick it up. For a goal that is already blocked and whose budget has not been loosened, resume will **run one full turn first** before being blocked again at the turn boundary, and the cost of that turn is really incurred. There is no command-level entry point for adjusting budgets; loosening a budget goes through natural language, having the model call `set_goal_budget`.
 
 The status bar has a goal badge (elapsed time, turns[/budget], with the dot colored by status), and setting, pausing, resuming, blocking, and completing all print a marker line in the transcript.
 
@@ -304,28 +304,6 @@ agent: M1 is done; I reviewed the diff and merged it into main. M3 is now unlock
 
 `team_init` / `team_plan` / `team_spawn` / `team_merge` / `team_teardown` are coordinator-only (main agent); `team_send` / `team_inbox` / `team_status` are available to the coordinator and workers alike. The status bar shows a `team` badge while team mode is active.
 
-## Cron jobs (cron)
-
-At the appointed time, a prompt is injected into the session and executed automatically:
-
-```
-You: Check this repository's CI status every morning at 9
-```
-
-The model creates the job with `cron_create`, `/loop` (aliased as `/cron`) shows the list, and `cron_list` / `cron_delete` let the model inspect and delete its own jobs.
-
-| Tool | Parameters | Description |
-|------|------|------|
-| `cron_create` | `cron`, `prompt`, `recurring?` | A 5-field cron expression (minute hour day month weekday); `recurring` defaults to `true`, and `false` makes it one-shot, deleted automatically after firing |
-| `cron_list` | none | Lists id / expression / next fire time / recurring or one-shot |
-| `cron_delete` | `id` | Deletes one job |
-
-The scheduler ticks every 10 seconds and comes with an **idle gate**: it does not fire while the current turn is running, and catches up on the next idle tick. So a cron job never interrupts the conversation you are having.
-
-Cron jobs are **persisted per working directory** (not bound to a session): each job is one JSON file under `cron/<cwd bucket>/` in the session data directory, and creation, deletion, and advancing the next fire time on each trigger are persisted immediately (written via a temporary file plus an atomic replace, where a failure only warns and does not affect operation). So jobs survive a process restart and a session restore, and any session in that directory will take them over.
-
-Triggers missed while offline are **coalesced into a single catch-up fire** on restore, rather than replaying the dozen or so that piled up. Each trigger prints a cron card in the transcript (expression, job id, coalesced count, prompt body), so the card tells you how many missed runs were coalesced; what is injected into the model is still just the job's own prompt. Restore also performs two cleanups: recurring jobs created more than 7 days ago are discarded outright, and job files that are corrupt or missing fields are skipped silently, on the principle that losing one bad job beats failing to start.
-
 ## Background tasks
 
 The `bash` tool supports `run_in_background`: long commands (builds, tests, servers) move to the background while the main session continues. The same parameter is available on two other tools as well: `spawn_agent` (the whole sub-agent to the background) and `dynamic_workflow` (the whole orchestration to the background), so a time-consuming orchestration does not have to occupy the main session while you wait. It comes with `task_list` / `task_output` / `task_stop` for management, and the status bar has a `bg:N` badge showing the number of background tasks in progress.
@@ -358,4 +336,4 @@ One anti-pattern to avoid: starting a background task and then immediately waiti
 
 ## Usage advice
 
-The legitimate use of these mechanisms is to **offload your waiting and coordination costs**: parallel investigation goes to explore sub-agents, multi-stage output goes to workflows, work that needs continuous progress goes to a goal, scheduled work goes to cron, and time-consuming commands go to the background. The main session keeps only the parts that need your judgment. Conversely, do not reach for them for a small task that a single sentence can cover, since the mechanisms themselves carry context and token costs.
+The legitimate use of these mechanisms is to **offload your waiting and coordination costs**: parallel investigation goes to explore sub-agents, multi-stage output goes to workflows, work that needs continuous progress goes to a goal, and time-consuming commands go to the background. The main session keeps only the parts that need your judgment. Conversely, do not reach for them for a small task that a single sentence can cover, since the mechanisms themselves carry context and token costs.

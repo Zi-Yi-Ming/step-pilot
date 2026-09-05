@@ -60,11 +60,7 @@ step sessions rename <id> <名字>   # 重命名（等价于选择器里按 r）
 
 摘要生成后要过质量校验（非空、信息量达到被压缩量的一定比例、不含历史渲染标记），不合格会缩小输入重试，连续失败则放弃本次压缩、完整保留历史。详见 [配置参考的 `[compaction]` 段](configuration.md#compaction-上下文压缩)。
 
-完整的原始历史不受压缩影响：每个会话另存一份 append-only 全量日志（`<id>.full.jsonl`），供 `/reflect` 使用。
-
-## 回顾（/reflect）
-
-`/reflect` 分段遍历完整对话历史，提炼可复用的方法论经验打印出来。长会话收尾时跑一次，把"这次是怎么做成的"沉淀下来。非交互等价物：`step --reflect -c`。
+完整的原始历史不受压缩影响：每个会话另存一份 append-only 全量日志（`<id>.full.jsonl`）。
 
 ## 导出
 

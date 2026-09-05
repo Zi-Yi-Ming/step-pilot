@@ -528,7 +528,6 @@ What lives under `~/.step-pilot/`:
 | `sessions/<working-directory key>/` | Session snapshots `<id>.json` and full history `<id>.full.jsonl`, bucketed by working directory |
 | `sessions/<working-directory key>/subagents/` | Sub-agent session snapshots, full logs, and the runtime active lock (`.lock`), kept apart from the main session bucket; see [Session management](./sessions.md#subagent-sessions) |
 | `sessions/<working-directory key>/attachments/` | Image attachments stored content-addressed (the filename is the sha256), with only a reference pointer left in the session |
-| `sessions/cron/<working-directory key>/` | Cron task persistence, bucketed by working directory with one JSON per task; see [Sub-agents and automation](./agents.md) |
 | `input-history/` | Input history, isolated per working directory |
 | `debug-<session id>-<timestamp>.zip` | The debug bundle exported by `/export-debug-zip` (redacted session, configuration, logs, and environment metadata) |
 

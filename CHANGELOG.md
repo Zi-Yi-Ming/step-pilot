@@ -11,6 +11,7 @@
 - **stream-json 协议 v4：事件级时间戳标注**：`-p --output-format stream-json` 的每条事件新增 `ts`（墙钟 epoch ms）、`mono`（performance.now 单调钟，duration 计算主时钟）、`turn`（thinking_start 计数轮次）三个字段。纯 emission 层 instrumentation，事件触发时机、内容与顺序零变化；省略时钟参数时输出与 v3 逐字节一致。配套 `StreamClock` / `createStreamInstrument` / `stampedLine` 基础设施与 10 例单测。
 - **validation-loop 后验分析工具**：新增 `benchmark/analysis/`——`validationMetrics.ts`（regression_count / max_validation_gap / final_validation_gap / monotonicity / suite mutation 检测，25 tests）与 `wallClock.ts`（model/tool/test/wait 归因状态机，15 tests），附只读 CLI。输入 benchmark 结果 JSON，输出结构化分析，不依赖 Agent runtime。
 - **benchmark 基础设施与 feature-spec-001 研究数据入库**：benchmark harness（runner / reporter / profiles / tasks）与 feature-spec-001 任务首次纳入版本管理；sealed baseline（ab-A1..B5.json）与 instrumented 受控实验（v4-A1..B5.json）作为 evidence 保留。研究结论见 `docs/research/feature-spec-001-validation-analysis-2026-09.md`（observational association，无因果声明）。
+
 ## [0.1.10] - 2026-09-04
 
 ### Added
@@ -183,7 +184,7 @@
 
 - **`/new` 与 `/fork` 后后台任务写到旧会话目录**：后台任务的落盘目录此前只在 `/resume` 时随会话换绑，`/new`、`/fork` 切换会话后新任务仍写进旧会话目录，任务归属错乱。现在两条路径同样换绑；旧会话的在途任务不由新会话接管，由它自己被恢复时处理。
 
-- **plan 模式下纯查询操作也弹确认框**：`tool_search`、`task_list`、`task_output`、`get_goal`、`cron_list` 这五个只读工具此前不在只读白名单里，计划模式下每调一次都要确认，与「只读放行」的语义矛盾。现已补入白名单。
+- **plan 模式下纯查询操作也弹确认框**：`tool_search`、`task_list`、`task_output`、`get_goal` 这五个只读工具此前不在只读白名单里，计划模式下每调一次都要确认，与「只读放行」的语义矛盾。现已补入白名单。
 
 - **`edit_file` 的「Ctrl+O 展开」提示是假承诺**：diff 预览超过 40 行被截断时，提示按 Ctrl+O 展开查看——但截断发生在工具侧，被隐藏的改动从未进入结果内容，展开看到的还是同一份截断文本。现在超限时把完整 diff 落盘到 `.step-pilot/tool-output/edit-diff-*.log`（最多保留 20 个），提示行换成真实可用的文件路径；磁盘不可写时退回原提示文案。
 

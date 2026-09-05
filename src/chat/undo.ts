@@ -42,7 +42,7 @@ export function computeUndo(
  * 转录区（items）回退 n 轮：移除最后第 n 条 kind === 'user' 的条目及其之后的所有条目，
  * 与 computeUndo 的历史截断在视觉上对齐。user 条目不足 n 条时截到最早一条之前；
  * 没有 user 条目时原样返回。
- * 注意：静默注入轮（goal 续接/cron/skill 激活）在 history 里算轮但没有 user 条目，
+ * 注意：静默注入轮（goal 续接/skill 激活）在 history 里算轮但没有 user 条目，
  * 转录区截断是近似对齐（与 backtrack 的单轮截断同一假设）。
  */
 export function truncateItemsAtTurns(items: DisplayItem[], n: number): DisplayItem[] {

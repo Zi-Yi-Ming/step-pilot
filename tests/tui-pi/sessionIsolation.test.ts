@@ -1,7 +1,7 @@
 /**
  * ⑦ 跨 session 隔离回归：queue/todos/goal/steer 切会话不串台。
  *
- * cron/background/subagent 已有回归用例（见会话泄露修复清单），本份补其余四类。
+ * background/subagent 已有回归用例（见会话泄露修复清单），本份补其余四类。
  * PiChat 不可实例化，用 wiring 断言锁 newSession 与 resumeSession 的清理点——
  * 这两处是切会话的唯一入口，清理点齐全即保证四类不串台。
  */

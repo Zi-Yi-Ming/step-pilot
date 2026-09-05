@@ -175,7 +175,6 @@ describe('窄终端：弹层组件 render 不超宽', () => {
       { kind: 'note', text: '长提示 '.repeat(30) },
       { kind: 'error', text: '长错误 '.repeat(30) },
       tool({ id: 'long', result: '结果 '.repeat(200) }),
-      { kind: 'cron', data: { id: 'c1', cron: '* * * * *', prompt: '长 prompt '.repeat(40), recurring: true, coalesced: 0 } },
     ];
     for (const it of items) checkWidth(`block.${it.kind}`, () => new ItemBlock(it));
   });

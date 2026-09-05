@@ -38,9 +38,6 @@ Listed in registration order. The "See" column points to the page with the full 
 | `update_goal` | Update goal state | [Sub-agents and automation](./agents.md) |
 | `set_goal_budget` | Set a turn/token budget for a goal | [Sub-agents and automation](./agents.md) |
 | `get_goal` | View the current goal and its usage | [Sub-agents and automation](./agents.md) |
-| `cron_create` | Create a scheduled task | [Sub-agents and automation](./agents.md) |
-| `cron_list` | List scheduled tasks | [Sub-agents and automation](./agents.md) |
-| `cron_delete` | Delete a scheduled task | [Sub-agents and automation](./agents.md) |
 | `tool_search` | Search for and lazily load external tools (such as MCP tools) | [Skills, plugins, and MCP](./skills-and-mcp.md) |
 | `dynamic_workflow` | Orchestrate sub-agents dynamically with a JS script written on the spot | [Sub-agents and automation](./agents.md) |
 
