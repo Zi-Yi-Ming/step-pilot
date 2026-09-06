@@ -27,9 +27,9 @@ const baseOpts = (
   messages: StoredMessage[],
 ) => ({ provider, system: 'sys', ctx: { cwd: process.cwd() }, messages });
 
-/** 远超阈值的历史（8 条 × 5000 字符填充）。 */
+/** 显式触发 compaction 的大历史 fixture（12 条 × 5000 字符填充）。 */
 function bigHistory(): StoredMessage[] {
-  return Array.from({ length: 8 }, (_, i) =>
+  return Array.from({ length: 12 }, (_, i) =>
     i % 2 === 0
       ? sm({ role: 'user', content: `历史消息内容${'x'.repeat(5000)}` })
       : sm({ role: 'assistant', content: [textBlock(`回复${'y'.repeat(5000)}`)] }, 'assistant'),
@@ -37,9 +37,8 @@ function bigHistory(): StoredMessage[] {
 }
 
 /**
- * 阈值必须大于框架固定开销，否则任何历史都恒定超线。
- * 本仓库 system + tools schema 估算约 8k tok，故取 20000（触发线 17000）：
- * bigHistory 约 10k + 框架 8k 超线，而单条短消息 + 框架不超线。
+ * 阈值需高于固定开销，避免任意短历史都恒定超线。
+ * 当前 fixture 用 12 条长消息构造明确超线场景；单条短消息则不超线。
  */
 const THRESHOLDS = { maxContextSize: 20000, triggerRatio: 0.85, reservedTokens: 10 };
 
