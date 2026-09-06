@@ -4,13 +4,35 @@
 
 本项目的所有重要变更记录于此。格式沿用 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [0.1.11] - 2026-09-06
+
+### Fixed
+
+- **framework token accounting 与 experimental tools gate 不一致**：frameworkTokens 估算路径此前硬编码了 gate-on 上下文，导致 experimental tools 关闭时仍把 team_init / dynamic_workflow 的 schema token 计入占用，context 窗口被系统性高估。修复后估算与每回合 model-facing tool 组装共用同一个 ctx。
+- **/mcp status 行重复显示「已禁用」标记**：disabled stateLine 已含「已禁用」文案，同时又拼接 disabled suffix，出现双重标记。
+- **CHANGELOG 版本条目去重并恢复 0.1.7 条目**：修复历史版本条目重复与缺失。
+
+### Added
+
+- **tool surface tiering（experimental tools gate）**：工具新增 tier 字段（core / advanced / experimental）；[experimental_tools] = true 时才暴露 Team / dynamic_workflow，默认隐藏，减小小模型工具面噪音。
+- **post-green termination**：一轮工具结果中包含完整 vitest 套件且 failed === 0 && passed > 0 且无 suite shrink 时，agent loop 在当轮结束后可自动终止，不再空烧到 300s timeout。opt-in，默认关闭。
+- **compaction 按 thinking 档位自适应质量门槛**：adaptiveSummaryMinTokens / validateSummary / fullCompact 均接收 thinking level 参数，low 档摘要门槛降至 0.7x，high 档升至 1.3x，与小模型实际输出厚度对齐。
+- **stream-json 协议 v4 事件级时间戳**：-p --output-format stream-json 的每条事件新增 ts（wall clock epoch ms）、mono（performance.now 单调时钟）、turn（thinking_start 计数轮次）三个字段；纯 emission 层 instrumentation，事件触发时机、内容与顺序零变化。
+- **validation-loop 后验分析工具**：新增 benchmark/analysis/——validationMetrics.ts 与 wallClock.ts，附只读 CLI，输入 benchmark 结果 JSON 输出结构化分析，不依赖 Agent runtime。
+- **小模型可靠性预检修正**：loop.ts 首回合压缩预检不再退回纯字符估算；toolResultPreprocess.ts 扩展覆盖 grep/glob/web_fetch；best-practices.md 中英双语修正 3 处事实错误。
+
+### Changed
+
+- **移除 cron 与 reflect 能力（Breaking）**：cron 调度、/reflect 命令、相关工具、TUI 卡片、持久化与文档全部移除。session store 保留 append-only 全量日志。依赖上述能力的用户需要迁移到替代工作流。
+- **system prompt 删除重复的「上下文窗口有限」提示行**。
+- **dynamic_workflow 工具描述精简**：145 字符压缩至约 84 字符，减少工具描述占用。
 
 ### Research / Instrumentation
 
-- **stream-json 协议 v4：事件级时间戳标注**：`-p --output-format stream-json` 的每条事件新增 `ts`（墙钟 epoch ms）、`mono`（performance.now 单调钟，duration 计算主时钟）、`turn`（thinking_start 计数轮次）三个字段。纯 emission 层 instrumentation，事件触发时机、内容与顺序零变化；省略时钟参数时输出与 v3 逐字节一致。配套 `StreamClock` / `createStreamInstrument` / `stampedLine` 基础设施与 10 例单测。
-- **validation-loop 后验分析工具**：新增 `benchmark/analysis/`——`validationMetrics.ts`（regression_count / max_validation_gap / final_validation_gap / monotonicity / suite mutation 检测，25 tests）与 `wallClock.ts`（model/tool/test/wait 归因状态机，15 tests），附只读 CLI。输入 benchmark 结果 JSON，输出结构化分析，不依赖 Agent runtime。
-- **benchmark 基础设施与 feature-spec-001 研究数据入库**：benchmark harness（runner / reporter / profiles / tasks）与 feature-spec-001 任务首次纳入版本管理；sealed baseline（ab-A1..B5.json）与 instrumented 受控实验（v4-A1..B5.json）作为 evidence 保留。研究结论见 `docs/research/feature-spec-001-validation-analysis-2026-09.md`（observational association，无因果声明）。
+- **benchmark 基础设施与 feature-spec-001 研究数据入库**：benchmark harness（runner / reporter / profiles / tasks）与 feature-spec-001 任务纳入版本管理；sealed baseline（ab-A1..B5）与受控实验（v4-A1..B5）结果作为 evidence 保留。研究结论见 docs/research/feature-spec-001-validation-analysis-2026-09.md（observational association，无因果声明）。
+- **post-green termination v5 受控实验证据**：5 Control + 5 Treatment 交替实验，记录 trigger rate、outcome、timeout 等原始结果与 derived evidence report；描述性证据，不声称因果。
+
+## [Unreleased]
 
 ## [0.1.10] - 2026-09-04
 
