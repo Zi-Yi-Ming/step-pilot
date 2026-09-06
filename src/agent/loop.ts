@@ -336,6 +336,10 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
    * 本项目这部分尤其重（指令文件全文、技能清单、数十个工具的完整 JSON Schema）。
    * 有真实 usage 时绝不能加——真实值本身已含这两部分，再加即双算。
    *
+   * tool set 与每回合实际发给模型的组装表达式**完全相同**（同 gate、同白名单口径）：
+   * experimental gate（ctx.experimentalToolsEnabled）若在此处硬编码不一致，framework
+   * token accounting 就会把模型根本看不到的 experimental tool schema 计进占用（实测偏差）。
+   *
    * 取一次不逐回合重算：动态注册的工具会让 tools 略有变化，量级远小于本项修正的偏差。
    */
   const frameworkTokens =
@@ -343,8 +347,8 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     estimateTextTokens(
       JSON.stringify(
         toAnthropicTools(
-          allowedSet === undefined ? undefined : [...allowedSet],
-          { experimentalToolsEnabled: true },
+          allowedSet === undefined ? defaultToolNames(ctx) : [...allowedSet],
+          ctx,
         ),
       ),
     );

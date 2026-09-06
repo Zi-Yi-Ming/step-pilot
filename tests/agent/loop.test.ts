@@ -22,9 +22,12 @@ const baseOpts = (
  * 框架固定开销（system + tools schema），与 loop 内 `frameworkTokens` 同算法。
  * 状态栏与预检报的都是「历史估算 + 框架开销」，断言基线必须同口径——
  * 拿裸历史估算去比会必然失败（本仓库工具表本身约 8k tok）。
+ *
+ * gate 口径必须与 baseOpts 的 ctx 一致（此处 ctx 未启用 experimental tools）：
+ * framework token accounting 与 model-facing tool surface 使用同一 experimental gate。
  */
 function frameworkTokensOf(system: string): number {
-  return estimateTextTokens(system) + estimateTextTokens(JSON.stringify(toAnthropicTools(undefined, { experimentalToolsEnabled: true })));
+  return estimateTextTokens(system) + estimateTextTokens(JSON.stringify(toAnthropicTools(undefined)));
 }
 
 describe('runAgent', () => {
@@ -477,5 +480,87 @@ describe('默认值回归护栏', () => {
   it('KEEP_RECENT 锁定为 6（压缩保留的最近消息条数，防回归被悄悄改回）', async () => {
     const { KEEP_RECENT } = await import('../../src/agent/loop.js');
     expect(KEEP_RECENT).toBe(6);
+  });
+});
+
+/**
+ * Experimental tools gate 与 framework token accounting 一致性回归。
+ *
+ * c686731 引入的 bug：loop.ts frameworkTokens 硬编码 { experimentalToolsEnabled: true }，
+ * 导致 gate off 时 framework accounting 仍把模型看不到的 experimental tool schema 计进占用。
+ * 修复后：framework 估算与每回合 model-facing tool 组装使用完全相同的 ctx gate。
+ *
+ * streamParams() 捕获每次 provider.stream 调用的参数（含 tools 数组）；
+ * onWireEvent 的 model.usage 事件携带 frameworkTokens 字段——两者均可观测。
+ */
+describe('experimental tools gate 与 framework token accounting 一致', () => {
+  // Case A：gate off（ctx 未设 experimentalToolsEnabled）
+  it('experimental disabled：model-facing tools 与 framework accounting 均不含 experimental', async () => {
+    const { provider, streamParams } = makeFakeProvider([
+      { textChunks: ['ok'], finalContent: [textBlock('ok')], usage: { input_tokens: 10, output_tokens: 5 } },
+    ]);
+    const ctx = { cwd: process.cwd() };
+    const messages: StoredMessage[] = [sm({ role: 'user', content: 'hi' })];
+    let frameworkTokensObserved: number | undefined;
+    await collect(
+      runAgent({
+        provider,
+        system: 'sys',
+        ctx,
+        messages,
+        onWireEvent: (e) => {
+          if (e.type === 'model.usage') frameworkTokensObserved = e.frameworkTokens as number;
+        },
+      }),
+    );
+
+    // model-facing tools：不含 experimental
+    const params = streamParams();
+    expect(params).toHaveLength(1);
+    const toolNames = ((params[0]!.tools ?? []) as Array<{ name: string }>).map((t) => t.name);
+    expect(toolNames).not.toContain('team_init');
+    expect(toolNames).not.toContain('dynamic_workflow');
+
+    // framework accounting：与 model-facing 同 gate
+    const expected = estimateTextTokens('sys') +
+      estimateTextTokens(JSON.stringify(toAnthropicTools(defaultToolNames(ctx), ctx)));
+    expect(frameworkTokensObserved).toBe(expected);
+    // 反证：硬编码 gate-on 的值必然不同（experimental schema 有开销）
+    const gateOnValue = estimateTextTokens('sys') +
+      estimateTextTokens(JSON.stringify(toAnthropicTools(defaultToolNames({ ...ctx, experimentalToolsEnabled: true }), { ...ctx, experimentalToolsEnabled: true })));
+    expect(expected).not.toBe(gateOnValue);
+  });
+
+  // Case B：gate on
+  it('experimental enabled：model-facing tools 与 framework accounting 均含 experimental', async () => {
+    const { provider, streamParams } = makeFakeProvider([
+      { textChunks: ['ok'], finalContent: [textBlock('ok')], usage: { input_tokens: 10, output_tokens: 5 } },
+    ]);
+    const ctx = { cwd: process.cwd(), experimentalToolsEnabled: true };
+    const messages: StoredMessage[] = [sm({ role: 'user', content: 'hi' })];
+    let frameworkTokensObserved: number | undefined;
+    await collect(
+      runAgent({
+        provider,
+        system: 'sys',
+        ctx,
+        messages,
+        onWireEvent: (e) => {
+          if (e.type === 'model.usage') frameworkTokensObserved = e.frameworkTokens as number;
+        },
+      }),
+    );
+
+    // model-facing tools：含 experimental
+    const params = streamParams();
+    expect(params).toHaveLength(1);
+    const toolNames = ((params[0]!.tools ?? []) as Array<{ name: string }>).map((t) => t.name);
+    expect(toolNames).toContain('team_init');
+    expect(toolNames).toContain('dynamic_workflow');
+
+    // framework accounting：与 model-facing 同 gate
+    const expected = estimateTextTokens('sys') +
+      estimateTextTokens(JSON.stringify(toAnthropicTools(defaultToolNames(ctx), ctx)));
+    expect(frameworkTokensObserved).toBe(expected);
   });
 });
