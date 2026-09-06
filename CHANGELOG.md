@@ -10,7 +10,6 @@
 
 - **framework token accounting 与 experimental tools gate 不一致**：frameworkTokens 估算路径此前硬编码了 gate-on 上下文，导致 experimental tools 关闭时仍把 team_init / dynamic_workflow 的 schema token 计入占用，context 窗口被系统性高估。修复后估算与每回合 model-facing tool 组装共用同一个 ctx。
 - **/mcp status 行重复显示「已禁用」标记**：disabled stateLine 已含「已禁用」文案，同时又拼接 disabled suffix，出现双重标记。
-- **CHANGELOG 版本条目去重并恢复 0.1.7 条目**：修复历史版本条目重复与缺失。
 
 ### Added
 
