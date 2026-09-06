@@ -4,7 +4,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Unofficial — a community-driven exploration.** Step Pilot is a terminal coding agent CLI, forked and evolved independently by community contributors.
+> **Unofficial — a community-driven exploration.** Step Pilot originated from a snapshot of `stepfun-ai/Step-Realtime-CLI` (`step-code-explore-pi` at `db7dd58`, 2026-08-21) and has been independently maintained and substantially evolved since 2026-09-02.
 
 # Step Pilot
 
@@ -79,7 +79,7 @@ CI runs typecheck, build, and test on Ubuntu, Windows, and macOS. Development co
 
 ## Acknowledgements
 
-Step Pilot is built on the pi open-source ecosystem — its TUI/agent shell uses [`@earendil-works/pi-tui`](https://github.com/earendil-works/pi) (`packages/tui` of the pi repository) — and is forked from the stepfun-ai `Step-Realtime-CLI` step-code-pi exploration line. This project independently fixes upstream issues and re-tunes the agent for small models such as Step 3.7 Flash; it is not affiliated with, sponsored by, or endorsed by earendil-works, stepfun-ai, or any other third-party project. Third-party open-source license texts are collected under [`licenses/`](./licenses/) for compliance, with details in [`licenses/NOTICE.md`](./licenses/NOTICE.md).
+Step Pilot is built on the pi open-source ecosystem — its TUI/agent shell uses [`@earendil-works/pi-tui`](https://github.com/earendil-works/pi) (`packages/tui` of the pi repository) — and originated from a snapshot of the stepfun-ai `Step-Realtime-CLI` `step-code-explore-pi` exploration branch. This project independently fixes upstream issues and re-tunes the agent for small models such as Step 3.7 Flash; it is not affiliated with, sponsored by, or endorsed by earendil-works, stepfun-ai, or any other third-party project. Third-party open-source license texts are collected under [`licenses/`](./licenses/) for compliance, with details in [`licenses/NOTICE.md`](./licenses/NOTICE.md).
 
 ## License
 

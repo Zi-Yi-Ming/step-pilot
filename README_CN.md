@@ -4,7 +4,7 @@
 </p>
 
 > [!IMPORTANT]
-> **非官方 —— 社区自主探索的 CLI。** Step Pilot 由社区贡献者自主探索实现。
+> **非官方社区探索项目。** Step Pilot 源自 `stepfun-ai/Step-Realtime-CLI` 的 `step-code-explore-pi` 分支快照（commit `db7dd58`，2026-08-21），并自 2026-09-02 起由社区独立维护和持续演进。
 
 # Step Pilot
 
@@ -77,7 +77,7 @@ CI 在 Ubuntu、Windows、macOS 三平台运行 typecheck、build 与 test。开
 
 ## 致谢
 
-step-pilot 基于 pi 开源生态构建——TUI/agent 壳使用 [`@earendil-works/pi-tui`](https://github.com/earendil-works/pi)（pi 仓库的 `packages/tui`），并 fork 自 stepfun-ai `Step-Realtime-CLI` 的 step-code-pi 探索线。本项目在此基础上独立修复上游问题、针对 Step 3.7 Flash 等小模型重新调优；与 earendil-works、stepfun-ai 等第三方项目无隶属、赞助或背书关系。第三方开源许可证原文收录于 [`licenses/`](./licenses/) 目录作为合规留痕，详见 [`licenses/NOTICE.md`](./licenses/NOTICE.md)。
+step-pilot 基于 pi 开源生态构建——TUI/agent 壳使用 [`@earendil-works/pi-tui`](https://github.com/earendil-works/pi)（pi 仓库的 `packages/tui`），并源自 stepfun-ai `Step-Realtime-CLI` 的 `step-code-explore-pi` 探索分支快照。本项目在此基础上独立修复上游问题、针对 Step 3.7 Flash 等小模型重新调优；与 earendil-works、stepfun-ai 等第三方项目无隶属、赞助或背书关系。第三方开源许可证原文收录于 [`licenses/`](./licenses/) 目录作为合规留痕，详见 [`licenses/NOTICE.md`](./licenses/NOTICE.md)。
 
 ## 许可证
 

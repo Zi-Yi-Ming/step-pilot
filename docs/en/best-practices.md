@@ -17,7 +17,7 @@ step-pilot's design philosophy is not "make Flash behave like a 700B model", but
 
 ### 1. Trimmed system prompt
 
-The system prompt is compressed from ~3500 to ~2000 characters, keeping only:
+The system prompt is reduced from about 2,100 to about 1,850 characters, keeping only:
 
 - Identity and working environment
 - Core behavioral rules
