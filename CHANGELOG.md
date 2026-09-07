@@ -1,6 +1,7 @@
 # Changelog
 
 > **Rebrand notice (2026-09-02)**: This project was originally `step-cli-pi` / `step-pilot-pi`, and has been rebranded to `step-pilot`. Historical entries below may reference the old product name and `.step-pilot/` data directory.
+> **Lineage notice**: The initial Step Pilot snapshot was derived from `stepfun-ai/Step-Realtime-CLI` `step-code-explore-pi` at commit `db7dd58` (2026-08-21), and has since been independently maintained and substantially modified.
 
 本项目的所有重要变更记录于此。格式沿用 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 

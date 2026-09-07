@@ -51,6 +51,9 @@
     "pi-tui"
   ],
   "author": "li-xiu-qi <lixiuqixiaoke@qq.com>",
+  "contributors": [
+    "Z 一 M <202411103024@stu.sdjzu.edu.cn>"
+  ],
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",
