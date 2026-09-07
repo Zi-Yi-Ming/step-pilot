@@ -8,7 +8,6 @@
 
 # Step Pilot
 
-[![CI](https://github.com/Zi-Yi-Ming/step-pilot/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Zi-Yi-Ming/step-pilot/actions/workflows/test.yml)
 
 A terminal coding agent CLI optimized for **Step 3.7 Flash stability**. It ditches the heavy prompt stack and bloated context budget that make small models fail: a ~2000 char system prompt, tighter tool-result caps, and earlier compaction let Flash actually follow instructions — without giving up the agent loop, sub-agents, or plugin system when you need them.
 
