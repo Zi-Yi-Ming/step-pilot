@@ -289,14 +289,14 @@ const COMPACT_DESC_MAX = 80;
 const OMIT_NOTE_RESERVE = 120;
 
 const LISTING_HEADER =
-  '\n\n# 可用技能（懒加载）\n以下技能按需激活：用 skill 工具传入名称加载完整指令后再使用。\n';
+  '\n\n# Available skills (lazy-loaded)\nActivate skills on demand: pass the name to the skill tool to load full instructions before use.\n';
 
-/** 渲染一条清单行。compact=true 时截断描述并省略 whenToUse。 */
+/** Render one listing line. compact=true truncates the description and omits whenToUse. */
 function renderSkillLine(s: SkillDefinition, compact: boolean): string {
   const desc =
     compact && s.description.length > COMPACT_DESC_MAX ? `${s.description.slice(0, COMPACT_DESC_MAX)}…` : s.description;
-  const when = !compact && s.whenToUse !== undefined && s.whenToUse !== '' ? ` | 何时用：${s.whenToUse}` : '';
-  return `- ${s.name}：${desc}${when}（路径：${s.dir}）`;
+  const when = !compact && s.whenToUse !== undefined && s.whenToUse !== '' ? ` | When to use: ${s.whenToUse}` : '';
+  return `- ${s.name}: ${desc}${when} (path: ${s.dir})`;
 }
 
 /**
@@ -332,7 +332,7 @@ export function skillListing(registry: SkillRegistry, budget: number = SKILL_LIS
   }
   let out = LISTING_HEADER + kept.join('\n');
   if (omitted > 0) {
-    out += `\n（另有 ${omitted} 个技能因篇幅省略，用 skill_search 工具按关键词搜索，或 /skill <名称> 激活）`;
+    out += `\n(${omitted} additional skills omitted for brevity; use skill_search to find them, or /skill <name> to activate directly)`;
   }
   return out;
 }
@@ -365,5 +365,5 @@ export function expandSkillContent(def: SkillDefinition, args: string): string {
  */
 export function renderSkillActivation(def: SkillDefinition, args: string): string {
   const header = `<step-skill-loaded name="${def.name}" source="${def.source}">\n`;
-  return `${header}${expandSkillContent(def, args)}\n</step-skill-loaded>\n\n以上为技能「${def.name}」的完整指令，请遵循执行。`;
+  return `${header}${expandSkillContent(def, args)}\n</step-skill-loaded>\n\nAbove is the full instruction for skill "${def.name}". Follow it to execute.`;
 }

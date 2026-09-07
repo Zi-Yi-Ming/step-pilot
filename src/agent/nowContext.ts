@@ -80,9 +80,9 @@ export function crossedLocalMidnight(lastTs: string | undefined, now: Date): boo
  * 唯一不可容忍的过时（跨天后日期错一天）由 loop 的跨天提醒单独修正。
  */
 export function timeSection(now: Date): string {
-  return `## 当前时间
-- 当前时刻快照：${formatLocalNow(now)}。取自本次启动，不随会话推进更新。
-- 长会话里这个值可能已过时数小时，只能当粗略参考。
-- 凡是真正依赖当前时间的判断（搜索结果的新鲜度、时效与过期检查、「最新」「最近」这类措辞、写入文档或 commit 的日期），用 bash \`date\` 现取，不要信这个值，也不要从上下文推算。
-- 你的训练数据截止于此之前。涉及此后的库版本、API 变更、行业事件，用 web_search 查证，不要凭记忆回答。`;
+  return `## Current time
+- Current snapshot: ${formatLocalNow(now)}. Captured at startup and does not advance during the session.
+- In long sessions this may be hours stale; treat it as a rough reference only.
+- For anything that truly depends on current time (freshness of search results, expiry checks, words like "latest" or "recent", dates in docs or commits): run bash \`date\` for the live value. Do not trust this snapshot or infer from context.
+- Your training data cutoff is before this date. For library versions, API changes, or industry events after that: web_search; do not rely on memory.`;
 }

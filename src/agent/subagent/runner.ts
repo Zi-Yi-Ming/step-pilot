@@ -336,7 +336,7 @@ export function createSubagentRunner(deps: SubagentRunnerDeps): RunSubagentFn {
       // 记忆索引对子 agent 只读注入（开启时）：它做调研需要偏好上下文，但无写入权
       const memoryPart =
         deps.config?.memory?.enabled === true ? `\n\n${memorySection(scanMemory(cwd), 'readonly')}` : '';
-      const system = `${agentDef.systemPrompt}\n\n当前工作目录：${cwd}\n\n${timeSection(new Date())}${memoryPart}${skillPart}`;
+      const system = `${agentDef.systemPrompt}\n\nCurrent working directory: ${cwd}\n\n${timeSection(new Date())}${memoryPart}${skillPart}`;
       // 深度未达上限时给子 agent 注入 runSubagent（同一 runner，可再派生）；达上限则不注入（拿不到派生能力）。
       // 嵌套派生时把自己的子会话 id 线程化传递下去，下一层的 meta.parentId 才能指向真实的直接父级。
       const selfRunner = canSpawnDeeper

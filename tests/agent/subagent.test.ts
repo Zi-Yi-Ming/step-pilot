@@ -182,8 +182,8 @@ describe('createSubagentRunner', () => {
     const r = await run({ subagentType: 'explore', prompt: 'x', depth: 0 });
     expect(r.isError).toBe(false);
     const p = streamParams()[0]!;
-    // system 含技能清单（子 agent 也能感知可用技能）
-    expect(String(p.system)).toContain('可用技能');
+    // system includes the skill listing (subagents can also see available skills)
+    expect(String(p.system)).toContain('Available skills');
     expect(String(p.system)).toContain('demo');
     // 工具表含 skill（explore 白名单已纳入，read-only 激活安全）
     const toolNames = (p.tools as { name: string }[]).map((tt) => tt.name);
@@ -1370,39 +1370,39 @@ describe('subagentListing 角色清单', () => {
     expect(out).toContain('reviewer');
   });
 
-  it('whenToUse 拼进清单；缺省时只渲染 description', () => {
+  it('whenToUse is included in the listing; omitted when only description is provided', () => {
     const out = subagentListing([
-      { name: 'a', description: '甲角色', whenToUse: '甲的时机' },
-      { name: 'b', description: '乙角色' },
+      { name: 'a', description: 'role A', whenToUse: 'when A' },
+      { name: 'b', description: 'role B' },
     ]);
-    expect(out).toContain('- a：甲角色 何时用：甲的时机');
-    expect(out).toContain('- b：乙角色');
-    expect(out).not.toContain('- b：乙角色 何时用');
+    expect(out).toContain('- a: role A When to use: when A');
+    expect(out).toContain('- b: role B');
+    expect(out).not.toContain('- b: role B When to use');
   });
 
   it('空注册表返回空串（不产出只有标题的空段）', () => {
     expect(subagentListing([])).toBe('');
   });
 
-  it('超预算先压缩描述：丢 whenToUse、description 只留首句', () => {
+  it('compact still truncates after budget: keeps first sentence and drops whenToUse', () => {
     const roles = Array.from({ length: 8 }, (_, i) => ({
       name: `role${String(i)}`,
-      description: `第${String(i)}个角色。后面还有很长的补充说明用来撑爆预算${'补'.repeat(40)}`,
-      whenToUse: `时机${String(i)}${'详'.repeat(40)}`,
+      description: `role ${i} description. extra padding to bust budget${'x'.repeat(40)}`,
+      whenToUse: `when ${i}${'y'.repeat(40)}`,
     }));
     const out = subagentListing(roles, 600);
-    expect(out).not.toContain('何时用'); // 压缩档丢掉 whenToUse
-    expect(out).toContain('第0个角色'); // 首句保留
-    expect(out).not.toContain('补补补'); // 首句之后的内容被截
+    expect(out).not.toContain('When to use'); // compact mode drops whenToUse
+    expect(out).toContain('role 0 description'); // first sentence kept
+    expect(out).not.toContain('x'.repeat(40)); // text after first sentence is truncated
   });
 
-  it('压缩后仍超预算：按预算截断并注明省略条数', () => {
+  it('still truncates after compact truncation: cut by budget and note omitted roles', () => {
     const roles = Array.from({ length: 30 }, (_, i) => ({
       name: `role${String(i)}`,
-      description: `这是第${String(i)}个角色的说明文字用来占预算`,
+      description: `role ${i} description used for budget`,
     }));
     const out = subagentListing(roles, 400);
-    expect(out).toMatch(/另有 \d+ 个角色因篇幅省略/);
+    expect(out).toMatch(/\d+ additional roles omitted for brevity/);
     expect(out.length).toBeLessThanOrEqual(400);
   });
 });

@@ -170,22 +170,22 @@ describe('memorySection', () => {
     };
   }
 
-  it('空索引也返回完整段（含写入引导）', () => {
+  it('empty index still returns a full section (including write guidance)', () => {
     const s = memorySection({ entries: [], broken: [] });
-    expect(s).toContain('## 记忆');
-    expect(s).toContain('（暂无观察）');
-    expect(s).toContain('应写入或更新观察');
+    expect(s).toContain('## Memory');
+    expect(s).toContain('(no observations yet)');
+    expect(s).toContain('Write or update observations');
   });
 
-  it('标注观察未经确认、与规范冲突时以规范为准', () => {
+  it('observations are unconfirmed and secondary to confirmed specs', () => {
     const s = memorySection({ entries: [], broken: [] });
-    expect(s).toContain('未经用户确认');
-    expect(s).toContain('以规范为准');
+    expect(s).toContain('Unconfirmed by the user');
+    expect(s).toContain('follow the spec');
   });
 
   it('索引条目带「第 N 次出现」计数（occurrences > 1 时）', () => {
     const s = memorySection({ entries: [fakeEntry({ occurrences: 3 })], broken: [] });
-    expect(s).toContain('（第 3 次出现）');
+    expect(s).toContain('(seen 3 times)');
   });
 
   it('超出字符预算时截断并标注省略条数', () => {
@@ -193,16 +193,16 @@ describe('memorySection', () => {
       fakeEntry({ topic: `主题${i}`, relPath: `project/t${i}.md`, summary: '这是一段用于占用预算的摘要文字'.repeat(3) }),
     );
     const s = memorySection({ entries: many, broken: [] });
-    expect(s).toContain('因篇幅省略');
+    expect(s).toContain('omitted for brevity');
     // 索引部分不超预算（允许段内固定文案额外开销）
     expect(measureMemoryIndex({ entries: many, broken: [] })).toBeLessThanOrEqual(MEMORY_INDEX_BUDGET);
   });
 
-  it('readonly 变体：无写入引导，改为「写进返回报告」', () => {
+  it('readonly variant: no write guidance, says "write into return report"', () => {
     const s = memorySection({ entries: [], broken: [] }, 'readonly');
-    expect(s).toContain('只读');
-    expect(s).toContain('返回报告');
-    expect(s).not.toContain('应写入或更新观察');
+    expect(s).toContain('read-only');
+    expect(s).toContain('return report');
+    expect(s).not.toContain('Write or update observations');
   });
 });
 

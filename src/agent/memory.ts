@@ -168,9 +168,9 @@ export function scanMemory(cwd: string, home: string = homedir()): MemoryScan {
 
 /** 索引单条行，如：`- [project] 包管理器 — 用户纠正过：用 pnpm（第 2 次出现）（project/package-manager.md）` */
 function indexLine(e: MemoryEntry): string {
-  const recur = e.occurrences > 1 ? `（第 ${e.occurrences} 次出现）` : '';
+  const recur = e.occurrences > 1 ? ` (seen ${e.occurrences} times)` : '';
   const summary = e.summary === '' ? '' : ` — ${e.summary}`;
-  return `- [${e.scope}] ${e.topic}${summary}${recur}（${e.relPath}）`;
+  return `- [${e.scope}] ${e.topic}${summary}${recur} (${e.relPath})`;
 }
 
 /** 索引字符预算：超出截断并标注省略条数（与 subagent listing 同一手法）。 */
@@ -218,20 +218,19 @@ export function memorySection(scan: MemoryScan, mode: 'full' | 'readonly' = 'ful
   }
   const indexPart =
     lines.length === 0
-      ? '  （暂无观察）'
-      : lines.map((l) => `  ${l}`).join('\n') + (omitted > 0 ? `\n  （另有 ${omitted} 条因篇幅省略，\`/memory\` 可查看全量）` : '');
-  return `## 记忆
-- 你有两个长期记忆目录：全局 ~/.step-pilot/memory/（跨项目偏好观察）、项目 .step-pilot/memory/（本项目约定观察）。
-- 里面是你自己积累的**观察**，未经用户确认，不视为约束。可以参考（比如避免重复犯被纠正过的错），但与 AGENTS.md 等已确认规范冲突时，以规范为准。
-- 当前索引：
+      ? '  (no observations yet)'
+      : lines.map((l) => `  ${l}`).join('\n') + (omitted > 0 ? `\n  (${omitted} more omitted for brevity; run \`/memory\` for the full list)` : '');
+  return `## Memory
+- You have two long-term memory directories: global ~/.step-pilot/memory/ (cross-project preference observations) and project .step-pilot/memory/ (project-specific conventions).
+- These are your own accumulated observations. Unconfirmed by the user, they are not constraints. You may reference them (for example, to avoid repeating corrected mistakes), but if they conflict with confirmed specs such as AGENTS.md, follow the spec.
+- Current index:
 ${indexPart}
-- 索引只有摘要。做事前若主题可能相关，先 read 对应文件；也可用 grep 在记忆目录全文搜。
-${mode === 'readonly' ? `- 你是子 agent：记忆**只读**。发现值得记的事写进你的返回报告，由主 agent 决定是否沉淀，不要直接写记忆目录。` : `- 遇到以下情况应写入或更新观察（用 write_file / edit_file 直接操作，格式：markdown 正文 + \`<!-- MEMORY_FIELDS {...} -->\` 注释藏 version/occurrences/updated_at 字段）：用户明确要求记住、用户纠正了你、识别到稳定的项目约定、任务闭环时发现本次对话有被纠正过的点。同一观察再次出现时只把 occurrences 加一，正文不动。
-- 一次性任务上下文、能从代码/config 读出来的事实、未证实的猜测，不记。`}`;
+- The index is summary-only. Before working on something potentially relevant, read the corresponding file; you can also grep the memory directory for full text.
+${mode === 'readonly' ? `- You are a subagent: memory is read-only. Write findings into your return report; the primary agent decides whether to persist them; do not write to the memory directory directly.` : `- Write or update observations (with write_file / edit_file; markdown body plus a \`<!-- MEMORY_FIELDS {...} -->\` comment carrying version/occurrences/updated_at) when the user explicitly asks to remember something, the user corrects you, you identify a stable project convention, or you discover corrected points at task closure. When the same observation recurs, only bump occurrences; keep the text unchanged.
+- One-shot task context, facts readable from code/config, and unverified guesses are not recorded.`}`;
 }
 
 /** /memory on 中途开启时的回看引导（注入 messages，origin: injection）。 */
 export const MEMORY_ONBOARDING_INJECTION =
-  '记忆功能刚开启。记忆目录：~/.step-pilot/memory/ 与 .step-pilot/memory/。\n' +
-  '请回看本次会话到目前为止的对话：如果出现过「用户纠正你」「用户明确要求记住」「反复出现的约定」，' +
-  '现在补沉淀到对应目录；没有则不用写。之后的对话按 system 里的记忆说明正常积累。';
+  'Memory is now enabled. Memory directories: ~/.step-pilot/memory/ and .step-pilot/memory/.\n' +
+  'Review the conversation so far: if there were cases of "user corrected you", "user explicitly asked to remember", or "recurring conventions", backfill them now; otherwise you can skip this. After this, continue normal memory accumulation as described in system.';

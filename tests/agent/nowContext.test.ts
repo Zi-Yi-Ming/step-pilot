@@ -152,47 +152,47 @@ describe('crossedLocalMidnight', () => {
 });
 
 describe('timeSection', () => {
-  it('给出时刻，并明确声明它是快照、不随会话更新', () => {
+  it('gives the current time and explicitly states it is a startup snapshot that does not advance during the session', () => {
     withTz('Asia/Shanghai', () => {
       const s = timeSection(new Date(2026, 7, 9, 21, 45));
       expect(s).toContain('2026-08-09 21:45');
-      expect(s).toContain('快照');
-      expect(s).toContain('不随会话推进更新');
+      expect(s).toContain('snapshot');
+      expect(s).toContain('does not advance during the session');
     });
   });
 
-  it('把真正需要准确时间的场合指向 date 命令，而不是让模型信这个值', () => {
+  it('points time-sensitive cases to the live `date` command instead of trusting the snapshot', () => {
     const s = timeSection(new Date(2026, 7, 9, 21, 45));
     expect(s).toContain('date');
-    expect(s).toContain('不要信这个值');
+    expect(s).toContain('Do not trust this snapshot');
   });
 
-  it('声明训练数据截止，并指向 web_search', () => {
+  it('declares the training data cutoff and points to web_search', () => {
     const s = timeSection(new Date(2026, 7, 9, 21, 45));
-    expect(s).toContain('训练数据截止');
+    expect(s).toContain('training data cutoff');
     expect(s).toContain('web_search');
   });
 });
 
-describe('buildSystemPrompt 的时间段', () => {
-  it('注入当前时间段，且 now 可注入（测试不随真实日期漂移）', () => {
+describe('buildSystemPrompt time section', () => {
+  it('injects the current time section and accepts a fixed now for deterministic tests', () => {
     withTz('Asia/Shanghai', () => {
       const sp = buildSystemPrompt('/tmp/x', { now: new Date(2026, 7, 9, 21, 45) });
-      expect(sp).toContain('## 当前时间');
+      expect(sp).toContain('## Current time');
       expect(sp).toContain('2026-08-09 21:45');
     });
   });
 
-  it('纯净模式（--print）同样带时间段', () => {
+  it('pure mode (--print) still includes the time section', () => {
     withTz('Asia/Shanghai', () => {
       const sp = buildSystemPrompt('/tmp/x', { pureMode: true, now: new Date(2026, 7, 9, 21, 45) });
-      expect(sp).toContain('## 当前时间');
+      expect(sp).toContain('## Current time');
       expect(sp).toContain('2026-08-09 21:45');
     });
   });
 
-  it('不传 now 时回落到真实时钟（不抛错，且含时间段）', () => {
+  it('falls back to the real clock when now is omitted (no error, and time section is present)', () => {
     const sp = buildSystemPrompt('/tmp/x');
-    expect(sp).toContain('## 当前时间');
+    expect(sp).toContain('## Current time');
   });
 });

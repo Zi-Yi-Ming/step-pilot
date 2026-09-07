@@ -351,26 +351,26 @@ describe('skillListing 预算压缩', () => {
     return { skills };
   };
 
-  it('预算内：全量输出（含 whenToUse）', () => {
+  it('full output within budget (including whenToUse)', () => {
     const listing = skillListing(makeReg(2, 20), 8000);
-    expect(listing).toContain('何时用：');
+    expect(listing).toContain('When to use:');
     expect(listing).toContain('skill-0');
     expect(listing).toContain('skill-1');
   });
 
-  it('超预算：先压缩描述（截断 + 去 whenToUse）', () => {
-    // 让全量超预算但压缩后可容纳
+  it('over budget: compact descriptions first (truncate + drop whenToUse)', () => {
+    // make full output overflow budget but fit after compacting
     const listing = skillListing(makeReg(10, 300), 2500);
-    expect(listing).not.toContain('何时用：'); // whenToUse 被去掉
-    expect(listing).toContain('…'); // 描述被截断
-    expect(listing).toContain('skill-9'); // 全部条目仍在
+    expect(listing).not.toContain('When to use:'); // whenToUse dropped in compact mode
+    expect(listing).toContain('…'); // description truncated
+    expect(listing).toContain('skill-9'); // all entries still present
     expect(listing.length).toBeLessThanOrEqual(2500);
   });
 
-  it('压缩后仍超预算：省略靠后条目并注明省略数', () => {
+  it('still over budget after compact: truncate tail and note omitted count', () => {
     const listing = skillListing(makeReg(60, 200), 1500);
-    expect(listing).toContain('因篇幅省略');
-    expect(listing).toContain('skill-0'); // 靠前条目保留
+    expect(listing).toContain('omitted for brevity');
+    expect(listing).toContain('skill-0'); // leading entries kept
     expect(listing.length).toBeLessThanOrEqual(1500);
   });
 });

@@ -106,8 +106,8 @@ describe('shellPromptHint', () => {
     }
   });
 
-  it('powershell 提示明确不要写 Unix 语法', () => {
-    expect(shellPromptHint('powershell')).toContain('Unix 语法');
+  it('powershell hint explicitly says not to use Unix syntax', () => {
+    expect(shellPromptHint('powershell')).toContain('Unix syntax');
   });
 
   it('none 提示引导安装 Git for Windows', () => {

@@ -31,11 +31,11 @@ describe('composeSystem 段序与可选段', () => {
     expect(iHook).toBeGreaterThan(iMemory);
   });
 
-  it('memory 段开启时必须出现在 system 里（曾整块漏掉，主 agent 拿不到记忆）', () => {
-    const withMemory = composeSystem({ ...base, memory: '## 记忆\n- 观察一' });
-    expect(withMemory).toContain('## 记忆');
-    expect(withMemory).toContain('观察一');
-    // 未开启时不留空行残渣
+  it('memory section must appear in system when enabled (previously dropped as a whole, leaving the primary agent without memory)', () => {
+    const withMemory = composeSystem({ ...base, memory: '## Memory\n- observation one' });
+    expect(withMemory).toContain('## Memory');
+    expect(withMemory).toContain('observation one');
+    // no stray blank lines when memory is disabled
     expect(composeSystem(base)).not.toContain('\n\n\n');
   });
 

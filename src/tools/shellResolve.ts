@@ -316,16 +316,16 @@ export function shellPromptHint(family: ShellFamily): string {
   switch (family) {
     case 'posix':
       return process.platform === 'win32'
-        ? '- bash 工具在 Windows 上通过 Git Bash 运行，用 Unix 语法与正斜杠路径（`ls`、`2>/dev/null`、`&&`）。'
-        : '- bash 工具用 Unix 语法（bash/sh），正斜杠路径。';
+        ? '- bash runs through Git Bash on Windows; use Unix syntax and forward-slash paths (`ls`, `2>/dev/null`, `&&`).'
+        : '- bash uses Unix syntax (bash/sh) with forward-slash paths.';
     case 'wsl':
-      return '- bash 工具通过 WSL（Linux bash）运行，用 Unix 语法；访问 Windows 文件走 `/mnt/c/` 挂载路径。';
+      return '- bash runs through WSL (Linux bash); use Unix syntax. Access Windows files under /mnt/c/.';
     case 'busybox':
-      return '- bash 工具通过 busybox-w32（ash）运行，仅支持基础 POSIX 命令，避免 GNU bash 扩展（数组、`[[ ]]` 等）。';
+      return '- bash runs through busybox-w32 (ash); only basic POSIX commands are supported. Avoid GNU bash extensions (arrays, `[[ ]]`, etc.).';
     case 'powershell':
-      return '- 未检测到 POSIX shell，bash 工具回退到 PowerShell：用 cmdlet/PS 语法（`Get-ChildItem`、`2>$null`、反斜杠路径），不要写 Unix 语法（`ls`、`2>/dev/null` 会失败）。';
+      return '- No POSIX shell detected; bash falls back to PowerShell. Use cmdlet/PS syntax (`Get-ChildItem`, `2>$null`, backslash paths); do not use Unix syntax (`ls`, `2>/dev/null` will fail).';
     case 'none':
-      return '- 未检测到任何可用 shell（Git Bash / WSL / busybox / PowerShell 都没有），bash 工具将无法执行命令。请先安装 Git for Windows（提供 Git Bash）。';
+      return '- No usable shell detected (Git Bash / WSL / busybox / PowerShell are all unavailable); bash commands cannot run. Install Git for Windows to get Git Bash.';
     default: {
       // 穷尽检查：新增 family 成员而漏改此处会在编译期报错。
       const _exhaustive: never = family;
