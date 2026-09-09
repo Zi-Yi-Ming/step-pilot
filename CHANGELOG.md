@@ -5,6 +5,13 @@
 
 本项目的所有重要变更记录于此。格式沿用 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.1.12] - 2026-09-09
+
+### Fixed
+
+- **grep ReDoS 守卫（上游 #90 同失败类）**：模型提供的正则经 `new RegExp` 后在主线程同步 `re.test`，且不可中断——`(a+)+` 类嵌套量词遇长行可把进程挂死到 Esc 都进不来。新增两道扫描前守卫：pattern 超 500 字符直接 `fail()` 并给出收窄指引；命中「组内量词 + 组外量词」形态时 `fail()` 给出改写示例与 bash/rg 替代路径。注释如实标注边界：这是形态启发式，非通用 ReDoS 解。回归：`tests/tools/grep.redos.test.ts`（6 用例；「秒回」断言本身即未进入不可中断匹配路径的证据）。
+- **run-step.mjs Node 回退分支必炸（上游 #113 认领的前置）**：wrapper 的 Node 路径在 ESM `.mjs` 里裸调 `require.resolve("tsx")`——ReferenceError；手拼 `file://` URL 对 Windows 绝对路径也缺第三个斜杠。改为官方文档形态 `node --import tsx`（裸说明符），require 与 URL 拼接一并消除。bun 分支与 Node 分支（最小 PATH 剥离 bun）各过 `--version` 冒烟。
+
 ## [0.1.11] - 2026-09-06
 
 ### Fixed
