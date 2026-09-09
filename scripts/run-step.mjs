@@ -64,12 +64,9 @@ async function main() {
     return runCommand(bunBin, [entrypoint, ...scriptArgs]);
   }
 
-  return runCommand(process.execPath, [
-    "--import",
-    pathToFileURL(require.resolve("tsx")).href,
-    entrypoint,
-    ...scriptArgs,
-  ]);
+  // tsx 官方支持裸模块名 loader（node --import tsx），不走 require.resolve：
+  // .mjs 里没有 require，且手拼 file:// URL 在 Windows 绝对路径上缺第三个斜杠。
+  return runCommand(process.execPath, ["--import", "tsx", entrypoint, ...scriptArgs]);
 }
 
 function runCommand(command, commandArgs) {
@@ -90,10 +87,6 @@ function runCommand(command, commandArgs) {
       resolve(code ?? 1);
     });
   });
-}
-
-function pathToFileURL(path) {
-  return `file://${path.replace(/\\/g, "/")}`;
 }
 
 main().then(

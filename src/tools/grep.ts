@@ -17,6 +17,23 @@ const MAX_MATCHES = 200;
 const MAX_FILE_BYTES = 512 * 1024;
 
 /**
+ * pattern 长度上限。防的外部行为：模型输出超长正则时，编译与匹配耗时随长度增长，
+ * 而 grep 是唯一把「模型可控正则」直接跑在事件循环主线程上的入口。
+ * 超限不是错误判断，是让它变成一次可见的 fail 回灌（模型自己缩短重写）。
+ */
+const PATTERN_MAX_LEN = 500;
+
+/**
+ * 灾难性回溯形态的静态黑名单：量词出现在组内、且组自身再被量词修饰（`(a+)+` 一族）。
+ * 防的外部行为：`re.test` 同步且不可中断，单次匹配可把主线程挂死——用户连 Esc 都按不进来，
+ * 这是 grep 唯一无法靠「稍后再试」恢复的失败形态。
+ * 诚实边界：这是形态启发式，不是通用 ReDoS 解法——同危险但形态不同的 `(a|ab)+`、
+ * `(a(b+))+` 不拦也不会承诺拦。不上 worker+超时做全解的理由：输入侧已有三重界
+ * （MAX_FILES / MAX_MATCHES / 流式路径逐行 MAX_LINE_BYTES），风险主要来自形态而非输入规模。
+ */
+const NESTED_QUANTIFIER = /\([^)]*[+*{][^)]*\)[+*{]/;
+
+/**
  * 本次搜索的**盲区**——被跳过或未走到的部分。
  *
  * 为什么必须随结果返回：grep 返回 `[无匹配]` 时，调用方（模型）会据此推断
@@ -114,6 +131,7 @@ export const grepTool: ToolDef<z.infer<typeof schema>> = {
   name: 'grep',
   description:
     '在目录下按正则搜索文件内容，返回 匹配行（path:line:内容）。自动忽略 node_modules、.git、dist 等目录；' +
+    '嵌套量词形态（`(a+)+` 类）与超长 pattern 会被直接拒绝（防不可中断的主线程卡死），收到该错误请改写 pattern 或改用 bash 跑 rg；' +
     '文件大小不限（大文件走流式扫描），但**含超长单行的文件每行只有前 1MB 参与匹配**，' +
     '这类情况会在结果末尾的「搜索盲区」里列出（无匹配时同样列出）——看到盲区说明本次搜索有未覆盖范围，' +
     '不能据此断定目标不存在。',
@@ -121,11 +139,20 @@ export const grepTool: ToolDef<z.infer<typeof schema>> = {
   access: (input, ctx) => ({ kind: 'read', path: resolvePath(ctx.cwd, input.path ?? '.') }),
   async execute(input, ctx) {
     const root = resolvePath(ctx.cwd, input.path ?? '.');
+    if (input.pattern.length > PATTERN_MAX_LEN) {
+      return fail(`正则过长（上限 ${PATTERN_MAX_LEN} 字符）。请收窄为等价的短 pattern；确需复杂匹配时改用 bash 跑 grep/rg。`);
+    }
     let re: RegExp;
     try {
       re = new RegExp(input.pattern, input.ignore_case === true ? 'i' : undefined);
     } catch (e) {
       return fail(`无效的正则：${(e as Error).message}`);
+    }
+    if (NESTED_QUANTIFIER.test(input.pattern)) {
+      return fail(
+        '正则含嵌套量词（形如 `(a+)+`），遇到长行会不可中断地挂死进程。' +
+          '请改写去掉「组内量词 + 组外量词」的嵌套（如 `(?:a|b)+`）；确需此类匹配时改用 bash 跑 grep -E/rg。',
+      );
     }
 
     const results: string[] = [];
