@@ -68,7 +68,8 @@ describe('fingerprintRound：指纹生成', () => {
     expect(f1).toContain('我来搜索。');
     expect(f1).toContain('grep');
     expect(f1).toContain(JSON.stringify({ query: 'foo' }));
-    expect(f1).toContain('找到了 3 处匹配。');
+    // 数值经量级归一（G3），故断言文本骨架而非原始数字：'找到了 3 处匹配。' → '找到了 +#0.3.0 处匹配。'
+    expect(f1).toContain('处匹配。');
     // id 不在指纹里
     expect(f1).not.toContain(messages[2]!.id);
   });
@@ -560,23 +561,26 @@ describe('runAgent：跨回合零进展检测接线', () => {
   ];
 
   it('warn：连续 3 轮相同 tool_use → yield notice（loop.roundLoop.warn）且注入 injection 消息', async () => {
+    // 注意：这里必须用**合法且成功**的 grep 调用（pattern 而非 query）。
+    // 用非法入参会让工具返回 isError=true，从而先触发工具级失败熔断（G3 跨回合计数），
+    // 在零进展检测 warn 之前就终止回合——那是另一条路径的测试。
     const { provider } = makeFakeProvider([
       // 第 1 轮：tool_use（相同调用）
       {
         textChunks: [],
-        finalContent: [toolUseBlock('c1', 'grep', { query: 'foo' })],
+        finalContent: [toolUseBlock('c1', 'grep', { pattern: 'zzz_no_match_zzz' })],
         stopReason: 'tool_use',
       },
       // 第 2 轮：tool_use（相同调用，收到注入警告后仍复读）
       {
         textChunks: [],
-        finalContent: [toolUseBlock('c1', 'grep', { query: 'foo' })],
+        finalContent: [toolUseBlock('c1', 'grep', { pattern: 'zzz_no_match_zzz' })],
         stopReason: 'tool_use',
       },
       // 第 3 轮：tool_use（相同调用，此时 streak=3 → warn，注入后继续）
       {
         textChunks: [],
-        finalContent: [toolUseBlock('c1', 'grep', { query: 'foo' })],
+        finalContent: [toolUseBlock('c1', 'grep', { pattern: 'zzz_no_match_zzz' })],
         stopReason: 'tool_use',
       },
       // 第 4 轮：模型换方法，正常结束
@@ -610,24 +614,24 @@ describe('runAgent：跨回合零进展检测接线', () => {
     const { provider } = makeFakeProvider([
       {
         textChunks: [],
-        finalContent: [toolUseBlock('c1', 'grep', { query: 'foo' })],
+        finalContent: [toolUseBlock('c1', 'grep', { pattern: 'zzz_no_match_zzz' })],
         stopReason: 'tool_use',
       },
       {
         textChunks: [],
-        finalContent: [toolUseBlock('c1', 'grep', { query: 'foo' })],
+        finalContent: [toolUseBlock('c1', 'grep', { pattern: 'zzz_no_match_zzz' })],
         stopReason: 'tool_use',
       },
       {
         textChunks: [],
-        finalContent: [toolUseBlock('c1', 'grep', { query: 'foo' })],
+        finalContent: [toolUseBlock('c1', 'grep', { pattern: 'zzz_no_match_zzz' })],
         stopReason: 'tool_use',
       },
       // 第 4 轮：streak=4 → stop，不进入下一轮（不会调用 provider 第 5 次）
       // 但注意：第 4 轮 round 的 provider 调用是必须的（循环顶部先调 provider 再判）
       {
         textChunks: [],
-        finalContent: [toolUseBlock('c1', 'grep', { query: 'foo' })],
+        finalContent: [toolUseBlock('c1', 'grep', { pattern: 'zzz_no_match_zzz' })],
         stopReason: 'tool_use',
       },
     ]);
@@ -700,16 +704,18 @@ describe('runAgent：跨回合零进展检测接线', () => {
   it('warn 后模型改变调用 → streak 清零，正常推进', async () => {
     // 完整序列（7 轮 tool_use + 1 轮 end_turn = 8 次 provider 调用）：
     // 轮 1-3：相同 grep 调用 → streak 3 → warn
-    // 轮 4-6：注入后模型改为 read_file → streak 从 1 重新累计到 3 → warn
+    // 轮 4-6：注入后模型改变调用（不同 pattern）→ streak 从 1 重新累计到 3 → warn
     // 轮 7：模型改为直接回答 → end_turn，loop 正常收尾
     const { provider } = makeFakeProvider([
-      { textChunks: [], finalContent: [toolUseBlock('c1', 'grep', { query: 'foo' })], stopReason: 'tool_use' },
-      { textChunks: [], finalContent: [toolUseBlock('c1', 'grep', { query: 'foo' })], stopReason: 'tool_use' },
-      { textChunks: [], finalContent: [toolUseBlock('c1', 'grep', { query: 'foo' })], stopReason: 'tool_use' },
+      // 两段都用**合法成功**的调用：非法入参会先触发工具级失败熔断（G3），
+      // 走不到零进展检测的 warn 分支。
+      { textChunks: [], finalContent: [toolUseBlock('c1', 'grep', { pattern: 'zzz_no_match_zzz' })], stopReason: 'tool_use' },
+      { textChunks: [], finalContent: [toolUseBlock('c1', 'grep', { pattern: 'zzz_no_match_zzz' })], stopReason: 'tool_use' },
+      { textChunks: [], finalContent: [toolUseBlock('c1', 'grep', { pattern: 'zzz_no_match_zzz' })], stopReason: 'tool_use' },
       // 第 4 轮：注入后模型换方法（不同 fingerprint → streak 清零）
-      { textChunks: [], finalContent: [toolUseBlock('c2', 'read_file', { path: 'x.ts' })], stopReason: 'tool_use' },
-      { textChunks: [], finalContent: [toolUseBlock('c2', 'read_file', { path: 'x.ts' })], stopReason: 'tool_use' },
-      { textChunks: [], finalContent: [toolUseBlock('c2', 'read_file', { path: 'x.ts' })], stopReason: 'tool_use' },
+      { textChunks: [], finalContent: [toolUseBlock('c2', 'grep', { pattern: 'yyy_other_yyy' })], stopReason: 'tool_use' },
+      { textChunks: [], finalContent: [toolUseBlock('c2', 'grep', { pattern: 'yyy_other_yyy' })], stopReason: 'tool_use' },
+      { textChunks: [], finalContent: [toolUseBlock('c2', 'grep', { pattern: 'yyy_other_yyy' })], stopReason: 'tool_use' },
       // 第 7 轮：再次收到警告后模型换方法，end_turn
       { textChunks: ['已读取'], finalContent: [textBlock('已读取')], stopReason: 'end_turn' },
     ]);
@@ -741,5 +747,73 @@ describe('runAgent：跨回合零进展检测接线', () => {
         (e as { message: string }).message.includes('死循环'),
     );
     expect(stopNotices).toHaveLength(0);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* G3：漂移式重复调用逃逸（数值量级归一）                              */
+/* ------------------------------------------------------------------ */
+
+describe('fingerprintRound：数值量级归一（G3 防漂移逃逸）', () => {
+  it('同量级同尾数不同数值 → 指纹相同（2e10 与 2.4e10 视为同一重复行为）', () => {
+    const msgsA = makeRound(
+      [textBlock('继续计算。'), toolUseBlock('c1', 'bash', { command: 'echo 22000000000' })],
+      [toolResultBlock('c1', '结果 22000000000')],
+    );
+    const msgsB = makeRound(
+      [textBlock('继续计算。'), toolUseBlock('c1', 'bash', { command: 'echo 22400000000' })],
+      [toolResultBlock('c1', '结果 22400000000')],
+    );
+    expect(fingerprintRound(msgsA)).toBe(fingerprintRound(msgsB));
+  });
+
+  it('同量级数值漂移（2.2e10 → 2.24e10）归到同一指纹（审计点名的逃逸场景）', () => {
+    // 同量级桶（10^10，尾数 .2）：漂移发生在数值内部而非量级，属同量级逃逸的主要形态
+    const msgsA = makeRound(
+      [textBlock('迭代中。'), toolUseBlock('c1', 'bash', { command: 'python calc.py 2.2e10' })],
+      [toolResultBlock('c1', '2.2e10')],
+    );
+    const msgsB = makeRound(
+      [textBlock('迭代中。'), toolUseBlock('c1', 'bash', { command: 'python calc.py 2.24e10' })],
+      [toolResultBlock('c1', '2.24e10')],
+    );
+    // 量级归一后同桶（+#10.2）；纯精确匹配下这两个字面量必然不等
+    expect(fingerprintRound(msgsA)).toBe(fingerprintRound(msgsB));
+  });
+
+  it('数字确实不同量级时仍是不同指纹（不把 3 与 30000 混为一谈）', () => {
+    const msgsA = makeRound(
+      [textBlock('查询。'), toolUseBlock('c1', 'grep', { query: 'x' })],
+      [toolResultBlock('c1', '3 处匹配。')],
+    );
+    const msgsB = makeRound(
+      [textBlock('查询。'), toolUseBlock('c1', 'grep', { query: 'x' })],
+      [toolResultBlock('c1', '30000 处匹配。')],
+    );
+    expect(fingerprintRound(msgsA)).not.toBe(fingerprintRound(msgsB));
+  });
+
+  it('非数值文本差异仍然区分指纹（归一不伤召回）', () => {
+    const msgsA = makeRound(
+      [textBlock('查询。'), toolUseBlock('c1', 'grep', { query: 'foo' })],
+      [toolResultBlock('c1', '找到 foo。')],
+    );
+    const msgsB = makeRound(
+      [textBlock('查询。'), toolUseBlock('c1', 'grep', { query: 'foo' })],
+      [toolResultBlock('c1', '找到 bar。')],
+    );
+    expect(fingerprintRound(msgsA)).not.toBe(fingerprintRound(msgsB));
+  });
+
+  it('tool_use.input 内的数值同样归一（模型把参数越推越大的形态）', () => {
+    const msgsA = makeRound(
+      [textBlock('重试。'), toolUseBlock('c1', 'bash', { command: 'sleep', timeout: 22000000000 })],
+      [toolResultBlock('c1', '超时。')],
+    );
+    const msgsB = makeRound(
+      [textBlock('重试。'), toolUseBlock('c1', 'bash', { command: 'sleep', timeout: 22400000000 })],
+      [toolResultBlock('c1', '超时。')],
+    );
+    expect(fingerprintRound(msgsA)).toBe(fingerprintRound(msgsB));
   });
 });

@@ -41,6 +41,26 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **benchmark 评测框架误删测试文件，导致成功率读数无意义（评测正确性 D1）**：`runner.ts` 里「把测试文件置为只读」的实现写成了 `rmSync(file, { mode: 0o444 })`——`rmSync` 的选项只有 `recursive` / `force` / `maxRetries` / `retryDelay`，**没有 `mode`**，该参数被静默忽略，于是这段代码实际在**删除**测试文件。后果是致命的：`setup.sh` 刚 `git commit` 进去的 `src/utils.test.ts` 在 agent 启动前就消失，模型面对一个「没有任何测试」的仓库只能自写临时脚本自查（探针实测 14 回合里 17 次工具调用都在找/复现测试），而 verify 的 `npx vitest run` 因 `No test files found` 退出 1、检查恒判失败——**改对了也是失败**。改为 `chmodSync(file, 0o444)`。实证：修复前 0% / 14 回合 / 128s（超时被杀），修复后 100% / 7 回合 / 36s。详见 `benchmark/HARNESS-AUDIT.md`。
+- **benchmark 临时目录从不清理（D2）**：`executeSetup` 用 `mkdtempSync` 建 `bench-setup-XXXXXX` 存放改写后的 setup 脚本，但全文件只引用该变量两次（都在创建处），从未删除。每次 Windows 运行泄漏一个目录，实测累积 **232 个**。补 `finally` 内的 `rmSync`；实证 `before=232 → after=232`（不再增长），并清理了全部历史残留。
+- **benchmark 判定口径把「框架坏」与「模型错」混为一谈（D3/D4）**：`executeCheck` 用 `catch { return false }` 把所有异常压成同一个布尔值，于是「测试没装好 / 测试文件被删 / vitest 起不来」这类**环境故障**与「模型确实改错了」在仪表盘上是同一个读数。一次实测就暴露了代价：上面那个误删 bug 被读成「模型成功率 50%」。现在：`executeCheck` 区分「断言未通过」与「命令没跑起来」，后者标 `harness_error`；verify 因 agent 未自报成功而跳过时标独立的 `verification_skipped`（它是运行/模型失败，不冒充环境故障）；仪表盘分别新增 `harness_broken` / `harness_broken_rate` 与 `verification_skipped` / `verification_skipped_rate`，并在存在框架故障时于 Markdown 顶部给出显式警告。判据抽到纯函数模块 `benchmark/harnessFailure.ts` 便于单测。
+- **benchmark `success_criteria.max_turns` 读取后从未执行（D5）**：`task.yaml` 声明了 10~20 的回合上限，`runner.ts` 全文却搜不到任何 `max_turns` 引用——读了、存了、没用。实测跑出 14 回合仍按「未超限」处理。现在超限即判失败。
+- **benchmark 任务 repo 缺少本地 `node_modules`，诱导模型去做无谓的依赖安装**：任务 repo 里没有 `node_modules`，虽然 Node 的向上解析能让 `npx vitest run` 跑起来，但**模型看不见这一点**——实测它执行 `ls node_modules/.bin/vitest` 得到 "vitest not found"，据此判断「依赖没装」而去跑 `npm install`（无网络环境下必然失败），白扔 3–4 个回合。新增 `linkParentDeps()` 把父仓 `node_modules` 以 junction 挂进任务 repo，使其行为与一个正常安装过的项目一致。实证：最终验证动作从 `npm install && npx vitest run` 变为干净的 `npx vitest run`，工具调用 11 → 9。
+- **`setup.sh` 死代码调用脆弱 `rm -rf`（D6）**：`single-file-bug/001-off-by-one/setup.sh` 第 10 行是嵌套在**同条件 `else` 分支**里的 `if [ -d "$REPO/.git" ]`——条件恒假、永不执行，而它恰恰是调用 `rm -rf "$REPO"` 的那一支（在启用安全删除的环境下会直接崩）。删除死分支。
+
+### Added
+
+- **benchmark 评测正确性审计报告（`benchmark/HARNESS-AUDIT.md`）**：记录 6 个框架缺陷的现象、根因、实证与修复，并给出措辞约束——**D1 修复并重跑之前，`benchmark/results/` 下 281 次历史运行的成功率数字全部不可引用**（不是模型能力，是评测缺陷的噪声）。
+- **可靠性仪表盘（`pnpm benchmark dashboard`）**：把散落的单次 benchmark 结果跨文件聚合成四条头条指标——成功率、平均 token、**空响应率**、**工具泄漏率**。前两条一直有，后两条是本项目最典型的「不报错故障」，此前无任何聚口可见：空响应源于思考吃满 `max_tokens`（Step 三协议 `reasoning_tokens` 恒为 0，思考消耗不可观测），工具泄漏表现为模型把调用打成纯文本、工具从未执行。新增 `benchmark/dashboard.ts`（纯函数聚合 + 单点 IO 读盘）、CLI `dashboard` 子命令（`--dir` / `--out` / `--badge`）、`pnpm benchmark` 脚本注册（此前只有文档提到、package.json 里从未登记）、shields.io 徽章 URL 输出。判据刻意避开阈值：空响应不用「输出 token < N」（合法短答如「1+1 答 2」输出天然极少，区分它需要任务复杂度、客户端拿不到）；工具泄漏只匹配尖括号标签形态不匹配裸词（裸词字面写在本仓文档里，agent 复述会误报，与 AGENTS.md 既有判据一致）。输出只含描述性统计，不声称因果。回归：`tests/analysis/dashboard.test.ts`（30 用例，重点覆盖两条判据的拦截面与不误伤面，另含框架故障口径）、`tests/analysis/harnessFailure.test.ts`（14 用例，双向钉住框架故障判据——放宽会误判 6 例、收紧会漏判 8 例，均已变异验证）。
+- **夜间可靠性采集工作流（`.github/workflows/reliability.yml`）**：定时 + 手动触发，跑 `pnpm benchmark run` + `dashboard` 并把结果留成 artifact 与 job summary。设计要点：**无 API key 时整体跳过而不报错**（本仓 fork 一定有这个 workflow 但拿不到上游 secret，不做门卫就会每天在所有 fork 上红一次，变成「狼来了」噪音）；仪表盘回归测试不带 secret 也照跑，作为采集链路自身的哨兵；采集只聚合**本轮**结果而非整个 `results/` 目录（目录里混着早期不同 commit / 模型的历史样本，跨代混算出的数字不描述任何真实状态）。
+
+### Fixed（评测修复 · 承接上文）
+
+- **未知工具报错缺少恢复信息（审计 G2）**：原先只回灌一行 `未知工具：X`，模型拿不到任何可用工具名，只能凭记忆再猜一个——跨回合重试因此可以无限循环（每次猜错都得到同一条无线索的消息）。现在错误文本附带当前上下文**实际可用**的工具清单（按 tier 过滤，experimental 关闭时不会宣传模型拿不到的工具），并用编辑距离 + 子串包含两种信号给出「是否想用 nearest：Y？」的近似候选。回归：`tests/tools/unknownToolMessage.test.ts`（7 用例，含「毫不相干的工具名不给候选」的不误伤断言）、`coerce.test.ts` / `executeToolTolerance.test.ts` 各增一条。
+- **漂移式重复调用逃逸跨回合熔断（审计 G3）**：两处独立缺陷。(1) 回合指纹是**精确字符串相等**，而漂移式复读常逐步把某个数值推大，assistant 文本与工具结果都逐轮微变，指纹永不相等、检测器全程静默——现在数值字面量按「符号 + 量级 + 一位尾数」归一（`2.2e10` 与 `2.24e10` 同桶，`3` 与 `30000` 不同桶），使「同一件事在重复做、只是数字在变大」重新落在同一指纹上。(2) `MAX_CONSECUTIVE_TOOL_FAILURES` 计数器建在 `runTurn` 内、每回合归零，于是「本回合失败 2 次 → 回灌 → 下回合再失败 2 次」可无限循环——现在状态提升到 `loop.ts` 持有、跨回合累加，成功一次即归零（`tripped` 位保证同一 run 只熔断一次）。回归：`roundLoop.test.ts` 增 5 例数值归一（含不误伤断言），`runTurnRetryLoop.test.ts` 增 2 例跨回合累计/清零；后者经变异验证——把状态改回每回合新建，「跨回合失败累计到上限」立即变红。
+
 ## [0.1.10] - 2026-09-04
 
 ### Added

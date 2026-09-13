@@ -59,16 +59,16 @@ export function fingerprintRound(messages: StoredMessage[]): string | null {
   let assistantFingerprint = '';
 
   if (typeof assistantContent === 'string') {
-    assistantFingerprint = `t:${assistantContent}`;
+    assistantFingerprint = `t:${normalizeNumericTokens(assistantContent)}`;
   } else if (Array.isArray(assistantContent)) {
     const parts: string[] = [];
     for (const block of assistantContent) {
       if (block.type === 'text') {
         // text 块原文直接参与指纹
-        parts.push(`t:${block.text}`);
+        parts.push(`t:${normalizeNumericTokens(block.text)}`);
       } else if (block.type === 'tool_use') {
         // tool_use 的 name + input 参与指纹，不含 id
-        parts.push(`u:${block.name}:${JSON.stringify(block.input)}`);
+        parts.push(`u:${block.name}:${normalizeInput(block.input)}`);
       }
       // thinking 等非 text/tool_use 块忽略（它们是思考过程，不改变工具调用语义）
     }
@@ -82,7 +82,7 @@ export function fingerprintRound(messages: StoredMessage[]): string | null {
   let toolFingerprint = '';
 
   if (typeof toolContent === 'string') {
-    toolFingerprint = `r:${toolContent}`;
+    toolFingerprint = `r:${normalizeNumericTokens(toolContent)}`;
   } else if (Array.isArray(toolContent)) {
     const parts: string[] = [];
     for (const block of toolContent) {
@@ -92,14 +92,14 @@ export function fingerprintRound(messages: StoredMessage[]): string | null {
       const errFlag = block.is_error === true ? 'e' : 'o';
 
       if (typeof block.content === 'string') {
-        parts.push(`${errFlag}:${block.content}`);
+        parts.push(`${errFlag}:${normalizeNumericTokens(block.content)}`);
       } else if (Array.isArray(block.content)) {
         // 块数组形态：取所有 text 块拼接（忽略图片等不可序列化块）
         const texts: string[] = [];
         for (const inner of block.content) {
           if (inner.type === 'text') texts.push(inner.text);
         }
-        parts.push(`${errFlag}:${texts.join('')}`);
+        parts.push(`${errFlag}:${normalizeNumericTokens(texts.join(''))}`);
       }
       // 无 content 的 tool_result 记为空串
     }
@@ -108,6 +108,71 @@ export function fingerprintRound(messages: StoredMessage[]): string | null {
 
   return `${assistantFingerprint}||${toolFingerprint}`;
 }
+
+/* ------------------------------------------------------------------ */
+/* 数值量级归一（G3：漂移式重复调用逃逸）                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 数值字面量归一化：把数字折叠成「量级 + 尾数前缀」，让 2e10 与 3.6e76 归到同一指纹。
+ *
+ * 为什么需要：指纹原先是**精确字符串相等**，而模型的漂移式复读常常每一步把某个数值
+ * 推大一点（如翻倍计算、递归累乘），assistant 文本与工具结果都逐轮微变，精确相等
+ * 永远不成立——检测器全程静默，循环逃逸。归一到量级后，"同一件事在重复做、只是数字
+ * 在变大" 这一模式才落在同一个指纹上。
+ *
+ * 保留度：符号 + 十的科学计数法，形如 `+#3.4`（正数，10^3 量级，尾数 .4）。
+ * 只保留尾数一位小数是刻意的——再多就退化成精确匹配，量级归一失去意义。
+ * 整数与浮点一律走同一路径（`12` → `+#1.1`，`12.0` 亦同），保证 2e10 与 20000000000
+ * 也归一。科学计数法、普通小数、带正负号的形态都被这条正则吃掉。
+ *
+ * 边界：会误伤「数字本身就是语义」的场景（如结果 `2 errors` 与 `3 errors` 被归一），
+ * 但两者本就属于同一类重复行为，归并到同一指纹是期望行为而非缺陷。
+ */
+const NUMBER_TOKEN = /[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g;
+
+function normalizeNumericTokens(text: string): string {
+  return text.replace(NUMBER_TOKEN, (raw) => numericBucket(raw));
+}
+
+/** 单个数值 → 量级桶标签。无法解析（NaN/Infinity）时原样返回，避免误归。 */
+function numericBucket(raw: string): string {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return raw;
+  if (value === 0) return '±#0';
+  const sign = value < 0 ? '-' : '+';
+  const magnitude = Math.floor(Math.log10(Math.abs(value)));
+  const mantissa = Math.round((Math.abs(value) / 10 ** magnitude) * 10) / 10;
+  return `${sign}#${magnitude}.${mantissa.toFixed(1)}`;
+}
+
+/**
+ * tool_use.input 归一：递归重写对象/数组里的**字符串**数值 token 与数字字面量，
+ * 其余结构（键名、布尔、null）原样保留。
+ *
+ * JSON.stringify 的 replacer 无法表达「把数字 2e10 换成标签」，所以在序列化之前
+ * 先做一次深拷贝式重写，再交给 JSON.stringify。
+ */
+function normalizeInput(input: unknown): string {
+  return JSON.stringify(rewriteNumbers(input));
+}
+
+function rewriteNumbers(value: unknown): unknown {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? numericBucket(String(value)) : String(value);
+  }
+  if (typeof value === 'string') return normalizeNumericTokens(value);
+  if (Array.isArray(value)) return value.map(rewriteNumbers);
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = rewriteNumbers(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 
 /* ------------------------------------------------------------------ */
 /* 检测器（有状态，闭包持有窗口）                                       */

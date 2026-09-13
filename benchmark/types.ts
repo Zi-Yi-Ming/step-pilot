@@ -82,6 +82,19 @@ export interface RunResult {
   failure_reason: string | null;
   checks_passed: number;
   checks_failed: number;
+  /**
+   * 评测框架侧故障标记。**这是为「可信度」而存在的字段。**
+   *
+   * 只记录 verify 命令本身因环境问题无法执行（找不到测试文件、模块解析失败、
+   * 命令不存在等），不把模型超时/错误导致的「verify 未执行」混进来。
+   * `null` 表示没有识别到框架故障。
+   */
+  harness_error: string | null;
+  /**
+   * agent 没有发出终态成功事件，因此 verify 被跳过。
+   * 这是模型/运行状态的失败信号，不是 harness_error；单独字段避免把超时伪装成环境坏。
+   */
+  verification_skipped: boolean;
   events: RawEvent[];
 }
 

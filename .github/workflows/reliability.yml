@@ -1,0 +1,183 @@
+name: Reliability
+
+# 可靠性仪表盘的夜间采集。
+#
+# 为什么单独一个 workflow、不并进 test.yml：
+# 1. 它要花真钱（真调模型 API），不能挂在 push/PR 上；
+# 2. 它要跑几十分钟，塞进 CI 关键路径会拖慢每个人的反馈循环；
+# 3. 它是**观测**不是**门禁**——指标只做记录与产出 artifact，不用来 fail PR。
+#
+# 触发方式：定时 + 手动。默认 03:17 UTC（北京时间 11:17）——避开整点，
+# 整点是 GitHub 调度高峰，定时任务会排队延迟。
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: '每个 task 跑几次'
+        required: false
+        default: '1'
+      task:
+        description: '只跑某个 task（留空跑全部）'
+        required: false
+        default: ''
+      profile:
+        description: 'profile（full / ablation）'
+        required: false
+        default: 'full'
+
+# 只需要读代码 + 写 artifact。不用 contents:write——本 workflow 不回写仓库。
+permissions:
+  contents: read
+
+# 上一轮没跑完就跳过这轮，避免两个采集任务叠着烧额度。
+concurrency:
+  group: reliability-nightly
+  cancel-in-progress: false
+
+jobs:
+  # ------------------------------------------------------------------
+  # 门卫：没有 API key 就整体跳过。
+  #
+  # 为什么必须显式跳过而不是让 benchmark 步自己失败：
+  # 本仓的 fork 与 PR 一定有这个 workflow（它跟着仓库走），但 fork 拿不到
+  # 上游的 secrets。若不做门卫，每天会在所有 fork 上红一次，
+  # 变成「狼来了」的噪音——真出问题时反而没人看。
+  # ------------------------------------------------------------------
+  guard:
+    name: Check API key
+    runs-on: ubuntu-latest
+    outputs:
+      has_key: ${{ steps.check.outputs.has_key }}
+    steps:
+      - id: check
+        env:
+          STEP_PILOT_API_KEY: ${{ secrets.STEP_PILOT_API_KEY }}
+        run: |
+          if [ -n "$STEP_PILOT_API_KEY" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::STEP_PILOT_API_KEY 存在，继续采集"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::未配置 STEP_PILOT_API_KEY，跳过夜间采集（这是预期行为，不是失败）"
+          fi
+
+  # ------------------------------------------------------------------
+  # 语法与纯函数回归：不需要 API key，任何情况下都跑。
+  #
+  # 拆出来的意义：即使门卫判定「无 key 跳过」，也能验证 benchmark 自身的
+  # 聚合逻辑没被改坏——仪表盘是采集链路的**唯一读数入口**，它坏了
+  # 整条链路就是盲的。
+  # ------------------------------------------------------------------
+  unit:
+    name: Dashboard regression
+    runs-on: ubuntu-latest
+    needs: guard
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 只跑仪表盘相关用例：这是纯函数聚合 + 两条判据（空响应/工具泄漏）的拦截面，
+      # 不涉及网络也不花额度，适合放在夜间链路的最前面当"哨兵"。
+      - name: Dashboard tests
+        run: pnpm vitest run tests/analysis/dashboard.test.ts
+
+  collect:
+    name: Collect (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: [guard, unit]
+    if: needs.guard.outputs.has_key == 'true'
+    # 单次运行跑满 15 个 task，超时给足；跑超了宁可整轮丢弃也不要半截数据。
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+
+      # 把 secret 落成 step-pilot 认的 env 变量。runner 通过
+      # `step-pilot -p --output-format stream-json` 起进程，子进程继承本步 env。
+      - name: Run benchmark
+        env:
+          STEP_PILOT_API_KEY: ${{ secrets.STEP_PILOT_API_KEY }}
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.task }}" ]; then
+            ARGS="$ARGS --task ${{ github.event.inputs.task }}"
+          fi
+          if [ -n "${{ github.event.inputs.runs }}" ]; then
+            ARGS="$ARGS --runs ${{ github.event.inputs.runs }}"
+          fi
+          ARGS="$ARGS --profile ${{ github.event.inputs.profile || 'full' }}"
+          ARGS="$ARGS --output benchmark/results/nightly-${GITHUB_RUN_ID}.json"
+          echo "benchmark args: $ARGS"
+          npx tsx benchmark/cli.ts run $ARGS
+
+      # 把本轮产物单独聚合成一份仪表盘 JSON。刻意**不**扫描整个 results/：
+      # 目录里混着历史样本（早期 spawn EFTYPE 失败、不同模型/commit 的数据），
+      # 跨代混算出来的数字不描述任何真实状态，不能当读数。
+      - name: Aggregate this run
+        run: |
+          mkdir -p benchmark/results/nightly-${GITHUB_RUN_ID}
+          mv benchmark/results/nightly-${GITHUB_RUN_ID}.json benchmark/results/nightly-${GITHUB_RUN_ID}/ 2>/dev/null || true
+          npx tsx benchmark/cli.ts dashboard \
+            --dir benchmark/results/nightly-${GITHUB_RUN_ID} \
+            --out benchmark/results/nightly-${GITHUB_RUN_ID}/dashboard.json
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reliability-${{ github.run_id }}
+          path: benchmark/results/nightly-${{ github.run_id }}/
+          retention-days: 90
+
+      # 把仪表盘 Markdown 贴进 job summary——这样不下载 artifact 也能在
+      # Actions 页面上直接看到本轮的四个读数。
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "## Reliability snapshot (run ${{ github.run_id }})"
+            echo ""
+            echo "采集时间：$(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo "commit：\`${GITHUB_SHA::7}\`  profile：\`${{ github.event.inputs.profile || 'full' }}\`"
+            echo ""
+            echo '```'
+            cat benchmark/results/nightly-${GITHUB_RUN_ID}/dashboard.json 2>/dev/null || echo "(无数据)"
+            echo '```'
+            echo ""
+            echo "> 本轮数据仅用于纵向对比同一任务集在时间轴上的变化，不构成对外结论。"
+          } >> "$GITHUB_STEP_SUMMARY"

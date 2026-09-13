@@ -39,6 +39,7 @@
     "start": "node dist/main.js",
     "step-pilot": "node scripts/run-step.mjs",
     "step-pilot:fresh": "node scripts/run-step.mjs --full",
+    "benchmark": "tsx benchmark/cli.ts",
     "prepare": "node scripts/prepare.mjs",
     "prepublishOnly": "npm run build",
     "prepack": "npm run build"

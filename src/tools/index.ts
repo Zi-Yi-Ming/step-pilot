@@ -152,6 +152,71 @@ export function defaultToolNames(ctx: { experimentalToolsEnabled?: boolean }): s
 }
 
 /**
+ * 为未知工具名生成「可用工具清单 + 近似候选」的恢复提示（G2）。
+ *
+ * 背景：此处原先是光秃秃的 `未知工具：X`，模型拿不到任何可用工具名，
+ * 只能凭记忆再猜一个——跨回合重试因此可以无限循环（每次猜错都得到同一条无线索的消息）。
+ * 本函数把「你猜错了」升级为「你猜错了，可选的是这些，你是不是想用那个」。
+ *
+ * 近似判定用编辑距离（Levenshtein）+ 子串包含两种信号，取距离最近者；
+ * 命中阈值放宽到「距离 ≤ max(2, 名字长度/3)」是为了容忍 Flash 的常见拼写偏移
+ * （漏一个下划线、少一个字母、复数形态），同时不至于把毫不相干的工具名凑成候选。
+ *
+ * @param name      模型给出的（未注册的）工具名
+ * @param available 当前上下文实际可用的工具名清单
+ * @returns 形如「未知工具：X。可用工具：a、b…。是否想用 nearest？」的单行提示
+ */
+export function unknownToolMessage(name: string, available: readonly string[]): string {
+  const base = `未知工具：${name}。`;
+  if (available.length === 0) {
+    return `${base}当前上下文没有可用工具。`;
+  }
+  const nearest = nearestToolName(name, available);
+  const list = `可用工具：${available.join('、')}。`;
+  return nearest === undefined
+    ? `${base}${list}`
+    : `${base}${list}是否想用 nearest：${nearest}？`;
+}
+
+/** 在候选清单里找与 name 最接近的一个；无足够接近者返回 undefined。 */
+function nearestToolName(name: string, available: readonly string[]): string | undefined {
+  const target = name.toLowerCase();
+  let best: string | undefined;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const candidate of available) {
+    const lower = candidate.toLowerCase();
+    // 子串包含直接认定（如模型写了 mcp__server__grep 而工具名是 grep）
+    if (lower.includes(target) || target.includes(lower)) return candidate;
+    if (Math.abs(lower.length - target.length) > 4) continue;
+    const distance = levenshtein(lower, target);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = candidate;
+    }
+  }
+  // 阈值随名字长度放宽：短名容 2，长名容 1/3
+  const threshold = Math.max(2, Math.floor(target.length / 3));
+  return bestDistance <= threshold ? best : undefined;
+}
+
+/** 经典编辑距离（滚动数组，O(min(a,b)) 空间）。 */
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const curr = [i];
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1]! + 1, prev[j]! + 1, prev[j - 1]! + cost);
+    }
+    prev = curr;
+  }
+  return prev[b.length]!;
+}
+
+/**
  * 取一次工具调用的资源访问声明（供 runTurn 并行调度冲突判定）。
  * 未知工具 / 未声明 / 入参非法一律按 all（独占串行，安全退化）。
  */
@@ -178,7 +243,9 @@ export async function executeTool(
 ): Promise<ToolResult> {
   const tool = TOOL_MAP.get(name) ?? DYNAMIC_TOOLS.get(name);
   if (tool === undefined) {
-    return fail(`未知工具：${name}`);
+    // 恢复提示用「按 tier 过滤后的实际可用集」，而非全量工具名：
+    // 否则 experimental 关闭时会把 team_* 等隐藏工具宣传给模型，诱导它去调用一个它根本没有的工具。
+    return fail(unknownToolMessage(name, defaultToolNames(ctx)));
   }
   let parsed = tool.schema.safeParse(rawInput);
   if (!parsed.success) {

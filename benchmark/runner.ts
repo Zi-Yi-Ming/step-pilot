@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Task } from './types.js';
+import { isHarnessFailure, type CheckOutcome } from './harnessFailure.js';
 
 export interface RunResult {
   task_id: string;
@@ -130,6 +131,7 @@ export async function runTask(task: Task, profile: string, runIndex: number): Pr
     await removeRepoDir(repoDir);
   }
   await executeSetup(task, repoDir);
+  await linkParentDeps(repoDir);
 
   // Build step-pilot command
   const cmd = getStepPilotCommand();
@@ -188,13 +190,30 @@ export async function runTask(task: Task, profile: string, runIndex: number): Pr
     }
   }
 
-  const success = resultSubtype === 'success';
+  // 判定口径（三条，全部要满足）：
+  // 1. agent 进程自报成功（result 事件的 subtype === 'success'）；
+  // 2. verify 检查全部通过；
+  // 3. 回合数不超过 task 声明的 max_turns（若有声明）。
+  const agentSucceeded = resultSubtype === 'success';
+
+  const maxTurns = task.success_criteria?.max_turns;
+  const turnsExceeded = typeof maxTurns === 'number' && turns > maxTurns;
+
   let checksPassed = 0;
   let checksFailed = 0;
-  if (success && task.verify) {
+  let harnessError: string | null = null;
+  const verificationSkipped = !agentSucceeded;
+
+  if (verificationSkipped) {
+    // agent 没自报成功时，verify 从未执行。单独标记「跳过」，不要冒充 harness_error：
+    // 超时/模型错误导致的未验证是运行失败，不是评测环境坏。
+  } else if (task.verify) {
     const checkResults = await runChecks(task, repoDir);
     checksPassed = checkResults.filter((r) => r.passed).length;
     checksFailed = checkResults.filter((r) => !r.passed).length;
+    // 任一检查命中环境故障特征 → 本次运行不可用于能力统计。
+    const broken = checkResults.find((r) => r.harnessError !== null);
+    if (broken) harnessError = broken.harnessError;
   }
 
   const result = {
@@ -205,7 +224,7 @@ export async function runTask(task: Task, profile: string, runIndex: number): Pr
     provider: 'stepfun',
     step_pilot_commit: getGitCommit(),
     run_index: runIndex,
-    success: success && checksFailed === 0,
+    success: agentSucceeded && checksFailed === 0 && !turnsExceeded && harnessError === null,
     duration_ms: durationMs,
     turns,
     tool_calls: toolCalls,
@@ -219,6 +238,8 @@ export async function runTask(task: Task, profile: string, runIndex: number): Pr
     failure_reason: failureReason,
     checks_passed: checksPassed,
     checks_failed: checksFailed,
+    harness_error: harnessError,
+    verification_skipped: verificationSkipped,
     events,
   };
 
@@ -301,13 +322,40 @@ function captureMetrics(
   }
 }
 
+/**
+ * 把父仓的 `node_modules` 以符号链接/junction 挂进任务 repo。
+ *
+ * 为什么需要：任务 repo 里没有 `node_modules`，而 Node 的模块解析虽然能一路上溯到
+ * `./node_modules`（所以 `npx vitest run` 其实能跑起来），但**agent 看不见这一点**。
+ * 实测（fixed-probe-1/2）中它执行 `ls node_modules/.bin/vitest` → 得到
+ * "vitest not found in node_modules" → 据此判断「依赖没装」→ 去跑 `npm install`，
+ * 白扔 3–4 个回合，并且在无网络环境下会直接失败。
+ *
+ * 这是**评测环境不真实**造成的额外难度，不是模型能力差异——真实项目里
+ * `node_modules` 就在脚下。挂上链接后，任务 repo 的行为与一个正常安装过的
+ * 项目完全一致，模型照常 `npx vitest run` 即可。
+ *
+ * 用 junction（Windows）/ dir 符号链接（POSIX）：失败不影响评测，
+ * 因为向上解析仍然可用，只是拿不到「本地存在」的视觉信号。
+ */
+async function linkParentDeps(repoDir: string): Promise<void> {
+  const { symlinkSync, existsSync: exists } = await import('node:fs');
+  const parentModules = join(__dirname, '..', 'node_modules');
+  const localModules = join(repoDir, 'node_modules');
+  if (!exists(parentModules) || exists(localModules)) return;
+  try {
+    // Windows 上 dir 类型会自动落到 junction，无需管理员权限。
+    symlinkSync(parentModules, localModules, process.platform === 'win32' ? 'junction' : 'dir');
+  } catch { /* 拿不到本地信号也能靠向上解析跑，忽略 */ }
+}
+
 async function executeSetup(task: Task, repoDir: string): Promise<void> {
   const setupContent = task.setup;
   if (!setupContent) return;
 
   try {
     if (process.platform === 'win32') {
-      const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+      const { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync } = await import('node:fs');
       const { execSync } = await import('node:child_process');
       mkdirSync(repoDir, { recursive: true });
       const tmpDir = mkdtempSync(join(dirname(repoDir), 'bench-setup-'));
@@ -333,7 +381,20 @@ async function executeSetup(task: Task, repoDir: string): Promise<void> {
           throw new Error(`exit=${result.status} stderr=${stderr.slice(0, 500)} stdout=${stdout.slice(0, 200)}`);
         }
       } finally {
-        // Make test files read-only so the agent cannot mutate them to fake success.
+        // 清理临时脚本目录：mkdtempSync 建的目录必须显式删除，否则每次 Windows 运行
+        // 都会在 task 目录下留下一个 bench-setup-XXXXXX（实测累积 230 个）。
+        // 失败不影响评测结果，静默忽略即可。
+        try { rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+        // 把测试文件置为只读，避免 agent 改写测试来伪造成功。
+        //
+        // 这里原先是 `rmSync(file, { mode: 0o444 })`——**那是在删文件，不是在改权限**：
+        // rmSync 只认 recursive / force / maxRetries 等选项，mode 被静默忽略，
+        // 于是每个任务跑起来第一件事就是把测试文件删掉。后果是致命的：
+        // setup.sh 刚 `git commit` 进去的 utils.test.ts 立即消失，agent 面对一个
+        // 「没有任何测试」的仓库，只能自己写临时脚本自查（探针实测 14 回合里有 17 次
+        // 工具调用是在找/复现测试），而 verify 的 `npx vitest run` 因
+        // 「No test files found」退出 1，检查恒判失败——**改对了也是失败**。
+        // 正确做法是用 chmodSync 改权限位。
         const testFiles = [
           join(repoDir, 'src', 'utils.test.ts'),
           join(repoDir, 'src', '__tests__', 'client.test.ts'),
@@ -341,7 +402,7 @@ async function executeSetup(task: Task, repoDir: string): Promise<void> {
         ];
         for (const file of testFiles) {
           if (existsSync(file)) {
-            try { rmSync(file, { mode: 0o444, recursive: false }); } catch { /* ignore */ }
+            try { chmodSync(file, 0o444); } catch { /* Windows 上可能无效，忽略 */ }
           }
         }
       }
@@ -359,80 +420,107 @@ async function executeSetup(task: Task, repoDir: string): Promise<void> {
   }
 }
 
-async function runChecks(task: Task, repoDir: string): Promise<Array<{ name: string; passed: boolean }>> {
-  const results: Array<{ name: string; passed: boolean }> = [];
+/**
+ * 单条检查的执行结果。区分「断言未通过」与「命令本身没跑起来」。
+ * 类型与判据都定义在纯函数模块 harnessFailure.ts（便于单测，无需拉起 runner 的 IO）。
+ */
+type CheckResult = CheckOutcome;
+
+async function runChecks(task: Task, repoDir: string): Promise<CheckResult[]> {
+  const results: CheckResult[] = [];
 
   for (const check of task.verify ?? []) {
-    const passed = await executeCheck(check, repoDir);
-    results.push({ name: check.type, passed });
+    results.push(await executeCheck(check, repoDir));
   }
 
   return results;
 }
 
-async function executeCheck(check: { type: string; command?: string; path?: string; pattern?: string; expect?: Record<string, unknown> }, repoDir: string): Promise<boolean> {
+async function executeCheck(check: { type: string; command?: string; path?: string; pattern?: string; expect?: Record<string, unknown> }, repoDir: string): Promise<CheckResult> {
+  const name = check.type;
   switch (check.type) {
     case 'test': {
+      const { execSync } = await import('node:child_process');
+      let output = '';
       try {
-        const { execSync } = await import('node:child_process');
-        const output = execSync(check.command ?? '', {
+        output = execSync(check.command ?? '', {
           cwd: repoDir,
           encoding: 'utf8',
           stdio: 'pipe',
         });
-        if (check.expect?.exit_code !== undefined && check.expect.exit_code !== 0) {
-          return false;
+      } catch (err) {
+        // 失败分两类：断言没过（正常的评测结果）vs 命令根本没跑起来（框架故障）。
+        // 后者必须单列，否则「环境坏了」会被读成「模型改错了」。
+        const e = err as { stdout?: string; stderr?: string; status?: number };
+        const combined = `${e.stdout ?? ''}\n${e.stderr ?? ''}`;
+        const isHarness = isHarnessFailure(combined);
+        output = combined;
+        if (isHarness) {
+          return { name, passed: false, harnessError: 'verify_exec_error' };
         }
+        // 断言未通过：仍走下面的 expect 复核，让它给出确定结论。
+        // （execSync 抛异常说明 exit_code !== 0，而这里声明的期望就是 0，
+        //   所以直接判未通过；保留 expect 复核是为了 stdout_contains 语义完整。）
         if (check.expect?.stdout_contains && !output.includes(check.expect.stdout_contains as string)) {
-          return false;
+          return { name, passed: false, harnessError: null };
         }
-        if (check.expect?.stderr_not_contains && output.toLowerCase().includes((check.expect.stderr_not_contains as string).toLowerCase())) {
-          return false;
-        }
-        return true;
-      } catch {
-        return false;
+        return { name, passed: false, harnessError: null };
       }
+      if (check.expect?.exit_code !== undefined && check.expect.exit_code !== 0) {
+        return { name, passed: false, harnessError: null };
+      }
+      if (check.expect?.stdout_contains && !output.includes(check.expect.stdout_contains as string)) {
+        return { name, passed: false, harnessError: null };
+      }
+      if (check.expect?.stderr_not_contains && output.toLowerCase().includes((check.expect.stderr_not_contains as string).toLowerCase())) {
+        return { name, passed: false, harnessError: null };
+      }
+      return { name, passed: true, harnessError: null };
     }
     case 'file_contains': {
       const filePath = join(repoDir, check.path ?? '');
-      if (!existsSync(filePath)) return false;
+      // 路径不存在：可能是模型删了文件，也可能是 setup 没生成出来。
+      // 前者是模型行为、后者是框架故障，无法从单点判断，故归为断言未通过并留证。
+      if (!existsSync(filePath)) return { name, passed: false, harnessError: null };
       const content = readFileSync(filePath, 'utf8');
       const regex = check.pattern ? new RegExp(check.pattern) : null;
-      return regex ? regex.test(content) : false;
+      return { name, passed: regex ? regex.test(content) : false, harnessError: null };
     }
     case 'file_not_contains': {
       const filePath = join(repoDir, check.path ?? '');
-      if (!existsSync(filePath)) return true;
+      if (!existsSync(filePath)) return { name, passed: true, harnessError: null };
       const content = readFileSync(filePath, 'utf8');
       const regex = check.pattern ? new RegExp(check.pattern) : null;
-      return regex ? !regex.test(content) : true;
+      return { name, passed: regex ? !regex.test(content) : true, harnessError: null };
     }
     case 'file_exists': {
       const filePath = join(repoDir, check.path ?? '');
-      return existsSync(filePath);
+      return { name, passed: existsSync(filePath), harnessError: null };
     }
     case 'command': {
+      const { execSync } = await import('node:child_process');
+      let output = '';
       try {
-        const { execSync } = await import('node:child_process');
-        const output = execSync(check.command ?? '', {
+        output = execSync(check.command ?? '', {
           cwd: repoDir,
           encoding: 'utf8',
           stdio: 'pipe',
         });
-        if (check.expect?.exit_code !== undefined) {
-          // Can't easily check exit code here, assume success if no throw
+      } catch (err) {
+        const e = err as { stdout?: string; stderr?: string };
+        const combined = `${e.stdout ?? ''}\n${e.stderr ?? ''}`;
+        if (isHarnessFailure(combined)) {
+          return { name, passed: false, harnessError: 'verify_exec_error' };
         }
-        if (check.expect?.stdout_contains && !output.includes(check.expect.stdout_contains as string)) {
-          return false;
-        }
-        return true;
-      } catch {
-        return false;
+        return { name, passed: false, harnessError: null };
       }
+      if (check.expect?.stdout_contains && !output.includes(check.expect.stdout_contains as string)) {
+        return { name, passed: false, harnessError: null };
+      }
+      return { name, passed: true, harnessError: null };
     }
     default:
-      return false;
+      return { name, passed: false, harnessError: null };
   }
 }
 

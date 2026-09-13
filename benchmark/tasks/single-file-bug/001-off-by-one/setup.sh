@@ -7,7 +7,6 @@ mkdir -p "$REPO/src"
 if [ -d "$REPO/.git" ]; then
   find "$REPO" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 else
-  if [ -d "$REPO/.git" ]; then find "$REPO" -mindepth 1 -maxdepth 1 -exec rm -rf {} +; else rm -rf "$REPO"; fi
   mkdir -p "$REPO/src"
 fi
 cd "$REPO"

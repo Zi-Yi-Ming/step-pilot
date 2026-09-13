@@ -32,5 +32,7 @@ describe('executeTool 入参容错（Flash 小模型常见格式错误）', () =
     const result = await executeTool('unknown_tool', {}, makeCtx());
     expect(result.isError).toBe(true);
     expect(result.content).toContain('未知工具');
+    // 但仍要带恢复信息（G2）：容错不生效 ≠ 不给线索
+    expect(result.content).toContain('可用工具：');
   });
 });

@@ -23,7 +23,7 @@ import { type StoredMessage, stored } from './message.js';
 import { buildSettleMessage } from './background/notify.js';
 import { crossedLocalMidnight, formatLocalNow } from './nowContext.js';
 import type { WireEvent } from './wirelog.js';
-import { runTurn } from './runTurn.js';
+import { runTurn, type ToolFailureState } from './runTurn.js';
 import { emptyContinuationState, advanceContinuation, checkContinuationSafety } from './continuation.js';
 import { createRoundLoopDetector, fingerprintRound } from './roundLoop.js';
 import { collectFullSuiteCandidates, pickPostGreen } from './postGreen.js';
@@ -384,6 +384,14 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
    */
   const roundLoopDetector = createRoundLoopDetector();
   /**
+   * 跨回合工具失败状态（G3）：runTurn 就地读写，本函数持有生命周期。
+   *
+   * 原实现把计数 Map 建在 runTurn 内部，每回合归零，于是「本回合失败 2 次 → 回灌 →
+   * 下回合再失败 2 次」可无限循环，工具级熔断永不触发。提升到本层后计数跨回合累加，
+   * 成功一次即归零（见 runTurn 的 noteFailure）。
+   */
+  const toolFailures = new Map<string, ToolFailureState>();
+  /**
    * Post-green termination 的 suite 不收缩守卫：本 run 内所有全量 vitest checkpoint
    * （无论绿红）的最大 total。绿 checkpoint 的 total 低于此值 = 套件收缩（删测试凑绿），
    * 不触发提前终止。首绿时为 0（任何 total 均可触发）。
@@ -515,7 +523,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
       ctx,
     );
     const lenBefore = messages.length;
-    const turn = runTurn({ provider, system, tools, ctx, messages, hooks, signal, allowedTools: allowedSet, model, thinking, providerName });
+    const turn = runTurn({ provider, system, tools, ctx, messages, hooks, signal, allowedTools: allowedSet, model, thinking, providerName, toolFailures });
     let step = await turn.next();
     while (!step.done) {
       // 请求级异常落盘（审计）：retry / error 事件在 wire 留下踪迹，否则空响应/断连那轮

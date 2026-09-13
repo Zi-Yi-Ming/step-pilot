@@ -31,10 +31,20 @@ import { toWire } from './wire.js';
 /** 单回合结束原因。overflow = 上下文溢出，交外层循环压缩后重试。max_tokens = 正文被截断。thinking_exhausted = 思考吃满预算、正文零输出。 */
 export type StopReason = 'end_turn' | 'tool_use' | 'aborted' | 'error' | 'overflow' | 'max_tokens' | 'thinking_exhausted';
 
+/** 单个工具的跨回合失败追踪状态。 */
+export interface ToolFailureState {
+  /** 连续失败次数（跨回合存活：runTurn 内累加，loop 层持有，失败成功即归零）。 */
+  consecutive: number;
+  /** 是否已就此工具发过 retry-loop 熔断（同一 run 内只发一次，避免重复终止）。 */
+  tripped: boolean;
+}
+
 /**
- * 连续同工具失败上限：同一工具在单回合内连续失败超过此次数，判定为工具级重试循环。
- * 不提高到更高值：超过 3 次通常意味着工具本身在当前环境下不可用（权限、路径、依赖），
- * 继续重试只会浪费上下文与时间，且下层已有 executeTool 自身异常处理。
+ * 连续同工具失败上限：同一工具连续失败超过此次数，判定为工具级重试循环。
+ *
+ * 计数在**回合之间存活**（G3）：原实现把 Map 建在 runTurn 内部，每回合归零，
+ * 于是「本回合失败 2 次 → 回灌 → 下回合再失败 2 次」可以无限循环，熔断永不触发。
+ * 现在由 loop 层持有状态并在 runTurn 间传递。
  */
 const MAX_CONSECUTIVE_TOOL_FAILURES = 3;
 
@@ -70,6 +80,11 @@ export interface RunTurnOptions {
   thinking?: ThinkingParam | null;
   /** 渠道名（如 stepfun / openai / anthropic），用于空响应诊断上下文。 */
   providerName?: string;
+  /**
+   * 跨回合工具失败状态（G3）。由 loop 层持有并原样传回，runTurn 就地读写。
+   * 缺省时新建（等价旧行为：仅单回合内计数）——子 agent / 测试等单回合调用方无需改动。
+   */
+  toolFailures?: Map<string, ToolFailureState>;
 }
 
 /** 用户主动取消时回灌给模型的 tool_result 文案（区别于系统错误，避免模型自动重试）。 */
@@ -597,9 +612,22 @@ export async function* runTurn(
   // 串行场景（单工具或全部冲突）下事件仍是 start→end 逐个交替，与旧串行实现字节级一致。
   const toolResults: Anthropic.ToolResultBlockParam[] = [];
   const pendingStarts: AgentEvent[] = [];
-  // 连续同工具失败计数：单回合内同一工具真正执行后连续失败超过上限时，判定为工具级重试循环。
-  // 授权拒绝、中断等非工具本身异常不计入；只有 executeTool 抛错才算。
-  const consecutiveFailures = new Map<string, number>();
+  // 连续同工具失败计数：跨回合存活（G3）。状态由 loop 层持有并传入；缺省时新建
+  // （单回合调用方行为不变）。同一工具连续失败超过上限时判定为工具级重试循环。
+  // 授权拒绝、中断等非工具本身异常不计入；只有 executeTool 抛错或 isError 结果才算。
+  const consecutiveFailures = opts.toolFailures ?? new Map<string, ToolFailureState>();
+  /** 记录一次失败并判断是否触发熔断；返回 true = 本回合应终止。 */
+  const noteFailure = (toolName: string): boolean => {
+    const state = consecutiveFailures.get(toolName) ?? { consecutive: 0, tripped: false };
+    state.consecutive += 1;
+    consecutiveFailures.set(toolName, state);
+    if (state.consecutive >= MAX_CONSECUTIVE_TOOL_FAILURES && !state.tripped) {
+      state.tripped = true;
+      retryLoopTool = toolName;
+      return true;
+    }
+    return false;
+  };
   let retryLoopTool: string | undefined;
   const scheduler = new ToolScheduler(
     prepared.map((p) => ({
@@ -623,23 +651,15 @@ export async function* runTurn(
           if (p.result.isError) {
             // MCP 等工具可能在内部消化错误并返回 isError=true（不抛异常），
             // 这类失败同样计入连续失败，否则 retry loop 对 MCP 工具是死代码。
-            const prev = consecutiveFailures.get(p.tu.name) ?? 0;
-            consecutiveFailures.set(p.tu.name, prev + 1);
-            if (prev + 1 >= MAX_CONSECUTIVE_TOOL_FAILURES && retryLoopTool === undefined) {
-              retryLoopTool = p.tu.name;
-            }
+            noteFailure(p.tu.name);
           } else {
-            // 成功执行：重置该工具的连续失败计数
-            consecutiveFailures.set(p.tu.name, 0);
+            // 成功执行：重置该工具的连续失败计数（含 tripped，使后续真故障可再次熔断）
+            consecutiveFailures.set(p.tu.name, { consecutive: 0, tripped: false });
           }
         } catch (e) {
           p.result = { content: `工具 ${p.tu.name} 执行异常：${(e as Error).message}`, isError: true };
           // 连续失败计数：达到上限时标记工具级重试循环（调度器仍在跑，等本轮全部 settle 后统一处理）
-          const prev = consecutiveFailures.get(p.tu.name) ?? 0;
-          consecutiveFailures.set(p.tu.name, prev + 1);
-          if (prev + 1 >= MAX_CONSECUTIVE_TOOL_FAILURES && retryLoopTool === undefined) {
-            retryLoopTool = p.tu.name;
-          }
+          noteFailure(p.tu.name);
         }
       },
       // 429 重排队（第二道防线）：spawn_agent 因限流失败时不直接占槽，重排队尾让出槽位后重试

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import type { Task, Profile } from './types.js';
 import { runTask } from './runner.js';
 import { buildReport, renderMarkdown, writeReport } from './reporter.js';
+import { buildDashboard, badgeUrl, loadRunFiles, renderDashboardMd } from './dashboard.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -17,6 +18,7 @@ Usage:
   pnpm benchmark list
   pnpm benchmark run [options]
   pnpm benchmark report [options]
+  pnpm benchmark dashboard [--dir <results-dir>] [--out <json>] [--badge]
 
 Options:
   --task <id>         Run a specific task
@@ -24,6 +26,11 @@ Options:
   --runs <n>          Number of runs per task (default: 3)
   --output <path>     Output file path (default: benchmark/results/<timestamp>.json)
   --compare <a> <b>   Compare two result files
+
+Dashboard options:
+  --dir <path>        Results directory to scan (default: benchmark/results)
+  --out <path>        Write aggregated dashboard JSON to this path
+  --badge             Print a shields.io badge URL for the success rate
 `);
 }
 
@@ -40,6 +47,9 @@ async function main() {
       break;
     case 'report':
       await generateReport(args);
+      break;
+    case 'dashboard':
+      await generateDashboard(args);
       break;
     case '--help':
     case 'help':
@@ -159,6 +169,42 @@ async function generateReport(args: string[]) {
   console.log(renderMarkdown(report));
 }
 
+/**
+ * dashboard —— 跨多次运行聚合出可靠性仪表盘。
+ *
+ * 与 `report` 的分工：`report` 渲染**单个**结果文件；`dashboard` 扫描**整个结果目录**
+ * （或指定的多个文件）聚合，回答「这一阶段的可靠性是什么水平、哪个任务在退化」。
+ */
+async function generateDashboard(args: string[]) {
+  const dirIndex = args.indexOf('--dir');
+  const outIndex = args.indexOf('--out');
+  const badgeIndex = args.indexOf('--badge');
+
+  const dir = dirIndex >= 0 ? resolve(args[dirIndex + 1]!) : join(__dirname, 'results');
+  const reports = loadRunFiles(dir);
+
+  if (reports.length === 0) {
+    console.error(`No benchmark result files found in: ${dir}`);
+    process.exit(1);
+  }
+
+  const dashboard = buildDashboard(reports);
+  const md = renderDashboardMd(dashboard);
+  console.log(md);
+
+  if (outIndex >= 0) {
+    const outPath = resolve(args[outIndex + 1]!);
+    const outDir = dirname(outPath);
+    if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
+    writeFileSync(outPath, JSON.stringify(dashboard, null, 2) + '\n', 'utf8');
+    console.log(`Dashboard JSON written to: ${outPath}`);
+  }
+
+  if (badgeIndex >= 0) {
+    console.log(`Badge: ${badgeUrl(dashboard)}`);
+  }
+}
+
 function loadTasks(taskId?: string): Task[] {
   const tasksDir = join(__dirname, 'tasks');
   const tasks: Task[] = [];
@@ -175,15 +221,11 @@ function loadTasks(taskId?: string): Task[] {
 
       const content = readFileSync(taskFile, 'utf8');
       const task = parseYamlTask(content, `${category}/${taskDir}`);
-      // If setup is a file path rather than inline script content, read it.
+      // setup 若写的是文件路径（而非内联脚本），在此读入。
       if (task.setup && typeof task.setup === 'string' && !task.setup.includes('\n')) {
         const setupPath = join(__dirname, '..', task.setup);
-        console.error('DEBUG loadTasks task.id=', task.id, 'setupPath=', setupPath, 'exists=', existsSync(setupPath));
         if (existsSync(setupPath)) {
           task.setup = readFileSync(setupPath, 'utf8');
-          console.error('DEBUG loadTasks read setup, new length=', task.setup.length);
-        } else {
-          console.error('DEBUG loadTasks setup file NOT found');
         }
       }
       if (taskId === undefined || task.id === taskId) {
@@ -263,14 +305,6 @@ function parseYamlTask(content: string, id: string): Task {
   }
 
   if (currentCheck) task.verify.push(currentCheck);
-
-      // If setup is a file path rather than inline script content, read it.
-      if (task.setup && typeof task.setup === 'string' && !task.setup.includes('\n')) {
-        const setupPath = join(__dirname, '..', task.setup);
-        if (existsSync(setupPath)) {
-          task.setup = readFileSync(setupPath, 'utf8');
-        }
-      }
 
   return task as Task;
 }
