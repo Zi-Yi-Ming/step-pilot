@@ -19,7 +19,7 @@ Step Pilot 是终端里的编码 agent CLI，由阶跃星辰 Step 系列模型�
 | [交互使用](./interactive.md) | TUI 界面、斜杠命令、快捷键、权限三档、计划模式、模型选择器、插件管理 |
 | [子 agent 与自动化](./agents.md) | spawn_agent、并行执行、dynamic_workflow、goal、后台任务 |
 | [会话管理](./sessions.md) | 持久化、续接与恢复、分叉、压缩、回顾、非交互输出 |
-| [Mission](./mission.md) | 可恢复、可审计、可回放的工程任务：manifest、状态机、事件日志（P0-A 已落地；resume/verify 仍是设计） |
+| [Mission](./mission.md) | 可恢复、可审计、可回放的工程任务：manifest、状态机、事件日志、检查点与恢复分析（verify/prove 仍是设计） |
 | [stream-json 事件流](./stream-json.md) | 被外部程序调用：事件信封契约、全部事件类型、版本与兼容规则 |
 | [技能、插件与 MCP](./skills-and-mcp.md) | SKILL.md 格式、加载层级、extra_skill_dirs、plugin 能力面、MCP |
 | [hooks 机制](./hooks.md) | 生命周期钩子：五个事件、执行与阻断约定、注入 |

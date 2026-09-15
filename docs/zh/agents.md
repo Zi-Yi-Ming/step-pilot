@@ -102,9 +102,9 @@ model: step35
 
 ## Mission 与编排边界
 
-当前 `spawn_agent` 与 `dynamic_workflow` 是编排能力，Mission 是工程任务控制面。Mission 已实现基础事实链（`step mission create / list / show / status / replay`）：manifest、状态机与 append-only 事件日志；把 work unit、子会话 resume、后台任务、checkpoint 和独立 verifier 关联起来仍属后续阶段。
+当前 `spawn_agent` 与 `dynamic_workflow` 是编排能力，Mission 是工程任务控制面。Mission 已实现事实链与恢复分析（`create / start / pause / stop / checkpoint / resume / status / replay`）：manifest、状态机、append-only 事件日志、带 git HEAD 的检查点、以及恢复前的漂移判定与需确认清单。
 
-重要边界：Mission resume 计划保留已完成工作并只重跑失败单元，但当前 `step mission resume` 返回退出码 2（未实现），且不能把 dynamic workflow 的后台 `task_stop` 描述成已完成真正 abort。
+重要边界：`resume` 目前**不启动 agent**——它只重建事实链、判定漂移、列出需要确认的事项，`--confirm` 也只写恢复事件。把恢复真正接回执行（续跑未完成的工作单元）仍是待办。另外不能把 dynamic workflow 的后台 `task_stop` 描述成已完成真正 abort。
 
 详见 [Mission：可恢复工程任务](./mission.md)。
 

@@ -31,12 +31,15 @@ export class MissionTransitionError extends Error {
  * `completed` / `stopped` 无出边：终态不可自动复活，要再来一次就新建 Mission。
  */
 const LEGAL_TRANSITIONS: Record<MissionStatus, readonly MissionStatus[]> = {
+  // planned 没有 recovering 出边：还没开始执行的任务没有东西可恢复。
   planned: ['running', 'blocked', 'stopped'],
   running: ['paused', 'recovering', 'verifying', 'failed', 'blocked', 'stopped'],
-  paused: ['running', 'blocked', 'stopped'],
+  // paused / verifying 都允许进入 recovering：进程可能在暂停期间或验证期间死掉，
+  // 那正是需要「重建事实链再继续」的场景。
+  paused: ['running', 'recovering', 'blocked', 'stopped'],
   // 恢复完成后回到 running 继续推进，或直接进入 verifying（恢复点本身就在验证前）
   recovering: ['running', 'verifying', 'failed', 'blocked', 'stopped'],
-  verifying: ['completed', 'failed', 'blocked', 'running', 'stopped'],
+  verifying: ['completed', 'failed', 'blocked', 'running', 'recovering', 'stopped'],
   // 非终态：允许 resume
   failed: ['running', 'recovering', 'blocked', 'stopped'],
   blocked: ['running', 'recovering', 'paused', 'stopped'],
@@ -107,13 +110,27 @@ export function applyMissionEvent(state: MissionAttemptState, event: MissionEven
       state.lastCheckpointId = event.checkpointId;
       state.checkpointCount += 1;
       break;
-    case 'recovery.started':
+    case 'recovery.started': {
+      // 恢复是一次真实的状态迁移，不是单纯的计数器：
+      // 「正在从 checkpoint 重建」与「正在执行」是两种不同的处境，状态栏要能区分。
+      if (!canTransition(state.status, 'recovering')) {
+        throw new MissionTransitionError(state.status, 'recovering');
+      }
+      state.status = 'recovering';
       state.recoveryCount += 1;
       if (event.fromCheckpointId !== undefined) state.lastCheckpointId = event.fromCheckpointId;
       break;
-    case 'recovery.completed':
-      // 计数已在 started 记过，这里不重复累计
+    }
+    case 'recovery.completed': {
+      // 重建完成 → 回到 running 等待继续推进。
+      // 注意这里**不**恢复成恢复前的状态：恢复前可能是 failed/blocked，
+      // 回到那些状态等于宣称「还没恢复」，与刚记录的事实矛盾。
+      if (!canTransition(state.status, 'running')) {
+        throw new MissionTransitionError(state.status, 'running');
+      }
+      state.status = 'running';
       break;
+    }
     case 'verification.completed': {
       // 验证结果一律记录（它确实发生了），状态是否可迁移另判
       state.lastVerification = { verifierId: event.verifierId, passed: event.passed, ts: event.ts };

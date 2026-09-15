@@ -1,10 +1,12 @@
-# Mission: recoverable engineering tasks (P0-A landed)
+# Mission: recoverable engineering tasks (P0-A + P0-B landed)
 
-> **Status: the basic fact chain is implemented; recovery and verification are still design.**
+> **Status: the fact chain and recovery analysis are implemented; independent verification and the evidence bundle are still design.**
 >
-> Implemented (P0-A): `step mission create / list / show / status / replay` — Mission manifest, append-only event log, pure state machine, explicit warnings for sequence gaps and illegal transitions.
+> Implemented: `step mission create / list / show / status / replay / start / pause / stop / checkpoint / resume` — Mission manifest, append-only event log, pure state machine, checkpoints (with git HEAD alignment), and recovery analysis (drift detection, dangling tool-call detection, confirmation list).
 >
-> Not implemented: `resume` / `verify` / `prove`. Those three commands return exit code 2 instead of pretending to succeed. The recovery loop is P0-B; the independent verifier and evidence bundle are P0-C.
+> Not implemented: `verify` / `prove`. Those two return exit code 2 instead of pretending to succeed (the independent verifier and evidence bundle are P0-C).
+>
+> `resume --confirm` only rebuilds the fact chain and records the recovery — it does **not** start an agent. Wiring it into the PiChat composition root is follow-up work.
 
 ## Why Mission
 
@@ -71,14 +73,25 @@ State semantics:
 
 ## Commands
 
-Implemented (P0-A):
+Lifecycle:
 
 ```bash
 step mission create --objective "Fix duplicate payment charges" --acceptance "pnpm vitest run" --max-turns 30
+step mission start  <mission-id> [--reason "starting"]      # planned/paused/failed/blocked -> running
+step mission pause  <mission-id> [--reason "waiting on X"]  # running -> paused
+step mission stop   <mission-id> [--reason "abandoned"]     # terminal, cannot be revived
 step mission list
-step mission show <mission-id>
+step mission show   <mission-id>
 step mission status <mission-id>
 step mission replay <mission-id>          # read-only replay: no side effects, no notifications, no writes
+```
+
+Recovery:
+
+```bash
+step mission checkpoint <mission-id> --label "payment.ts fixed, unit tests green" [--allow-dirty]
+step mission resume <mission-id>            # read-only recovery analysis
+step mission resume <mission-id> --confirm  # records recovery (recovery.started + recovery.completed -> running)
 ```
 
 `create` options:
@@ -87,14 +100,19 @@ step mission replay <mission-id>          # read-only replay: no side effects, n
 |--------|---------|
 | `--objective <text>` | Task objective, required |
 | `--acceptance <command>[:<expected exit>]` | Repeatable; expected exit defaults to 0. Split only on a **trailing** `:<digits>`, so colons inside the command survive |
-| `--max-turns <n>` / `--max-attempts <n>` | Budget recorded only (P0-A does not enforce) |
+| `--max-turns <n>` / `--max-attempts <n>` | Budget recorded only (not enforced yet) |
 | `--permission <manual\|auto\|yolo>` | Records the intended permission mode |
+| `--session <session id>` | Associates a session so `resume` can find dangling tool calls |
 | `--repo <path>` | Owning repository, defaults to the current directory |
+
+Two deliberate refusals in `checkpoint`:
+
+- **Terminal and `planned` Missions accept no checkpoint**: there is nothing to recover, so recording one would only mislead.
+- **A dirty worktree is refused by default** and requires an explicit `--allow-dirty`. The reason: "allowed by default" would let the resume side read a dirty tree as clean. The caller takes that judgment explicitly, and the event is marked `dirty: true`.
 
 Not implemented (explicitly exit code 2):
 
 ```bash
-step mission resume <mission-id> --from <checkpoint-id>   # P0-B
 step mission verify <mission-id>                          # P0-C
 step mission prove <mission-id> --out mission-proof/       # P0-C
 ```
@@ -108,6 +126,19 @@ The future TUI should also show:
 [Proof] pending — verifier not yet run
 ```
 
+## Recovery analysis (`mission resume`)
+
+`resume` is **read-only** by default: it writes no events, schedules nothing, and sends no notifications. It answers "can we continue, and what is uncertain", leaving "how to continue" to the caller.
+
+The output covers:
+
+- **Resumability**: derived directly from the state machine's transition table (`canTransition(status, 'recovering')`), not a second parallel rule. `planned` (never started) and `completed` / `stopped` (terminal) are not resumable.
+- **Drift**: the last checkpoint's HEAD compared against the current HEAD, classified as `none` / `uncommitted` / `committed` / `unknown`. **`unknown` is a first-class result**: a checkpoint with no recorded HEAD, unavailable git, an empty repository, or a changed HEAD with no listable files (history rewritten) all report "cannot determine" rather than degrading to "no drift".
+- **Associated session**: when the manifest records `--session`, `SessionStore.resume()` detects a trailing dangling `tool_use` (evidence the process died mid-tool) and adds it to the confirmation list.
+- **Confirmation list**: dirty checkpoints, ownership of post-checkpoint changes, dangling tool calls, acceptance criteria never executed. Any uncertainty lands here instead of being waved through because it is "probably fine".
+
+Only `--confirm` writes events: `recovery.started` (-> `recovering`) plus `recovery.completed` (-> `running`). Even with `--confirm` it does not start an agent and does not execute acceptance criteria.
+
 ## Storage layout and honesty constraints
 
 ```text
@@ -120,10 +151,12 @@ Mission events are **not** written into the session `wire.jsonl`: the two lifecy
 Several constraints are deliberately built so the system cannot lie:
 
 - `completed` can **only** be triggered by `verification.completed(passed=true)`. `status_changed` always refuses to set it — forging that event shows up in `status` as a skipped illegal transition, and the state does not change.
+- **Validation happens on the write side**: `appendEvent()` validates against the state machine before appending, so an illegal transition throws and is **never written into the fact source**. The tolerant read path (skip and count) exists only to handle externally edited or hand-edited logs — it is not there to clean up after our own writes.
 - Event `seq` is "current max + 1", not "line count + 1", so gaps are detectable; `status` lists the missing sequence numbers.
 - Corrupt log lines are skipped and counted, and `status` surfaces them as `warning:` lines rather than swallowing them.
-- `replay` is explicitly labeled read-only and never schedules agents, sends notifications, or writes to disk.
+- `replay`, and `resume` without `--confirm`, are explicitly labeled read-only and never schedule agents, send notifications, or write to disk.
 - A Mission created without acceptance criteria gets an explicit note, and will not be judged complete without machine evidence.
+- The state machine tolerates same-state transitions (`from === to`) for **replay** robustness, but the command layer refuses to write a no-op event — no noise in the fact source.
 
 ## Event envelope
 
@@ -132,26 +165,28 @@ Mission events live in their own fact source (`<missionId>.events.jsonl`), one e
 ```json
 {
   "eventId": "evt-3f2a9c1b7d40",
-  "seq": 2,
-  "ts": "2026-09-14T15:00:00.000Z",
-  "missionId": "mission-20260914150000-a4db29",
+  "seq": 3,
+  "ts": "2026-09-15T02:59:09.065Z",
+  "missionId": "mission-20260915025903-b4fc0a",
   "attemptId": "attempt-1",
   "type": "checkpoint.created",
   "checkpointId": "cp-001",
-  "label": "payment.ts fixed, unit tests green"
+  "label": "start: payment.ts located",
+  "gitHead": "bbb574e022f1...",
+  "dirty": false
 }
 ```
 
 Implemented event types:
 
-| type | Payload | Meaning |
-|------|---------|---------|
-| `mission.created` | `repo` `objective` `acceptanceCount` | First event, written by `create` |
-| `mission.status_changed` | `from` `to` `reason?` | Ordinary transition; `to === 'completed'` is **rejected** |
-| `checkpoint.created` | `checkpointId` `label` | Records a recovery point |
-| `recovery.started` | `fromCheckpointId?` `reason` | A recovery begins |
-| `recovery.completed` | `replayedEvents` | Recovery ends, recording how many events were replayed |
-| `verification.completed` | `verifierId` `passed` | `passed=true` is the **only** way into `completed` |
+| type | Payload | State effect | Meaning |
+|------|---------|--------------|---------|
+| `mission.created` | `repo` `objective` `acceptanceCount` | none | First event, written by `create` |
+| `mission.status_changed` | `from` `to` `reason?` | -> `to` | Ordinary transition; `to === 'completed'` is **rejected** |
+| `checkpoint.created` | `checkpointId` `label` `gitHead?` `changedFiles?` `dirty?` | none | Records a recovery point anchored to the HEAD at that moment |
+| `recovery.started` | `fromCheckpointId?` `reason` | -> `recovering` | A recovery begins; illegal on `planned` and terminal states |
+| `recovery.completed` | `replayedEvents` | -> `running` | Recovery ends; returns to `running` rather than the pre-recovery failure state |
+| `verification.completed` | `verifierId` `passed` | -> `completed` / `failed` | `passed=true` is the **only** way into `completed` |
 
 `seq` starts at 1 and increases monotonically for gap detection. Recovery must be read-only replay: it never reschedules agents, sends notifications, or writes new events. Mission resume also cannot automatically roll back side effects in third-party APIs.
 
@@ -206,20 +241,22 @@ v0.1 does not include:
 
 ## Implementation status and known risks
 
-Landed (P0-A):
+Landed:
 
-- Mission manifest, event log, pure state machine, and the `create/list/show/status/replay` commands.
+- **P0-A**: Mission manifest, event log, pure state machine, and the `create/list/show/status/replay` commands.
+- **P0-B**: the `start/pause/stop` lifecycle commands, `checkpoint` (git HEAD alignment, dirty-worktree refusal), and `resume` (drift detection, dangling tool-call detection, confirmation list, `--confirm` to record the recovery).
+- Write-side validation: illegal transitions throw before landing, so the fact source cannot contain illegal events.
 - Event sequence gap detection, corrupt-line counting, explicit warnings for illegal transitions.
-- State bound to verification: `completed` can only be triggered by a passing verification.
-- Regression: `tests/agent/mission/state.test.ts` (19 cases), `tests/agent/mission/store.test.ts` (21 cases).
+- Regression: `tests/agent/mission/state.test.ts` (19 cases), `store.test.ts`, `resume.test.ts` (35 cases).
 
 Still missing:
 
-- **Recovery loop (P0-B)**: Mission is not yet wired to agent orchestration, checkpoint alignment, or subagent resume.
-- **Independent verifier and evidence bundle (P0-C)**: `acceptance` is recorded only; nothing executes it yet, and `mission verify` / `prove` return exit code 2.
+- **Agent orchestration wiring (the rest of P0-B)**: `resume --confirm` only rebuilds the fact chain and records the recovery; it does not start an agent. Wiring it into the PiChat composition root so recovery actually continues the task is still open.
+- **Independent verifier and evidence bundle (P0-C)**: `acceptance` is recorded only; nothing executes it, and `mission verify` / `prove` return exit code 2.
 - **Fault-injection benchmark (P0-D)**: RCR has no data yet.
+- **Effect ledger**: today there is only checkpoint + drift alignment, not a per-side-effect started/completed ledger. "Unresolved side effect -> needs_confirmation" is therefore expressed indirectly through drift, not as a precise effect-level judgment.
 - **Journal identity fingerprints (P1)**: the `dynamic_workflow` journal key still needs script/model/provider/capability/git HEAD fingerprints to avoid incorrect cache hits.
 - **True background abort (P1)**: background `dynamic_workflow` `task_stop` currently only marks killed.
-- **Commits and events are not atomic**: there is no cross-store transaction; drift and recovery boundaries must be explicit.
+- **Commits and events are not atomic**: there is no cross-store transaction, so drift can only be detected after the fact, not prevented.
 
-> Sections marked "implemented" have tests and runtime evidence. Sections marked P0-B/C/D/P1 are design — do not present them as current capabilities.
+> Sections marked "implemented" have tests and runtime evidence. Sections marked P0-C/D or P1 are design — do not present them as current capabilities.

@@ -52,13 +52,22 @@
 
 ### Added
 
-- **Mission 基础事实链（P0-A）**：新增 `step mission` 子命令与 Mission 领域层，把工程任务从「聊天会话」提升为带接受标准、状态机与事件账本的任务容器。已实现 `create` / `list` / `show` / `status` / `replay`；`resume` / `verify` / `prove` 明确返回退出码 2，不假装成功。
+- **Mission 基础事实链（P0-A）**：新增 `step mission` 子命令与 Mission 领域层，把工程任务从「聊天会话」提升为带接受标准、状态机与事件账本的任务容器。首期实现 `create` / `list` / `show` / `status` / `replay`（生命周期与恢复见下方 P0-B 条目）；`verify` / `prove` 明确返回退出码 2，不假装成功。
   - 事实源分离：Mission 事件落在 `~/.step-pilot/missions/<repo 桶>/<missionId>.events.jsonl`，**不写进会话 `wire.jsonl`**——两者生命周期不同，混写会让会话恢复被任务状态污染。
   - 状态机是纯函数且 live/replay 共用一份：`src/agent/mission/state.ts`。`completed` **只能**由 `verification.completed(passed=true)` 触发，`status_changed` 一律拒绝置位——伪造这条事件会在 `status` 里显示为「非法状态迁移被跳过」，状态不变（「模型自报完成不算完成」在代码层面的落点，非文档约定）。
   - 事件 `seq` 取「现有最大序号 + 1」而非「行数 + 1」，缺口因此可检测；`status` 会列出缺失序号。损坏日志行跳过并计数，通过 `warning:` 行显式暴露而不是静默吞掉。
   - `replay` 只读：不调度 agent、不发通知、不写盘。`create` 未给接受标准时给出显式提示（无机器依据不应判完成）。
-  - 回归：`tests/agent/mission/state.test.ts`（19 例）、`tests/agent/mission/store.test.ts`（21 例）。核心不变量经变异验证：注释掉 `completed` 守卫后，「status_changed 一律拒绝直接置 completed」立即变红。
-- **Mission 产品与技术设计文档**：新增 `docs/zh/mission.md` 与 `docs/en/mission.md`，定义 Mission 方向、Session 边界、状态机、RCR 指标、fault-injection benchmark 与 evidence bundle，并标注各阶段实现状态（P0-A 已落地，P0-B/C/D 仍为设计）。
+  - 回归：`tests/agent/mission/state.test.ts`（19 例）、`tests/agent/mission/store.test.ts`。核心不变量经变异验证：注释掉 `completed` 守卫后，「status_changed 一律拒绝直接置 completed」立即变红。
+- **Mission 恢复分析与检查点（P0-B）**：`step mission` 补上生命周期命令与恢复闭环的前半段。
+  - 新增 `start` / `pause` / `stop`：在此之前 Mission 一旦创建就永远停在 `planned`，`checkpoint` 与 `resume` 在实践中根本走不到（端到端冒烟抓出来的洞）。
+  - 新增 `checkpoint`：记录恢复点并锚定当时的 git HEAD 与相对上一个检查点的提交变更。两处刻意拒绝——终态与 `planned` 不接受检查点（无物可恢复）；工作区不干净时默认拒绝，必须显式 `--allow-dirty`（否则 resume 端会把不干净误读成干净），并在事件里标 `dirty: true`。
+  - 新增 `resume`：默认**只读**（不写事件、不调度、不发通知），输出可恢复性、漂移判定、关联会话的悬空工具调用与「需要确认」清单；`--confirm` 才写 `recovery.started` + `recovery.completed` 并把状态推回 `running`。漂移判定把 `unknown` 当**一等结论**：检查点没记 HEAD、git 不可用、空仓、HEAD 变了却列不出文件（rebase 改写历史）都如实报「无法判定」，绝不降级成「无漂移」。`resume` 不启动 agent，也不执行接受标准。
+  - 状态机补两处语义：`recovery.started` 现在是真实迁移（→ `recovering`，在 `planned` 与终态上非法）；`recovery.completed` → `running`（回到 `running` 而非退回恢复前的失败态）。`paused` 与 `verifying` 允许进入 `recovering`（进程可能死在暂停期或验证期）。
+  - **写入侧校验**：`appendEvent()` 落盘前先用状态机校验，非法迁移直接抛错、不写进事实源。此前校验只在读取侧（跳过并计数），意味着非法事件会被真切写进事实源然后每次读取都「跳过并告警」——事实源里长期躺着一堆永远不被采信却永远存在的垃圾。读取侧容错保留，但只用来兜「外部改写 / 手工编辑」。
+  - 命令层拒绝空操作：状态机为**重放容错**允许同状态迁移（`from === to`），但 `start/pause/stop` 不会把「什么也没发生」写成事件。
+  - 新增 `src/agent/mission/git.ts`（只读探测，失败不抛错而是返回 `available: false`）与 `src/agent/mission/resume.ts`（纯函数恢复计划 + 可注入探测）。
+  - 回归：`tests/agent/mission/resume.test.ts`（35 例，含真 git 仓的漂移判定与只读性验证），Mission 套件合计 89 例。两处关键不变量经变异验证——去掉写入侧校验有 3 例变红，去掉 `resume` 只读守卫有 1 例变红。
+- **Mission 产品与技术设计文档**：新增 `docs/zh/mission.md` 与 `docs/en/mission.md`，定义 Mission 方向、Session 边界、状态机、RCR 指标、fault-injection benchmark 与 evidence bundle，并标注各阶段实现状态（事实链与恢复分析已落地，verify/prove 仍为设计）。
 - **benchmark 评测正确性审计报告（`benchmark/HARNESS-AUDIT.md`）**：记录 6 个框架缺陷的现象、根因、实证与修复，并给出措辞约束——**D1 修复并重跑之前，`benchmark/results/` 下 281 次历史运行的成功率数字全部不可引用**（不是模型能力，是评测缺陷的噪声）。
 - **可靠性仪表盘（`pnpm benchmark dashboard`）**：把散落的单次 benchmark 结果跨文件聚合成四条头条指标——成功率、平均 token、**空响应率**、**工具泄漏率**。前两条一直有，后两条是本项目最典型的「不报错故障」，此前无任何聚口可见：空响应源于思考吃满 `max_tokens`（Step 三协议 `reasoning_tokens` 恒为 0，思考消耗不可观测），工具泄漏表现为模型把调用打成纯文本、工具从未执行。新增 `benchmark/dashboard.ts`（纯函数聚合 + 单点 IO 读盘）、CLI `dashboard` 子命令（`--dir` / `--out` / `--badge`）、`pnpm benchmark` 脚本注册（此前只有文档提到、package.json 里从未登记）、shields.io 徽章 URL 输出。判据刻意避开阈值：空响应不用「输出 token < N」（合法短答如「1+1 答 2」输出天然极少，区分它需要任务复杂度、客户端拿不到）；工具泄漏只匹配尖括号标签形态不匹配裸词（裸词字面写在本仓文档里，agent 复述会误报，与 AGENTS.md 既有判据一致）。输出只含描述性统计，不声称因果。回归：`tests/analysis/dashboard.test.ts`（30 用例，重点覆盖两条判据的拦截面与不误伤面，另含框架故障口径）、`tests/analysis/harnessFailure.test.ts`（14 用例，双向钉住框架故障判据——放宽会误判 6 例、收紧会漏判 8 例，均已变异验证）。
 - **夜间可靠性采集工作流（`.github/workflows/reliability.yml`）**：定时 + 手动触发，跑 `pnpm benchmark run` + `dashboard` 并把结果留成 artifact 与 job summary。设计要点：**无 API key 时整体跳过而不报错**（本仓 fork 一定有这个 workflow 但拿不到上游 secret，不做门卫就会每天在所有 fork 上红一次，变成「狼来了」噪音）；仪表盘回归测试不带 secret 也照跑，作为采集链路自身的哨兵；采集只聚合**本轮**结果而非整个 `results/` 目录（目录里混着早期不同 commit / 模型的历史样本，跨代混算出的数字不描述任何真实状态）。

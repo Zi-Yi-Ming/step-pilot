@@ -97,7 +97,7 @@ describe('MissionStore：日志容错与健康告警', () => {
     const path = store.eventsPath(REPO, m.missionId);
     const first = readFileSync(path, 'utf8');
     writeFileSync(path, `${first}${JSON.stringify({ eventId: 'e', seq: 5, ts: 'x', missionId: m.missionId, attemptId: 'attempt-1', type: 'checkpoint.created', checkpointId: 'cp-x', label: 'l' })}\n`);
-    const next = store.appendEvent(REPO, m.missionId, { type: 'recovery.started', reason: 'r' });
+    const next = store.appendEvent(REPO, m.missionId, { type: 'mission.status_changed', from: 'planned', to: 'running' });
     expect(next.seq).toBe(6);
   });
 
@@ -137,8 +137,8 @@ describe('mission 无头命令', () => {
     expect(res.stderr).toContain('未知 mission 子命令');
   });
 
-  it('未实现的 resume / verify / prove 明确返回退出码 2，不假装成功', async () => {
-    for (const sub of ['resume', 'verify', 'prove']) {
+  it('未实现的 verify / prove 明确返回退出码 2，不假装成功', async () => {
+    for (const sub of ['verify', 'prove']) {
       const res = await runMissionCommand([sub, 'mission-x'], REPO, store);
       expect(res.code).toBe(2);
       expect(res.stderr).toContain('尚未实现');
@@ -217,5 +217,93 @@ describe('mission 无头命令', () => {
   it('replay 对不存在的 Mission 返回退出码 1', async () => {
     const res = await runMissionCommand(['replay', 'mission-missing'], REPO, store);
     expect(res.code).toBe(1);
+  });
+});
+
+describe('写入侧校验：非法迁移不落盘', () => {
+  it('appendEvent 对非法迁移抛错，且事实源长度不变', () => {
+    const m = store.create({ repo: REPO, objective: 'o', acceptance: [] });
+    const before = store.load(REPO, m.missionId)!.events.length;
+    // planned → verifying 非法
+    expect(() =>
+      store.appendEvent(REPO, m.missionId, { type: 'mission.status_changed', from: 'planned', to: 'verifying' }),
+    ).toThrow(/非法 Mission 状态迁移/);
+    expect(store.load(REPO, m.missionId)!.events.length).toBe(before);
+  });
+
+  it('appendEvent 拒绝 status_changed 直接置 completed（不落盘）', () => {
+    const m = store.create({ repo: REPO, objective: 'o', acceptance: [] });
+    store.appendEvent(REPO, m.missionId, { type: 'mission.status_changed', from: 'planned', to: 'running' });
+    store.appendEvent(REPO, m.missionId, { type: 'mission.status_changed', from: 'running', to: 'verifying' });
+    const before = store.load(REPO, m.missionId)!.events.length;
+    expect(() =>
+      store.appendEvent(REPO, m.missionId, { type: 'mission.status_changed', from: 'verifying', to: 'completed' }),
+    ).toThrow();
+    const view = store.load(REPO, m.missionId)!;
+    expect(view.events.length).toBe(before);
+    expect(view.state.status).toBe('verifying');
+  });
+
+  it('appendEvent 对不存在的 Mission 抛错', () => {
+    expect(() =>
+      store.appendEvent(REPO, 'mission-nope', { type: 'mission.status_changed', from: 'planned', to: 'running' }),
+    ).toThrow(/不存在/);
+  });
+
+  it('verification.completed(passed) 是唯一能落盘的 completed 入口', () => {
+    const m = store.create({ repo: REPO, objective: 'o', acceptance: [] });
+    store.appendEvent(REPO, m.missionId, { type: 'mission.status_changed', from: 'planned', to: 'running' });
+    store.appendEvent(REPO, m.missionId, { type: 'mission.status_changed', from: 'running', to: 'verifying' });
+    store.appendEvent(REPO, m.missionId, { type: 'verification.completed', verifierId: 'vitest', passed: true });
+    const view = store.load(REPO, m.missionId)!;
+    expect(view.state.status).toBe('completed');
+    expect(view.state.lastVerification?.passed).toBe(true);
+    expect(view.state.skippedTransitions).toBe(0); // 全是合法迁移，一条都没被跳过
+  });
+});
+
+describe('mission 生命周期命令 start / pause / stop', () => {
+  it('start 把 planned 推到 running', async () => {
+    const created = await runMissionCommand(['create', '--objective', 'o'], REPO, store);
+    const id = /mission-[0-9a-z-]+/.exec(created.stdout ?? '')![0];
+    const res = await runMissionCommand(['start', id, '--reason', '开工'], REPO, store);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain('planned → running');
+    expect(store.load(REPO, id)!.state.status).toBe('running');
+    expect(store.load(REPO, id)!.state.lastReason).toBe('开工');
+  });
+
+  it('pause 只对 running 合法；重复 pause 被拒绝且不写盘', async () => {
+    const created = await runMissionCommand(['create', '--objective', 'o'], REPO, store);
+    const id = /mission-[0-9a-z-]+/.exec(created.stdout ?? '')![0];
+    await runMissionCommand(['start', id], REPO, store);
+    expect((await runMissionCommand(['pause', id], REPO, store)).code).toBe(0);
+    const before = store.load(REPO, id)!.events.length;
+    const again = await runMissionCommand(['pause', id], REPO, store);
+    expect(again.code).toBe(1);
+    expect(again.stderr).toContain('无需迁移');
+    expect(store.load(REPO, id)!.events.length).toBe(before);
+  });
+
+  it('stop 是终态：之后再 start 被拒绝', async () => {
+    const created = await runMissionCommand(['create', '--objective', 'o'], REPO, store);
+    const id = /mission-[0-9a-z-]+/.exec(created.stdout ?? '')![0];
+    await runMissionCommand(['start', id], REPO, store);
+    expect((await runMissionCommand(['stop', id], REPO, store)).code).toBe(0);
+    const res = await runMissionCommand(['start', id], REPO, store);
+    expect(res.code).toBe(1);
+    expect(store.load(REPO, id)!.state.status).toBe('stopped');
+  });
+
+  it('planned 上直接 stop 合法（放弃未开始的任务）', async () => {
+    const created = await runMissionCommand(['create', '--objective', 'o'], REPO, store);
+    const id = /mission-[0-9a-z-]+/.exec(created.stdout ?? '')![0];
+    expect((await runMissionCommand(['stop', id], REPO, store)).code).toBe(0);
+  });
+
+  it('start 缺少 id 时给出用法', async () => {
+    const res = await runMissionCommand(['start'], REPO, store);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain('usage: step mission start');
   });
 });

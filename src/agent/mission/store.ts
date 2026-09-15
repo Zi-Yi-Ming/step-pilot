@@ -12,7 +12,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renam
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { workdirKey } from '../../session/store.js';
-import { replayMissionEvents } from './state.js';
+import { applyMissionEvent, replayMissionEvents } from './state.js';
 import {
   MISSION_FORMAT_VERSION,
   MISSION_MANIFEST_VERSION,
@@ -31,6 +31,8 @@ export interface CreateMissionInput {
   objective: string;
   acceptance: MissionAcceptance[];
   policy?: MissionPolicy;
+  /** 关联的会话 id（可选）：让 resume 能找回悬空 tool_use。 */
+  sessionId?: string;
   /** 测试可注入固定 missionId。 */
   missionId?: string;
   /** 测试可注入固定时间戳。 */
@@ -46,7 +48,14 @@ export interface MissionLogHealth {
 /** 事件日志尾部追加的入参：seq / ts / eventId 由 store 补齐。 */
 export type MissionEventInput =
   | { type: 'mission.status_changed'; from: MissionStatus; to: MissionStatus; reason?: string }
-  | { type: 'checkpoint.created'; checkpointId: string; label: string }
+  | {
+      type: 'checkpoint.created';
+      checkpointId: string;
+      label: string;
+      gitHead?: string;
+      changedFiles?: string[];
+      dirty?: boolean;
+    }
   | { type: 'recovery.started'; fromCheckpointId?: string; reason: string }
   | { type: 'recovery.completed'; replayedEvents: number }
   | { type: 'verification.completed'; verifierId: string; passed: boolean };
@@ -56,6 +65,31 @@ export type MissionEventInput =
  * 否则调用方可以凭空再插一条「创建」事件，把事实链读成两次创建。
  */
 type CreatedEventInput = { type: 'mission.created'; repo: string; objective: string; acceptanceCount: number };
+
+/**
+ * 由现有事件构造下一条事件（补齐 seq / ts / eventId / missionId）。
+ *
+ * seq 取「现有最大 seq + 1」，不是「行数 + 1」——后者在日志有缺口时会复用已用过的序号，
+ * 让缺口检测失效。ts / eventId 由这里补齐，调用方不自己造。
+ */
+function buildEvent(
+  existing: readonly MissionEvent[],
+  missionId: string,
+  input: MissionEventInput | CreatedEventInput,
+): MissionEvent {
+  let maxSeq = 0;
+  for (const e of existing) {
+    if (e.seq > maxSeq) maxSeq = e.seq;
+  }
+  return {
+    eventId: newEventId(),
+    seq: maxSeq + 1,
+    ts: new Date().toISOString(),
+    missionId,
+    attemptId: 'attempt-1',
+    ...input,
+  } as MissionEvent;
+}
 
 export class MissionStore {
   private readonly baseDir: string;
@@ -100,10 +134,11 @@ export class MissionStore {
       acceptance: input.acceptance,
       policy: input.policy ?? {},
       createdAt: ts,
+      ...(input.sessionId !== undefined && input.sessionId !== '' ? { sessionId: input.sessionId } : {}),
     };
     writeAtomic(manifestPath, JSON.stringify(manifest, null, 2));
-    // 首条事件：写入时用 append 的同一套 seq 逻辑（此时日志必然为空 → seq=1）
-    this.append(input.repo, missionId, {
+    // 首条事件：走同一套追加路径（此时日志必然为空 → seq=1；mission.created 不改变状态，恒合法）
+    this.appendValidated(input.repo, missionId, {
       type: 'mission.created',
       repo: input.repo,
       objective: input.objective,
@@ -113,32 +148,35 @@ export class MissionStore {
   }
 
   /**
-   * 追加一条事件。
+   * 追加一条事件，**写入前先用状态机校验**。
    *
-   * seq 取「现有最大 seq + 1」，不是「行数 + 1」——后者在日志有缺口时会复用已用过的序号，
-   * 让缺口检测失效。ts / eventId 由本方法补齐，调用方不自己造。
+   * 为什么校验必须在写入侧：读取侧（replayMissionEvents）是容错的——它跳过非法迁移并计数。
+   * 如果写入侧不校验，非法事件会被真真切切写进事实源，然后每次读取都「跳过并告警」，
+   * 事实源里于是长期躺着一堆永远不被采信、却永远存在的垃圾。校验前移后，
+   * 盘上只可能出现合法事件，读取侧的容错只用来兜「外部改写 / 手工编辑」这一种情况。
+   *
+   * 代价：每次追加都要读一遍日志并重放（P0 阶段日志很小，可接受；
+   * 日志增长后再引入内存态缓存，但**不要**为了省这次读而放弃写入侧校验）。
+   *
+   * @throws MissionTransitionError 非法迁移；@throws Error Mission 不存在
    */
   appendEvent(repo: string, missionId: string, input: MissionEventInput): MissionEvent {
-    return this.append(repo, missionId, input);
+    return this.appendValidated(repo, missionId, input);
   }
 
-  /** 内部统一追加路径：公开入参与 created 事件共用同一套 seq / id 逻辑。 */
-  private append(repo: string, missionId: string, input: MissionEventInput | CreatedEventInput): MissionEvent {
-    const dir = this.dirFor(repo);
-    mkdirSync(dir, { recursive: true });
-    const existing = this.readEvents(repo, missionId).events;
-    let maxSeq = 0;
-    for (const e of existing) {
-      if (e.seq > maxSeq) maxSeq = e.seq;
+  /** 统一追加路径：公开入参与 created 事件共用同一套 seq 逻辑与写入前校验。 */
+  private appendValidated(
+    repo: string,
+    missionId: string,
+    input: MissionEventInput | CreatedEventInput,
+  ): MissionEvent {
+    const view = this.load(repo, missionId);
+    if (view === null) {
+      throw new Error(`Mission 不存在：${missionId}`);
     }
-    const base = {
-      eventId: newEventId(),
-      seq: maxSeq + 1,
-      ts: new Date().toISOString(),
-      missionId,
-      attemptId: 'attempt-1',
-    };
-    const event = { ...base, ...input } as MissionEvent;
+    const event = buildEvent(view.events, missionId, input);
+    // 在副本上校验：非法迁移在落盘前抛出，事实源保持干净
+    applyMissionEvent({ ...view.state }, event);
     appendFileSync(this.eventsPath(repo, missionId), `${JSON.stringify(event)}\n`, 'utf8');
     return event;
   }

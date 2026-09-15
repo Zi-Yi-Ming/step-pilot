@@ -62,6 +62,14 @@ export interface MissionManifest {
   acceptance: MissionAcceptance[];
   policy: MissionPolicy;
   createdAt: string;
+  /**
+   * 关联的会话 id（可选）。
+   *
+   * 存在的意义：进程死在工具调用中途时，悬空 tool_use 记录在**会话**里而不在
+   * Mission 事件里。resume 想回答「上次是不是断在工具中途」，就必须能找回那个会话。
+   * 缺省时 resume 只是少一路信号，不报错。
+   */
+  sessionId?: string;
 }
 
 /**
@@ -99,6 +107,15 @@ export type MissionEvent =
       type: 'checkpoint.created';
       checkpointId: string;
       label: string;
+      /**
+       * 建立检查点时的 HEAD sha。resume 用它回答「检查点之后仓库动了没有」。
+       * 非 git 仓 / 空仓时缺省——此时漂移不可判定，resume 会如实标注。
+       */
+      gitHead?: string;
+      /** 相对上一个检查点，提交层面的变更文件。 */
+      changedFiles?: string[];
+      /** 建检查点那一刻工作区是否不干净。脏检查点不能当干净基线。 */
+      dirty?: boolean;
     })
   | (MissionEventBase & {
       type: 'recovery.started';

@@ -107,9 +107,9 @@ Parallel sub-agents are additionally bound by the concurrency limit of `[subagen
 
 ## Mission and orchestration boundary
 
-`spawn_agent` and `dynamic_workflow` are orchestration capabilities; Mission is the engineering-task control plane. Mission's basic fact chain is implemented (`step mission create / list / show / status / replay`): manifest, state machine, and append-only event log. Associating work units, subagent resume, background tasks, checkpoints, and independent verification is still a later stage.
+`spawn_agent` and `dynamic_workflow` are orchestration capabilities; Mission is the engineering-task control plane. Mission's fact chain and recovery analysis are implemented (`create / start / pause / stop / checkpoint / resume / status / replay`): manifest, state machine, append-only event log, checkpoints anchored to git HEAD, and pre-recovery drift detection with a confirmation list.
 
-Important boundary: Mission resume is intended to preserve completed work and rerun only failed units, but `step mission resume` currently returns exit code 2 (not implemented), and background dynamic-workflow `task_stop` must not be described as a completed true abort.
+Important boundary: `resume` does **not** start an agent today — it rebuilds the fact chain, judges drift, and lists what needs confirmation; `--confirm` only writes the recovery events. Wiring recovery back into execution (continuing the unfinished work units) is still open. Also, background dynamic-workflow `task_stop` must not be described as a completed true abort.
 
 See [Mission: recoverable engineering tasks](./mission.md).
 

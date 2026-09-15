@@ -1,10 +1,12 @@
-# Mission：可恢复工程任务（P0-A 已落地）
+# Mission：可恢复工程任务（P0-A + P0-B 已落地）
 
-> **状态：基础事实链已实现，恢复与验证仍是设计。**
+> **状态：事实链与恢复分析已实现；独立验证与证据包仍是设计。**
 >
-> 已实现（P0-A）：`step mission create / list / show / status / replay`——Mission manifest、append-only 事件日志、纯函数状态机、事件序号缺口与非法迁移的显式告警。
+> 已实现：`step mission create / list / show / status / replay / start / pause / stop / checkpoint / resume`——Mission manifest、append-only 事件日志、纯函数状态机、检查点（含 git HEAD 对齐）、恢复分析（漂移判定 + 悬空工具调用检测 + 需确认清单）。
 >
-> 未实现：`resume` / `verify` / `prove`。这三个命令当前明确返回退出码 2，不会假装成功。恢复闭环属 P0-B，独立 verifier 与 evidence bundle 属 P0-C。
+> 未实现：`verify` / `prove`。这两个命令当前明确返回退出码 2，不会假装成功（独立 verifier 与 evidence bundle 属 P0-C）。
+>
+> `resume --confirm` 只重建事实链并记录恢复事件，**不启动 agent**——接线到 PiChat 组合根属后续工作。
 
 ## 为什么需要 Mission
 
@@ -71,14 +73,25 @@ planned → running → paused → recovering → verifying → completed
 
 ## 命令入口
 
-已实现（P0-A）：
+生命周期：
 
 ```bash
 step mission create --objective "修复支付模块重复扣款" --acceptance "pnpm vitest run" --max-turns 30
+step mission start  <mission-id> [--reason "开工"]     # planned/paused/failed/blocked → running
+step mission pause  <mission-id> [--reason "等外部依赖"]  # running → paused
+step mission stop   <mission-id> [--reason "放弃"]     # 终态，不可复活
 step mission list
-step mission show <mission-id>
+step mission show   <mission-id>
 step mission status <mission-id>
 step mission replay <mission-id>          # 只读重放：不执行副作用、不发送通知、不写盘
+```
+
+恢复：
+
+```bash
+step mission checkpoint <mission-id> --label "改完 payment.ts，单测通过" [--allow-dirty]
+step mission resume <mission-id>            # 只读恢复分析
+step mission resume <mission-id> --confirm  # 记录恢复（recovery.started + recovery.completed → running）
 ```
 
 `create` 的选项：
@@ -87,14 +100,19 @@ step mission replay <mission-id>          # 只读重放：不执行副作用、
 |------|------|
 | `--objective <文本>` | 任务目标，必填 |
 | `--acceptance <命令>[:<期望退出码>]` | 可重复；缺省期望退出码 0。只在**末尾**的 `:<数字>` 上切分，命令内的冒号不会被切坏 |
-| `--max-turns <n>` / `--max-attempts <n>` | 预算登记（P0-A 只记录，不强制） |
+| `--max-turns <n>` / `--max-attempts <n>` | 预算登记（当前只记录，不强制） |
 | `--permission <manual\|auto\|yolo>` | 记录创建时的权限意图 |
+| `--session <会话 id>` | 关联会话，让 `resume` 能发现悬空工具调用 |
 | `--repo <路径>` | 任务所属仓库，缺省当前目录 |
+
+`checkpoint` 的两个刻意拒绝：
+
+- **终态与 planned 不接受检查点**：没有可恢复的东西，记录了只会误导。
+- **工作区不干净时默认拒绝**，必须显式 `--allow-dirty`。理由是「默认允许」会让 resume 端把不干净误读成干净；让调用方显式承担这个判断，并在事件里标 `dirty: true`。
 
 未实现（明确返回退出码 2，不假装成功）：
 
 ```bash
-step mission resume <mission-id> --from <checkpoint-id>   # P0-B
 step mission verify <mission-id>                          # P0-C
 step mission prove <mission-id> --out mission-proof/       # P0-C
 ```
@@ -108,6 +126,26 @@ step mission prove <mission-id> --out mission-proof/       # P0-C
 [Proof] pending — verifier not yet run
 ```
 
+## 恢复分析（`mission resume`）
+
+`resume` 默认**只读**：不写事件、不调度、不发通知。它回答的是「现在能不能继续、有哪些不确定」，
+把「怎么继续」留给调用方。
+
+输出包含：
+
+- **可恢复性**：直接复用状态机的迁移表（`canTransition(status, 'recovering')`），不另立一套判断。
+  `planned`（尚未开始）与 `completed` / `stopped`（终态）不可恢复。
+- **漂移判定**：最近检查点的 HEAD 与当前 HEAD 对比，分四类——`none` / `uncommitted` / `committed` / `unknown`。
+  **`unknown` 是一等结论**：检查点没记 HEAD、git 不可用、空仓、HEAD 变了却列不出文件（rebase 改写历史）
+  都会如实报「无法判定」，绝不降级成「无漂移」。
+- **关联会话**：manifest 记了 `--session` 时，用 `SessionStore.resume()` 检出末尾悬空 `tool_use`
+  （进程死在工具中途的证据），并进「需要确认」。
+- **需要确认清单**：脏检查点、检查点后的变更归属、悬空工具调用、接受标准尚未执行……
+  任何一项不确定都进这里，不因为「大概率没事」静默放行。
+
+`--confirm` 才写事件：`recovery.started`（→ `recovering`）+ `recovery.completed`（→ `running`）。
+即使加了 `--confirm`，它也不会自动启动 agent，也不会执行接受标准。
+
 ## 存储布局与诚实性约束
 
 ```text
@@ -120,10 +158,12 @@ Mission 事件**不写进会话 `wire.jsonl`**：两者生命周期不同，混�
 几条刻意设计成「不会说谎」的约束：
 
 - `completed` **只能**由 `verification.completed(passed=true)` 触发。`status_changed` 一律拒绝置位 completed——伪造这条事件会在 `status` 里被标为「非法状态迁移被跳过」，且状态不变。
+- **校验在写入侧**：`appendEvent()` 落盘前先用状态机校验，非法迁移直接抛错、**不写进事实源**。读取侧的容错（跳过并计数）只用来兜「外部改写 / 手工编辑」这一种情况，不是给自家写入擦屁股的。
 - 事件 `seq` 取「现有最大序号 + 1」而非「行数 + 1」，缺口因此可检测；`status` 会列出缺失序号。
 - 日志损坏行会被跳过并计数，`status` 输出 `warning:` 行显式暴露，而不是静默吞掉。
-- `replay` 明确标注只读，且不会因为重放而调度 agent、发送通知或写盘。
+- `replay` 与不带 `--confirm` 的 `resume` 明确标注只读，且不会因为重放而调度 agent、发送通知或写盘。
 - 没有接受标准的 Mission 在 `create` 时会得到提示，且不会因为没有依据而被判完成。
+- 状态机为了**重放容错**允许同状态迁移（`from === to`），但命令层拒绝把空操作写成事件——不往事实源里灌噪音。
 
 ## Event envelope
 
@@ -132,26 +172,28 @@ Mission 事件建立在独立的事实源之上（`<missionId>.events.jsonl`）�
 ```json
 {
   "eventId": "evt-3f2a9c1b7d40",
-  "seq": 2,
-  "ts": "2026-09-14T15:00:00.000Z",
-  "missionId": "mission-20260914150000-a4db29",
+  "seq": 3,
+  "ts": "2026-09-15T02:59:09.065Z",
+  "missionId": "mission-20260915025903-b4fc0a",
   "attemptId": "attempt-1",
   "type": "checkpoint.created",
   "checkpointId": "cp-001",
-  "label": "改完 payment.ts，单测通过"
+  "label": "起点：已定位到 payment.ts",
+  "gitHead": "bbb574e022f1...",
+  "dirty": false
 }
 ```
 
 已实现的事件类型：
 
-| type | 载荷 | 说明 |
-|------|------|------|
-| `mission.created` | `repo` `objective` `acceptanceCount` | 首条事件，由 `create` 写入 |
-| `mission.status_changed` | `from` `to` `reason?` | 常规状态迁移；**不允许** `to === 'completed'` |
-| `checkpoint.created` | `checkpointId` `label` | 记录一个可恢复点 |
-| `recovery.started` | `fromCheckpointId?` `reason` | 开始一次恢复 |
-| `recovery.completed` | `replayedEvents` | 恢复结束，记录本次重放条数 |
-| `verification.completed` | `verifierId` `passed` | `passed=true` 是进入 `completed` 的**唯一**入口 |
+| type | 载荷 | 状态影响 | 说明 |
+|------|------|----------|------|
+| `mission.created` | `repo` `objective` `acceptanceCount` | 无 | 首条事件，由 `create` 写入 |
+| `mission.status_changed` | `from` `to` `reason?` | → `to` | 常规状态迁移；**不允许** `to === 'completed'` |
+| `checkpoint.created` | `checkpointId` `label` `gitHead?` `changedFiles?` `dirty?` | 无 | 记录一个恢复点，并锚定当时的 HEAD |
+| `recovery.started` | `fromCheckpointId?` `reason` | → `recovering` | 开始一次恢复；`planned` / 终态上非法 |
+| `recovery.completed` | `replayedEvents` | → `running` | 恢复结束；回到 `running` 而不是退回恢复前的失败态 |
+| `verification.completed` | `verifierId` `passed` | → `completed` / `failed` | `passed=true` 是进入 `completed` 的**唯一**入口 |
 
 `seq` 从 1 开始单调递增，用于缺口检测。恢复必须是只读重放：不能在 replay 中重新调度 agent、发送通知或写入新的事件。第三方 API 副作用也不会因为 Mission resume 自动回滚。
 
@@ -206,20 +248,27 @@ v0.1 不做：
 
 ## 实现状态与已知风险
 
-已落地（P0-A）：
+已落地：
 
-- Mission manifest、事件日志、纯函数状态机、`create/list/show/status/replay` 命令。
+- **P0-A**：Mission manifest、事件日志、纯函数状态机、`create/list/show/status/replay` 命令。
+- **P0-B**：`start/pause/stop` 生命周期命令、`checkpoint`（git HEAD 对齐 + 脏工作区拒绝）、
+  `resume`（漂移判定 + 悬空工具调用检测 + 需确认清单 + `--confirm` 记录恢复）。
+- 写入侧校验：非法迁移在落盘前抛错，事实源不会出现非法事件。
 - 事件序号缺口检测、损坏行计数、非法迁移显式告警。
-- 状态与「完成」的绑定：`completed` 只能由通过的验证触发。
-- 回归：`tests/agent/mission/state.test.ts`（19 例）、`tests/agent/mission/store.test.ts`（21 例）。
+- 回归：`tests/agent/mission/state.test.ts`（19 例）、`store.test.ts`、`resume.test.ts`（35 例）。
 
 仍未完成：
 
-- **resume 闭环（P0-B）**：还没有把 Mission 与 agent 编排、checkpoint 对齐、子会话 resume 接起来。
-- **独立 verifier 与 evidence bundle（P0-C）**：`acceptance` 目前只是登记，没有任何代码执行它；`mission verify` / `prove` 返回退出码 2。
+- **接入 agent 编排（P0-B 后半）**：`resume --confirm` 只重建事实链并记录恢复，不启动 agent；
+  接线到 PiChat 组合根、让恢复真正续跑任务，仍是待办。
+- **独立 verifier 与 evidence bundle（P0-C）**：`acceptance` 目前只是登记，没有任何代码执行它；
+  `mission verify` / `prove` 返回退出码 2。
 - **fault-injection benchmark（P0-D）**：RCR 尚无数据。
-- **journal 身份指纹（P1）**：`dynamic_workflow` 的 journal key 仍需补充 script/model/provider/capability/git HEAD 指纹，避免错误缓存命中。
+- **effect ledger**：当前只有「检查点 + 漂移」这一层对齐，还没有逐副作用的 started/completed 账本；
+  因此「未决副作用 → needs_confirmation」目前由漂移间接表达，不是精确的副作用级判定。
+- **journal 身份指纹（P1）**：`dynamic_workflow` 的 journal key 仍需补充
+  script/model/provider/capability/git HEAD 指纹，避免错误缓存命中。
 - **后台真正 abort（P1）**：`dynamic_workflow` 后台 `task_stop` 目前只标记 killed。
-- **commit 与事件非原子**：跨存储没有事务，需要显式记录 drift 和恢复边界。
+- **commit 与事件非原子**：跨存储没有事务，漂移只能事后检测，不能预防。
 
-> 本页中标注「已实现」的部分有测试与运行证据；标注 P0-B/C/D/P1 的部分是设计，不要当成当前能力对外表述。
+> 本页中标注「已实现」的部分有测试与运行证据；标注 P0-C/D、P1 的部分是设计，不要当成当前能力对外表述。

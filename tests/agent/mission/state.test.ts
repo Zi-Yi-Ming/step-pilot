@@ -100,14 +100,68 @@ describe('Mission 状态机：applyMissionEvent', () => {
 
   it('checkpoint 与 recovery 分别计数，且 checkpoint 记录最近 id', () => {
     const state = emptyMissionState();
-    applyMissionEvent(state, ev(2, { type: 'checkpoint.created', checkpointId: 'cp-1', label: '改完 payment.ts' }));
-    applyMissionEvent(state, ev(3, { type: 'checkpoint.created', checkpointId: 'cp-2', label: '单测通过' }));
-    applyMissionEvent(state, ev(4, { type: 'recovery.started', fromCheckpointId: 'cp-2', reason: 'process_restart' }));
-    applyMissionEvent(state, ev(5, { type: 'recovery.completed', replayedEvents: 42 }));
+    // recovery.started 现在是真实状态迁移（→ recovering），所以必须先离开 planned
+    applyMissionEvent(state, statusChange(2, 'planned', 'running'));
+    applyMissionEvent(state, ev(3, { type: 'checkpoint.created', checkpointId: 'cp-1', label: '改完 payment.ts' }));
+    applyMissionEvent(state, ev(4, { type: 'checkpoint.created', checkpointId: 'cp-2', label: '单测通过' }));
+    applyMissionEvent(state, ev(5, { type: 'recovery.started', fromCheckpointId: 'cp-2', reason: 'process_restart' }));
+    expect(state.status).toBe('recovering');
+    applyMissionEvent(state, ev(6, { type: 'recovery.completed', replayedEvents: 42 }));
+    expect(state.status).toBe('running');
     expect(state.checkpointCount).toBe(2);
     expect(state.lastCheckpointId).toBe('cp-2');
     // recovery.completed 不重复累计
     expect(state.recoveryCount).toBe(1);
+  });
+
+  it('recovery.started 是状态迁移：planned 上没有可恢复的东西，直接抛错', () => {
+    const state = emptyMissionState();
+    expect(() => applyMissionEvent(state, ev(2, { type: 'recovery.started', reason: 'x' }))).toThrow(MissionTransitionError);
+    expect(state.status).toBe('planned');
+    expect(state.recoveryCount).toBe(0);
+  });
+
+  it('终态不可恢复：completed / stopped 上的 recovery.started 抛错', () => {
+    for (const terminal of ['completed', 'stopped'] as MissionStatus[]) {
+      const state = emptyMissionState();
+      state.status = terminal;
+      expect(() => applyMissionEvent(state, ev(2, { type: 'recovery.started', reason: 'x' }))).toThrow(MissionTransitionError);
+      expect(state.status).toBe(terminal);
+    }
+  });
+
+  it('paused 与 verifying 允许进入 recovering（进程可能死在暂停期或验证期）', () => {
+    for (const from of ['paused', 'verifying'] as MissionStatus[]) {
+      const state = emptyMissionState();
+      state.status = from;
+      applyMissionEvent(state, ev(2, { type: 'recovery.started', reason: 'process_restart' }));
+      expect(state.status).toBe('recovering');
+    }
+  });
+
+  it('recovery.completed 回到 running，而不是退回恢复前的失败态', () => {
+    const state = emptyMissionState();
+    state.status = 'failed';
+    applyMissionEvent(state, ev(2, { type: 'recovery.started', reason: 'process_restart' }));
+    applyMissionEvent(state, ev(3, { type: 'recovery.completed', replayedEvents: 7 }));
+    expect(state.status).toBe('running');
+  });
+
+  it('checkpoint 可携带 git 元数据，且脏检查点被如实记录', () => {
+    const state = emptyMissionState();
+    applyMissionEvent(
+      state,
+      ev(2, {
+        type: 'checkpoint.created',
+        checkpointId: 'cp-1',
+        label: '脏工作区上的检查点',
+        gitHead: 'a1b2c3d4',
+        changedFiles: ['src/a.ts'],
+        dirty: true,
+      }),
+    );
+    expect(state.checkpointCount).toBe(1);
+    expect(state.lastCheckpointId).toBe('cp-1');
   });
 
   it('mission.created 不改变状态，只登记事件', () => {
