@@ -94,6 +94,18 @@ for line in proc.stdout:
 - `summary` 超过 500 字符会被截断，此时出现 `summary_truncated: true`。完整产出用 `session_id` 取：`step sessions show <session_id>`。
 - `tool_uses` 与 `duration_ms` 是该子 agent 的工具调用次数与墙钟耗时。
 
+#### Mission 事件不在本流中
+
+Mission 有自己的事实源（`~/.step-pilot/missions/<repo 桶>/<missionId>.events.jsonl`），**不会**出现在 stream-json 事件流里——两者生命周期不同，混在一起会让会话恢复被任务状态污染。查看 Mission 事件请用 `step mission replay <mission-id>`（只读）。
+
+Mission 事件信封是驼峰字段：
+
+```json
+{"eventId":"evt-3f2a9c1b7d40","seq":2,"ts":"2026-09-14T15:00:00.000Z","missionId":"mission-20260914150000-a4db29","attemptId":"attempt-1","type":"checkpoint.created","checkpointId":"cp-001","label":"改完 payment.ts"}
+```
+
+事件类型与语义见 [Mission：可恢复工程任务](./mission.md)。若将来 Mission 事件要进入 stream-json，会作为**新增事件类型**发布（按本页规则二，不递增协议版本）。
+
 ### 会话元信息（`session.*`）
 
 | type | 说明 |

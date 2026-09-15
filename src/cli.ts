@@ -60,6 +60,7 @@ import {
   stampedLine,
 } from './session/streamJson.js';
 import { runExportDebugZip } from './session/debugCli.js';
+import { runMissionCommand } from './agent/mission/cli.js';
 import { pickSessionStandalone, relativeTime } from './tui-pi/pickers.js';
 import type { ToolContext } from './tools/types.js';
 import { configureLogger, logError } from './utils/logger.js';
@@ -392,6 +393,17 @@ if (program.args[0] === 'subagents') {
     process.exit(1);
   }
   process.exit(0);
+}
+
+// 顶层 `mission` 子命令（命令行管理，不进 TUI）：list / show / status / replay / create。
+// 放在 provider 构造之前——Mission 是纯本地事实链，读它不该要求可用的 API key。
+// resume / verify / prove 尚未实现，命令会明确返回退出码 2 而不是假装成功。
+if (program.args[0] === 'mission') {
+  configureLogger({ mode: 'headless' });
+  const res = await runMissionCommand(program.args.slice(1), cwd);
+  if (res.stdout !== undefined) process.stdout.write(res.stdout);
+  if (res.stderr !== undefined) process.stderr.write(res.stderr);
+  process.exit(res.code);
 }
 
 let provider: ChatProvider;
@@ -1123,7 +1135,7 @@ if (opts.print !== undefined) {
   // 旧的 `-p <prompt>` 紧跟形式不变。
   let prompt = (opts.print as unknown) === true ? '' : (opts.print as string);
   const positionalPrompt = program.args[0];
-  if (positionalPrompt !== undefined && !['export-debug-zip', 'doctor', 'sessions', 'subagents'].includes(positionalPrompt)) {
+  if (positionalPrompt !== undefined && !['export-debug-zip', 'doctor', 'sessions', 'subagents', 'mission'].includes(positionalPrompt)) {
     prompt = positionalPrompt;
   }
   if (prompt === '') {

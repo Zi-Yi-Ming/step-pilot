@@ -62,6 +62,12 @@ step sessions rename <id> <名字>   # 重命名（等价于选择器里按 r）
 
 完整的原始历史不受压缩影响：每个会话另存一份 append-only 全量日志（`<id>.full.jsonl`）。
 
+## Session 与 Mission
+
+当前版本的 `Session` 负责保存和恢复对话；它不是 Mission。Mission 是工程任务控制面：把一次任务绑定到接受标准、checkpoint、状态迁移与完成证据。它已实现基础事实链（`step mission create / list / show / status / replay`），恢复闭环与独立 verifier 仍在设计中。详见 [Mission：可恢复工程任务](./mission.md)。
+
+> Mission 与 Session 的事实源是分开的：Session 用 `wire.jsonl`，Mission 用 `~/.step-pilot/missions/<repo 桶>/<missionId>.events.jsonl`。`step mission resume / verify / prove` 当前明确返回退出码 2，尚未实现。
+
 ## 导出
 
 `/export-debug-zip` 或 `step export-debug-zip [sessionId]` 导出会话调试包（zip），排查问题时使用。

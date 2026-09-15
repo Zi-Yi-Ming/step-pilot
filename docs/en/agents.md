@@ -105,6 +105,14 @@ The access surface of `spawn_agent` depends on the type: `explore` declares no s
 
 Parallel sub-agents are additionally bound by the concurrency limit of `[subagent].max_concurrent` (default 4); anything beyond it queues for a free slot. A sub-agent that fails due to rate limiting (429) does not hold a slot idle: it goes back to the end of the queue for a delayed retry, and the TUI reports the number of requeues. Permission confirmations always happen serially (multiple approvals never pop up interleaved). All of this is handled automatically by the model; you do not need to control it explicitly.
 
+## Mission and orchestration boundary
+
+`spawn_agent` and `dynamic_workflow` are orchestration capabilities; Mission is the engineering-task control plane. Mission's basic fact chain is implemented (`step mission create / list / show / status / replay`): manifest, state machine, and append-only event log. Associating work units, subagent resume, background tasks, checkpoints, and independent verification is still a later stage.
+
+Important boundary: Mission resume is intended to preserve completed work and rerun only failed units, but `step mission resume` currently returns exit code 2 (not implemented), and background dynamic-workflow `task_stop` must not be described as a completed true abort.
+
+See [Mission: recoverable engineering tasks](./mission.md).
+
 ## Orchestration (spawn_agent and dynamic_workflow)
 
 Orchestration stronger than a single sub-agent is now handled by two tools:

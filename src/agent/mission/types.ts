@@ -1,0 +1,152 @@
+/**
+ * Mission 领域类型（P0-A）。
+ *
+ * 定位：Mission 是「带接受标准、可恢复、可证明完成」的工程任务容器，
+ * 与 Session（对话载体）正交。Session 保存消息；Mission 保存任务身份、
+ * 接受标准、状态迁移与证据引用。
+ *
+ * 本文件只放类型与常量，不含 IO、不含状态迁移逻辑（迁移见 state.ts）。
+ */
+
+/** Mission 事件信封的格式版本。首条事件携带，供将来演进判别。 */
+export const MISSION_FORMAT_VERSION = 1;
+
+/** Mission manifest 的格式版本。 */
+export const MISSION_MANIFEST_VERSION = 1;
+
+/**
+ * Mission 生命周期状态。
+ *
+ * 终态是 completed 与 stopped：
+ * - completed 只能由 verification.completed(passed=true) 触发，status_changed 不允许直接置位
+ *   （这是「模型自报成功不算完成」在类型与迁移层面的落点）。
+ * - stopped 表示用户要求停止且底层执行已确认收尾；终态不可自动复活。
+ * - failed / blocked 不是终态：事实链完整，允许再次 resume。
+ */
+export type MissionStatus =
+  | 'planned'
+  | 'running'
+  | 'paused'
+  | 'recovering'
+  | 'verifying'
+  | 'completed'
+  | 'failed'
+  | 'blocked'
+  | 'stopped';
+
+/** 机器可判定的接受标准：一条命令 + 期望退出码。 */
+export interface MissionAcceptance {
+  /** 待执行的校验命令（由调用方在受控环境下执行，不由模型自报）。 */
+  command: string;
+  /** 期望的进程退出码。 */
+  expectExit: number;
+  /** 人类可读的说明，便于在 status / proof 中展示。 */
+  description?: string;
+}
+
+/** 任务级策略（预算与权限），P0-A 只做记录，不在此层强制执行。 */
+export interface MissionPolicy {
+  maxAttempts?: number;
+  maxTurns?: number;
+  /** 权限模式名（manual / auto / yolo），记录创建时的意图。 */
+  permission?: string;
+}
+
+/** Mission manifest：任务的稳定身份与接受标准。 */
+export interface MissionManifest {
+  manifestVersion: number;
+  missionId: string;
+  /** 任务所属仓库绝对路径（Mission 按仓库分桶）。 */
+  repo: string;
+  objective: string;
+  acceptance: MissionAcceptance[];
+  policy: MissionPolicy;
+  createdAt: string;
+}
+
+/**
+ * Mission 事件信封的公共字段。
+ *
+ * 与 wire.jsonl 的关系：wire 是**会话**事实源；Mission 事件是**任务**事实源，
+ * 单独落盘（<missionId>.events.jsonl），不写进会话 wire，避免两个生命周期互相污染。
+ * 两者共享同一条纪律：只追加、永不重写、重放必须无副作用。
+ */
+export interface MissionEventBase {
+  eventId: string;
+  /** 单调递增序号（从 1 开始），用于检测缺口。 */
+  seq: number;
+  ts: string;
+  missionId: string;
+  /** 执行尝试标识。P0-A 只有 attempt-1；P1 支持换模型重试后递增。 */
+  attemptId: string;
+}
+
+/** Mission 事件判别联合。 */
+export type MissionEvent =
+  | (MissionEventBase & {
+      type: 'mission.created';
+      repo: string;
+      objective: string;
+      acceptanceCount: number;
+    })
+  | (MissionEventBase & {
+      type: 'mission.status_changed';
+      from: MissionStatus;
+      to: MissionStatus;
+      reason?: string;
+    })
+  | (MissionEventBase & {
+      type: 'checkpoint.created';
+      checkpointId: string;
+      label: string;
+    })
+  | (MissionEventBase & {
+      type: 'recovery.started';
+      fromCheckpointId?: string;
+      reason: string;
+    })
+  | (MissionEventBase & {
+      type: 'recovery.completed';
+      /** 本次恢复重放的事件条数（不含本次新增）。 */
+      replayedEvents: number;
+    })
+  | (MissionEventBase & {
+      type: 'verification.completed';
+      verifierId: string;
+      passed: boolean;
+    });
+
+/** 事件类型名联合，供 CLI / 测试按类型过滤。 */
+export type MissionEventType = MissionEvent['type'];
+
+/** 单次 attempt 的派生状态（由事件重放得到，不落盘、不手改）。 */
+export interface MissionAttemptState {
+  status: MissionStatus;
+  /** 最近一次 checkpoint 的 id；从未创建则为 undefined。 */
+  lastCheckpointId?: string;
+  /** 已产生的 checkpoint 数量。 */
+  checkpointCount: number;
+  /** 已发生的恢复次数（recovery.started 计数）。 */
+  recoveryCount: number;
+  /** 最近一次 verification 的结果；未验证过则为 undefined。 */
+  lastVerification?: { verifierId: string; passed: boolean; ts: string };
+  /** 最近一次状态变更原因。 */
+  lastReason?: string;
+  /** 已重放的事件总数（含本次）。 */
+  eventCount: number;
+  /**
+   * 重放时被跳过的非法状态迁移数量。
+   *
+   * 为什么不是直接抛错：读日志必须能容错——损坏或被外部改写的日志不应该让
+   * `mission status` 直接炸掉。但跳过必须**可见**：这个计数会出现在 status 输出里，
+   * 让「有东西不对」显式暴露，而不是静默吞掉。
+   */
+  skippedTransitions: number;
+}
+
+/** 完整派生状态：manifest + attempt 状态 + 事件序列。 */
+export interface MissionView {
+  manifest: MissionManifest;
+  state: MissionAttemptState;
+  events: MissionEvent[];
+}

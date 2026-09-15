@@ -95,6 +95,18 @@ On `subagent.end`:
 - `summary` is truncated past 500 characters, in which case `summary_truncated: true` appears. Retrieve the full output via `session_id`: `step sessions show <session_id>`.
 - `tool_uses` and `duration_ms` are that sub-agent's tool call count and wall-clock time.
 
+### Mission events are not in this stream
+
+Mission keeps its own fact source (`~/.step-pilot/missions/<repo bucket>/<missionId>.events.jsonl`) and does **not** appear in the stream-json event stream — the two lifecycles differ, and mixing them would let task state pollute session recovery. Use `step mission replay <mission-id>` (read-only) to inspect Mission events.
+
+The Mission event envelope uses camelCase fields:
+
+```json
+{"eventId":"evt-3f2a9c1b7d40","seq":2,"ts":"2026-09-14T15:00:00.000Z","missionId":"mission-20260914150000-a4db29","attemptId":"attempt-1","type":"checkpoint.created","checkpointId":"cp-001","label":"payment.ts fixed"}
+```
+
+Event types and semantics are documented in [Mission: recoverable engineering tasks](./mission.md). If Mission events ever enter stream-json, they will ship as **new event types** (rule two above, no protocol version bump).
+
 ### Session metadata (`session.*`)
 
 | type | Notes |

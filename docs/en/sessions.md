@@ -67,6 +67,12 @@ Once generated, the summary must pass a quality check (non-empty, carrying a cer
 
 The complete raw history is unaffected by compaction: each session also keeps an append-only full log (`<id>.full.jsonl`).
 
+## Session versus Mission
+
+In the current release, `Session` saves and resumes a conversation; it is not a Mission. Mission is the engineering-task control plane that binds a task to acceptance criteria, checkpoints, state transitions, and completion evidence. Its basic fact chain is implemented (`step mission create / list / show / status / replay`); the recovery loop and independent verifier are still design. See [Mission: recoverable engineering tasks](./mission.md).
+
+> Mission and Session keep separate fact sources: Session uses `wire.jsonl`, Mission uses `~/.step-pilot/missions/<repo bucket>/<missionId>.events.jsonl`. `step mission resume / verify / prove` currently return exit code 2 and are not implemented.
+
 ## Export
 
 `/export-debug-zip` or `step export-debug-zip [sessionId]` exports a session debug bundle (zip) for troubleshooting.

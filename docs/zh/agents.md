@@ -100,6 +100,14 @@ model: step35
 
 并行子 agent 额外受 `[subagent].max_concurrent`（默认 4）的并发上限约束——超出的排队等空槽。子 agent 因限流（429）失败时不白占槽位，会退回队尾延迟重试，TUI 会提示重排队次数。授权确认始终串行进行（多个审批不会交错弹出）。这些都由模型自动处理，你不需要显式控制。
 
+## Mission 与编排边界
+
+当前 `spawn_agent` 与 `dynamic_workflow` 是编排能力，Mission 是工程任务控制面。Mission 已实现基础事实链（`step mission create / list / show / status / replay`）：manifest、状态机与 append-only 事件日志；把 work unit、子会话 resume、后台任务、checkpoint 和独立 verifier 关联起来仍属后续阶段。
+
+重要边界：Mission resume 计划保留已完成工作并只重跑失败单元，但当前 `step mission resume` 返回退出码 2（未实现），且不能把 dynamic workflow 的后台 `task_stop` 描述成已完成真正 abort。
+
+详见 [Mission：可恢复工程任务](./mission.md)。
+
 ## 编排能力
 
 比单个子 agent 更强的编排：现在有两种方式，详见 [JS 动态工作流（`dynamic_workflow`）](#js-动态工作流dynamic_workflow)与 [子 agent（`spawn_agent`）](#子-agentspawn_agent)。
