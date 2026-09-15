@@ -1,10 +1,10 @@
-# Mission: recoverable engineering tasks (P0-A + P0-B landed)
+# Mission: recoverable engineering tasks (P0-A + P0-B + P0-C landed)
 
-> **Status: the fact chain and recovery analysis are implemented; independent verification and the evidence bundle are still design.**
+> **Status: the fact chain, recovery analysis, and the independent verifier are all implemented.**
 >
-> Implemented: `step mission create / list / show / status / replay / start / pause / stop / checkpoint / resume` — Mission manifest, append-only event log, pure state machine, checkpoints (with git HEAD alignment), and recovery analysis (drift detection, dangling tool-call detection, confirmation list).
+> Implemented: `step mission create / list / show / status / replay / start / pause / stop / checkpoint / resume / verify / prove` — Mission manifest, append-only event log, pure state machine, checkpoints (with git HEAD alignment), recovery analysis (drift detection, dangling tool-call detection, confirmation list), and the independent verifier (runs `acceptance` commands, compares exit codes, writes evidence, and keeps harness failures distinct from assertion failures).
 >
-> Not implemented: `verify` / `prove`. Those two return exit code 2 instead of pretending to succeed (the independent verifier and evidence bundle are P0-C).
+> `verify` is the only path that can push a Mission to `completed`; `prove` additionally exports an inspectable evidence-bundle directory on top of the same verification.
 >
 > `resume --confirm` only rebuilds the fact chain and records the recovery — it does **not** start an agent. Wiring it into the PiChat composition root is follow-up work.
 
@@ -65,7 +65,7 @@ planned -> running -> paused -> recovering -> verifying -> completed
 
 State semantics:
 
-- `completed`: verification passed (`verification.completed` with `passed=true`). The evidence bundle is P0-C and does not exist yet.
+- `completed`: verification passed (`verification.completed` with `passed=true`). The evidence bundle is written by `verify` and exported by `prove`.
 - `failed`: execution or verification failed, but the fact chain is intact and resume is allowed (resume itself is P0-B).
 - `blocked`: permission, external service, or human decision is required.
 - `stopped`: the user requested a stop and all underlying workers/subagents are confirmed terminal.
@@ -110,12 +110,15 @@ Two deliberate refusals in `checkpoint`:
 - **Terminal and `planned` Missions accept no checkpoint**: there is nothing to recover, so recording one would only mislead.
 - **A dirty worktree is refused by default** and requires an explicit `--allow-dirty`. The reason: "allowed by default" would let the resume side read a dirty tree as clean. The caller takes that judgment explicitly, and the event is marked `dirty: true`.
 
-Not implemented (explicitly exit code 2):
+`verify` / `prove` (P0-C, implemented):
 
 ```bash
-step mission verify <mission-id>                          # P0-C
-step mission prove <mission-id> --out mission-proof/       # P0-C
+step mission verify <mission-id> [--reason <text>]   # run acceptance commands, judge completion independently; evidence on disk
+step mission prove <mission-id> [--out <dir>]         # verify and export an inspectable evidence bundle (mission-proof/<id>/)
 ```
+
+- `verify` enters `verifying` (running/recovering/verifying directly; paused/failed/blocked bridge back through `running`), runs each `acceptance` command, compares exit codes, and records `verification.completed`. All pass → `completed`; an assertion failure → `failed`; **a harness/environment failure → rolls back to `running` and never sets `completed`/`failed`**.
+- `prove` reuses the same verification core and additionally writes `manifest.json` / `timeline.json` / `verifier-results.json` / `evidence.json` / `README.md` into the evidence-bundle directory.
 
 The future TUI should also show:
 
@@ -186,11 +189,11 @@ Implemented event types:
 | `checkpoint.created` | `checkpointId` `label` `gitHead?` `changedFiles?` `dirty?` | none | Records a recovery point anchored to the HEAD at that moment |
 | `recovery.started` | `fromCheckpointId?` `reason` | -> `recovering` | A recovery begins; illegal on `planned` and terminal states |
 | `recovery.completed` | `replayedEvents` | -> `running` | Recovery ends; returns to `running` rather than the pre-recovery failure state |
-| `verification.completed` | `verifierId` `passed` | -> `completed` / `failed` | `passed=true` is the **only** way into `completed` |
+| `verification.completed` | `verifierId` `passed` `harnessError?` `evidenceRef?` | -> `completed` / `failed` / (rolls back to `running` on harness failure) | `passed=true` is the **only** way into `completed`; `harnessError=true` means environment failure, not an assertion failure, and never sets `completed`/`failed` |
 
 `seq` starts at 1 and increases monotonically for gap detection. Recovery must be read-only replay: it never reschedules agents, sends notifications, or writes new events. Mission resume also cannot automatically roll back side effects in third-party APIs.
 
-Identifiers planned for later stages: `workUnitId`, `faultId`, `resumeFromCheckpointId`, `gitHeadBefore`, `gitHeadAfter`, `evidencePath`.
+Identifiers planned for later stages: `workUnitId`, `faultId`, `resumeFromCheckpointId`, `gitHeadBefore`, `gitHeadAfter`. (`evidencePath` is now realized as `verification.completed.evidenceRef`: evidence files live under `<missionId>.evidence/`, and the event log stores only the reference.)
 
 ## Evidence bundle
 
@@ -252,11 +255,11 @@ Landed:
 Still missing:
 
 - **Agent orchestration wiring (the rest of P0-B)**: `resume --confirm` only rebuilds the fact chain and records the recovery; it does not start an agent. Wiring it into the PiChat composition root so recovery actually continues the task is still open.
-- **Independent verifier and evidence bundle (P0-C)**: `acceptance` is recorded only; nothing executes it, and `mission verify` / `prove` return exit code 2.
+- **Richer acceptance criteria (P0-C extension)**: the verifier currently runs only "command + expected exit code" acceptance; structured assertions such as `changed_files` / `unused_exports` are a later verifier stage, not current capability.
 - **Fault-injection benchmark (P0-D)**: RCR has no data yet.
 - **Effect ledger**: today there is only checkpoint + drift alignment, not a per-side-effect started/completed ledger. "Unresolved side effect -> needs_confirmation" is therefore expressed indirectly through drift, not as a precise effect-level judgment.
 - **Journal identity fingerprints (P1)**: the `dynamic_workflow` journal key still needs script/model/provider/capability/git HEAD fingerprints to avoid incorrect cache hits.
 - **True background abort (P1)**: background `dynamic_workflow` `task_stop` currently only marks killed.
 - **Commits and events are not atomic**: there is no cross-store transaction, so drift can only be detected after the fact, not prevented.
 
-> Sections marked "implemented" have tests and runtime evidence. Sections marked P0-C/D or P1 are design — do not present them as current capabilities.
+> Sections marked "implemented" have tests and runtime evidence. Sections marked P0-D or P1 are design — do not present them as current capabilities.

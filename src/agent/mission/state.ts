@@ -133,7 +133,22 @@ export function applyMissionEvent(state: MissionAttemptState, event: MissionEven
     }
     case 'verification.completed': {
       // 验证结果一律记录（它确实发生了），状态是否可迁移另判
-      state.lastVerification = { verifierId: event.verifierId, passed: event.passed, ts: event.ts };
+      state.lastVerification = {
+        verifierId: event.verifierId,
+        passed: event.passed,
+        ts: event.ts,
+        ...(event.harnessError === true ? { harnessError: true } : {}),
+      };
+      // 环境故障：验证因执行环境坏了而无法得出结论（≠ 断言未通过）。
+      // 此时**绝不**据此置 completed/failed——否则一个框架 bug 会被当成「模型没做对」。
+      // 退回 running（验证前最自然的处境），让调用方/人工决定下一步、修复环境后重跑。
+      if (event.harnessError === true) {
+        if (!canTransition(state.status, 'running')) {
+          throw new MissionTransitionError(state.status, 'running');
+        }
+        state.status = 'running';
+        break;
+      }
       const to: MissionStatus = event.passed ? 'completed' : 'failed';
       // 这里用 canTransition 而不是 assertStatusChange：后者一律拒绝置 completed
       // （那是给 status_changed 用的）。completed 的**唯一**入口就是本分支——

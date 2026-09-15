@@ -4,25 +4,32 @@
  * 设计纪律（对齐 config export / doctor config 的既有形态）：
  * - 不进 TUI、不加载 provider、不烧 token；纯本地读写。
  * - `replay` 与 `resume`（不带 --confirm）是只读的：不写事件、不调度、不发通知。
+ * - `verify` / `prove` 同样纯本地：跑 `acceptance` 命令、比退出码、写证据，不烧 token。
  * - 退出码 0/非 0，供 CI 与脚本断言。
  *
- * 尚未实现（属于后续阶段，不要在这里假装有）：verify / prove（P0-C）。
  * `resume --confirm` 只重建事实链并记录恢复事件，**不启动 agent**——接线到
- * PiChat 组合根属后续工作。
+ * PiChat 组合根属后续工作。P0-C（独立 verifier + evidence bundle）已落地。
  */
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { SessionStore } from '../../session/store.js';
 import { isTerminal, MissionTransitionError } from './state.js';
 import { findSeqGaps } from './state.js';
 import { probeGit } from './git.js';
 import { buildRecoveryPlan, createSessionProbe, lastCheckpointOf, type RecoveryPlan } from './resume.js';
 import { MissionStore } from './store.js';
-import type { MissionAcceptance, MissionEvent, MissionPolicy, MissionStatus } from './types.js';
+import { defaultExecutor, runVerifier, type VerificationResult, type VerifyExecutor } from './verify.js';
+import type { MissionAcceptance, MissionEvent, MissionPolicy, MissionStatus, MissionView } from './types.js';
 
 export interface MissionCommandResult {
   stdout?: string;
   stderr?: string;
   code: number;
+}
+
+/** 运行选项：测试可注入 verify 的执行器，避免真跑 shell。 */
+export interface MissionRunOptions {
+  verifyExecutor?: VerifyExecutor;
 }
 
 const USAGE = [
@@ -38,6 +45,8 @@ const USAGE = [
   '  stop <mission-id> [--reason <文本>]      停止（终态，不可复活）',
   '  checkpoint <mission-id> --label <文本>   记录一个恢复检查点（含 git HEAD）',
   '  resume <mission-id> [--confirm]   恢复分析（只读）；--confirm 记录恢复并回到 running',
+  '  verify <mission-id> [--reason <文本>]     跑 acceptance 命令，独立判定完成（证据落盘）',
+  '  prove <mission-id> [--out <目录>]         verify 并导出可检查的证据包（mission-proof/）',
   '',
   'create 选项：',
   '  --acceptance <命令>[:<期望退出码>]  可重复；缺省退出码 0',
@@ -51,7 +60,11 @@ const USAGE = [
   '  --label <文本>                    必填，说明这个恢复点意味着什么',
   '  --allow-dirty                     允许在工作区不干净时建检查点（默认拒绝）',
   '',
-  '尚未实现：verify / prove（属 P0-C）。',
+  'verify 选项：',
+  '  --reason <文本>                   记录这次验证的来由（仅进证据，不改状态机）',
+  '',
+  'prove 选项：',
+  '  --out <目录>                      证据包输出目录（缺省 ./mission-proof/<mission-id>/）',
 ].join('\n');
 
 /**
@@ -63,6 +76,7 @@ export async function runMissionCommand(
   args: string[],
   cwd: string,
   store: MissionStore = new MissionStore(),
+  options: MissionRunOptions = {},
 ): Promise<MissionCommandResult> {
   const sub = args[0];
   if (sub === undefined || sub === 'help' || sub === '--help') {
@@ -90,11 +104,9 @@ export async function runMissionCommand(
     case 'resume':
       return await cmdResume(store, cwd, args.slice(1));
     case 'verify':
+      return await cmdVerify(store, cwd, args.slice(1), options.verifyExecutor);
     case 'prove':
-      return {
-        stderr: `mission ${sub} 尚未实现（属后续阶段：verify/prove=P0-C）。当前可用：list / show / status / replay / create / start / pause / stop / checkpoint / resume。\n`,
-        code: 2,
-      };
+      return await cmdProve(store, cwd, args.slice(1), options.verifyExecutor);
     default:
       return { stderr: `未知 mission 子命令：${sub}\n${USAGE}\n`, code: 1 };
   }
@@ -167,6 +179,9 @@ function cmdStatus(store: MissionStore, cwd: string, id: string | undefined): Mi
   }
   if (state.status === 'completed' && state.lastVerification?.passed !== true) {
     warnings.push('状态为 completed 但缺少通过的验证记录——不应采信该完成态。');
+  }
+  if (state.lastVerification?.harnessError === true) {
+    warnings.push('最近一次验证因环境故障而无法得出结论——该 Mission 的完成态不可采信，请修复环境后重跑 `step mission verify`。');
   }
   if (manifest.acceptance.length === 0 && state.status === 'completed') {
     warnings.push('completed 但 manifest 没有接受标准——完成无机器依据。');
@@ -388,6 +403,249 @@ async function cmdResume(store: MissionStore, cwd: string, args: string[]): Prom
   };
 }
 
+/**
+ * 验证前置检查：荷载、终态/planned、接受标准非空。
+ * 与 resume 同纪律——只读地先把「能不能验证」说清楚，再谈副作用。
+ */
+function prepareVerify(
+  store: MissionStore,
+  cwd: string,
+  id: string,
+): { ok: true; view: MissionView } | { ok: false; error: { stderr: string; code: number } } {
+  const view = store.load(cwd, id);
+  if (view === null) return { ok: false, error: { stderr: `找不到 Mission：${id}\n`, code: 1 } };
+  const status = view.state.status;
+  if (status === 'completed') {
+    return { ok: false, error: { stderr: `${id} 已通过验证（completed），无需重复验证。\n`, code: 1 } };
+  }
+  if (status === 'stopped') {
+    return { ok: false, error: { stderr: `${id} 已停止（终态），不可验证。\n`, code: 1 } };
+  }
+  if (status === 'planned') {
+    return {
+      ok: false,
+      error: { stderr: `${id} 尚未开始执行（planned），没有可验证的工作。先 \`step mission start ${id}\`。\n`, code: 1 },
+    };
+  }
+  if (view.manifest.acceptance.length === 0) {
+    return {
+      ok: false,
+      error: {
+        stderr: `${id} 没有接受标准（acceptance 为空），独立 verifier 无命令可执行，不能据此宣称完成。请重建带 --acceptance 的 Mission。\n`,
+        code: 1,
+      },
+    };
+  }
+  return { ok: true, view };
+}
+
+/** 把非 verifying 状态桥接到 verifying：running/recovering/verifying 直达；paused/failed/blocked 先进 running。 */
+function bridgeToVerifying(store: MissionStore, repo: string, missionId: string, from: MissionStatus): void {
+  if (from === 'verifying') return;
+  if (from === 'running' || from === 'recovering') {
+    store.appendEvent(repo, missionId, { type: 'mission.status_changed', from, to: 'verifying' });
+    return;
+  }
+  // paused / failed / blocked：先桥接到 running（合法迁移），再进 verifying。两条事件都过状态机校验。
+  store.appendEvent(repo, missionId, { type: 'mission.status_changed', from, to: 'running' });
+  store.appendEvent(repo, missionId, { type: 'mission.status_changed', from: 'running', to: 'verifying' });
+}
+
+/** 构造可检查的证据对象（完整 stdout/stderr 进 evidence 文件；这里给结构化摘要）。 */
+function buildEvidence(view: MissionView, result: VerificationResult, reason: string | undefined): unknown {
+  return {
+    missionId: view.manifest.missionId,
+    objective: view.manifest.objective,
+    repo: view.manifest.repo,
+    verifierId: result.verifierId,
+    allPassed: result.allPassed,
+    harnessError: result.harnessError,
+    reason: reason ?? null,
+    generatedAt: new Date().toISOString(),
+    checks: result.checks.map((c) => ({
+      command: c.command,
+      expectExit: c.expectExit,
+      exitCode: c.exitCode,
+      passed: c.passed,
+      harnessError: c.harnessError,
+      stdout: c.stdout,
+      stderr: c.stderr,
+    })),
+  };
+}
+
+/** 渲染验证结果摘要。 */
+function formatVerify(result: VerificationResult, id: string, evidenceRef: string, seq: number): string {
+  const label = result.allPassed ? '通过' : result.harnessError ? '环境故障（不可判定）' : '未通过';
+  const lines = [
+    `验证结果：${label}`,
+    `verifier:    ${result.verifierId}`,
+    `mission:     ${id}`,
+    `evidence:    ${evidenceRef}（seq ${seq}）`,
+    '',
+    '检查项：',
+  ];
+  result.checks.forEach((c, i) => {
+    const mark = c.passed ? '[PASS]' : '[FAIL]';
+    lines.push(`  ${i + 1}. ${mark} exit=${c.exitCode ?? '?'} (expect ${c.expectExit})  ${c.command}`);
+    if (!c.passed && c.harnessError !== null) lines.push(`        环境故障：${c.harnessError}`);
+  });
+  if (result.harnessError) {
+    lines.push(
+      '',
+      'WARN: 存在环境故障，验证未能得出结论。Mission 已退回 running，请勿据此宣称完成。修复环境后重跑 `step mission verify`。',
+    );
+  } else if (!result.allPassed) {
+    lines.push('', '验证未通过：Mission 已置为 failed。修复后 start/resume 可再次推进，再 verify。');
+  } else {
+    lines.push('', '验证通过：Mission 已置为 completed（verification.completed(passed=true) 是唯一入口）。');
+  }
+  return lines.join('\n');
+}
+
+/** verify / prove 共用的执行核心：解析执行器 → 进入 verifying → 跑 verifier → 写证据 → 落 verification.completed。 */
+type VerifyOutcome =
+  | { kind: 'error'; stderr: string; code: number }
+  | { kind: 'done'; result: VerificationResult; evidenceRef: string; code: number; summary: string };
+
+async function runVerification(
+  store: MissionStore,
+  view: MissionView,
+  reason: string | undefined,
+  executorOverride?: VerifyExecutor,
+): Promise<VerifyOutcome> {
+  const { repo } = view.manifest;
+  const id = view.manifest.missionId;
+
+  // 先解析执行器：shell 缺失在此抛错，且必须在写任何事件之前——
+  // 否则 Mission 会被卡在 verifying 而无法继续。
+  let executor: VerifyExecutor;
+  try {
+    executor = executorOverride ?? defaultExecutor(repo);
+  } catch (e) {
+    return { kind: 'error', stderr: `${e instanceof Error ? e.message : String(e)}\n`, code: 1 };
+  }
+
+  // 进入 verifying（这条事件必须在跑命令之前落盘：若命令要跑很久，事实链上至少能看见「已进入 verifying」）
+  try {
+    bridgeToVerifying(store, repo, id, view.state.status);
+  } catch (e) {
+    if (e instanceof MissionTransitionError) {
+      return { kind: 'error', stderr: `当前状态 ${view.state.status} 无法进入 verifying（拒绝写入事实源）。\n`, code: 1 };
+    }
+    throw e;
+  }
+
+  const result = runVerifier(view.manifest.acceptance, { executor });
+  const evidence = buildEvidence(view, result, reason);
+  const evidenceRef = store.writeEvidenceFile(repo, id, JSON.stringify(evidence, null, 2));
+
+  let eventSeq = -1;
+  try {
+    const ev = store.appendEvent(repo, id, {
+      type: 'verification.completed',
+      verifierId: result.verifierId,
+      passed: result.allPassed,
+      ...(result.harnessError ? { harnessError: true } : {}),
+      evidenceRef,
+    });
+    eventSeq = ev.seq;
+  } catch (e) {
+    if (e instanceof MissionTransitionError) {
+      return { kind: 'error', stderr: `验证后状态迁移非法（拒绝写入事实源）：${e.message}\n`, code: 1 };
+    }
+    throw e;
+  }
+
+  return { kind: 'done', result, evidenceRef, code: result.allPassed ? 0 : 1, summary: formatVerify(result, id, evidenceRef, eventSeq) };
+}
+
+/**
+ * 独立验证：跑 acceptance 命令、比对退出码、写证据、落 verification.completed。
+ *
+ * 退出码约定（供 CI 断言）：全部通过 → 0；任一未通过 → 1；环境故障（不可判定）→ 1。
+ * 注意：环境故障同样返回 1，但它的语义是「没法验证」而非「没做对」——
+ * Mission 会被退回 running 而非置 failed，status 也会显式标出 harness-error，
+ * 调用方不应把它当成一次失败的工程工作。
+ */
+async function cmdVerify(
+  store: MissionStore,
+  cwd: string,
+  args: string[],
+  executorOverride?: VerifyExecutor,
+): Promise<MissionCommandResult> {
+  const id = args[0];
+  if (id === undefined || id.startsWith('--')) {
+    return { stderr: 'usage: step mission verify <mission-id> [--reason <文本>]\n', code: 1 };
+  }
+  const reasonIdx = args.indexOf('--reason');
+  const reason = reasonIdx >= 0 ? args[reasonIdx + 1] : undefined;
+  const pre = prepareVerify(store, cwd, id);
+  if (!pre.ok) return { stderr: pre.error.stderr, code: pre.error.code };
+  const outcome = await runVerification(store, pre.view, reason, executorOverride);
+  if (outcome.kind === 'error') return { stderr: outcome.stderr, code: outcome.code };
+  return { stdout: `${outcome.summary}\n`, code: outcome.code };
+}
+
+/** 导出可检查的证据包到目录（manifest + 时间线 + verifier 结果 + 完整证据）。 */
+function writeProofBundle(outDir: string, view: MissionView, result: VerificationResult, evidenceRef: string, store: MissionStore): void {
+  mkdirSync(outDir, { recursive: true });
+  const evidencePath = join(store.evidenceDir(view.manifest.repo, view.manifest.missionId), evidenceRef);
+  writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(view.manifest, null, 2));
+  writeFileSync(join(outDir, 'timeline.json'), JSON.stringify(view.events, null, 2));
+  writeFileSync(join(outDir, 'verifier-results.json'), JSON.stringify(result.checks, null, 2));
+  if (existsSync(evidencePath)) copyFileSync(evidencePath, join(outDir, 'evidence.json'));
+  const readme = [
+    `# Mission proof: ${view.manifest.missionId}`,
+    '',
+    `objective: ${view.manifest.objective}`,
+    `verifier:  ${result.verifierId}`,
+    `result:    ${result.allPassed ? 'PASS' : result.harnessError ? 'HARNESS ERROR (inconclusive)' : 'FAIL'}`,
+    `generated: ${new Date().toISOString()}`,
+    '',
+    'Contents:',
+    '- manifest.json          Mission 身份与接受标准',
+    '- timeline.json          事件日志（事实源重放）',
+    '- verifier-results.json  每条接受标准的退出码与判定',
+    '- evidence.json          完整 stdout/stderr（命令输出）',
+    '',
+    '本证据包只能证明 verifier 覆盖的本地条件，不能证明远程生产系统或第三方副作用已回滚。',
+  ].join('\n');
+  writeFileSync(join(outDir, 'README.md'), readme);
+}
+
+/**
+ * 验证并导出证据包。与 verify 同一条验证核心，额外把证据包写到目录。
+ * 退出码语义与 verify 一致。
+ */
+async function cmdProve(
+  store: MissionStore,
+  cwd: string,
+  args: string[],
+  executorOverride?: VerifyExecutor,
+): Promise<MissionCommandResult> {
+  const id = args[0];
+  if (id === undefined || id.startsWith('--')) {
+    return { stderr: 'usage: step mission prove <mission-id> [--out <目录>]\n', code: 1 };
+  }
+  const outIdx = args.indexOf('--out');
+  const outArg = outIdx >= 0 ? args[outIdx + 1] : undefined;
+  const pre = prepareVerify(store, cwd, id);
+  if (!pre.ok) return { stderr: pre.error.stderr, code: pre.error.code };
+  const outcome = await runVerification(store, pre.view, undefined, executorOverride);
+  if (outcome.kind === 'error') return { stderr: outcome.stderr, code: outcome.code };
+  const outDir = outArg !== undefined ? resolve(outArg) : join(cwd, 'mission-proof', id);
+  // 重新载入视图：runVerification 已追加 verification.completed，pre.view 是验证前的快照，事件已过时。
+  const freshView = store.load(cwd, id);
+  if (freshView === null) return { stderr: `验证后找不到 Mission：${id}\n`, code: 1 };
+  try {
+    writeProofBundle(outDir, freshView, outcome.result, outcome.evidenceRef, store);
+  } catch (e) {
+    return { stderr: `证据包导出失败：${e instanceof Error ? e.message : String(e)}\n`, code: 1 };
+  }
+  return { stdout: `${outcome.summary}\n证据包已导出：${outDir}\n`, code: outcome.code };
+}
+
 /** 下一个检查点 id：cp-001 起递增，取现有最大编号 + 1。 */
 function nextCheckpointId(events: readonly MissionEvent[]): string {
   let max = 0;
@@ -569,9 +827,11 @@ function formatPolicy(policy: MissionPolicy): string | undefined {
   return parts.length === 0 ? undefined : parts.join(' ');
 }
 
-function formatVerification(v: { verifierId: string; passed: boolean } | undefined): string {
+function formatVerification(v: { verifierId: string; passed: boolean; harnessError?: boolean } | undefined): string {
   if (v === undefined) return 'pending（尚未验证——不得据此宣称完成）';
-  return `${v.passed ? 'passed' : 'failed'}（${v.verifierId}）`;
+  const tag = v.passed ? 'passed' : 'failed';
+  const h = v.harnessError === true ? '（环境故障，结论不可信赖）' : '';
+  return `${tag}（${v.verifierId}）${h}`;
 }
 
 function formatEvent(e: MissionEvent): string {
@@ -587,7 +847,7 @@ function formatEvent(e: MissionEvent): string {
     case 'recovery.completed':
       return `recovery.completed replayedEvents=${e.replayedEvents}`;
     case 'verification.completed':
-      return `verification.completed ${e.verifierId}  ${e.passed ? 'passed' : 'failed'}`;
+      return `verification.completed ${e.verifierId}  ${e.passed ? 'passed' : 'failed'}${e.harnessError === true ? '  [harness-error]' : ''}${e.evidenceRef !== undefined ? `  evidence=${e.evidenceRef}` : ''}`;
   }
 }
 

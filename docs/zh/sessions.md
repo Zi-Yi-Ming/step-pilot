@@ -64,9 +64,9 @@ step sessions rename <id> <名字>   # 重命名（等价于选择器里按 r）
 
 ## Session 与 Mission
 
-当前版本的 `Session` 负责保存和恢复对话；它不是 Mission。Mission 是工程任务控制面：把一次任务绑定到接受标准、checkpoint、状态迁移与完成证据。它已实现事实链与恢复分析（`step mission create / start / pause / stop / checkpoint / resume / status / replay`），独立 verifier 与证据包仍在设计中。详见 [Mission：可恢复工程任务](./mission.md)。
+当前版本的 `Session` 负责保存和恢复对话；它不是 Mission。Mission 是工程任务控制面：把一次任务绑定到接受标准、checkpoint、状态迁移与完成证据。它已实现事实链、恢复分析与独立 verifier（`step mission create / start / pause / stop / checkpoint / resume / status / replay / verify / prove`）。详见 [Mission：可恢复工程任务](./mission.md)。
 
-> Mission 与 Session 的事实源是分开的：Session 用 `wire.jsonl`，Mission 用 `~/.step-pilot/missions/<repo 桶>/<missionId>.events.jsonl`。`step mission verify / prove` 当前明确返回退出码 2，尚未实现；`resume` 只重建事实链与记录恢复，不启动 agent。
+> Mission 与 Session 的事实源是分开的：Session 用 `wire.jsonl`，Mission 用 `~/.step-pilot/missions/<repo 桶>/<missionId>.events.jsonl`。`step mission verify` 执行接受标准、是进入 `completed` 的唯一路径；`prove` 额外导出证据包；`resume` 只重建事实链与记录恢复，不启动 agent。
 
 ## 导出
 

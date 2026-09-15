@@ -1,10 +1,10 @@
-# Mission：可恢复工程任务（P0-A + P0-B 已落地）
+# Mission：可恢复工程任务（P0-A + P0-B + P0-C 已落地）
 
-> **状态：事实链与恢复分析已实现；独立验证与证据包仍是设计。**
+> **状态：事实链、恢复分析与独立 verifier 均已实现。**
 >
-> 已实现：`step mission create / list / show / status / replay / start / pause / stop / checkpoint / resume`——Mission manifest、append-only 事件日志、纯函数状态机、检查点（含 git HEAD 对齐）、恢复分析（漂移判定 + 悬空工具调用检测 + 需确认清单）。
+> 已实现：`step mission create / list / show / status / replay / start / pause / stop / checkpoint / resume / verify / prove`——Mission manifest、append-only 事件日志、纯函数状态机、检查点（含 git HEAD 对齐）、恢复分析（漂移判定 + 悬空工具调用检测 + 需确认清单），以及独立 verifier（执行 `acceptance` 命令、比对退出码、写证据，且把 harness 故障与断言失败分开）。
 >
-> 未实现：`verify` / `prove`。这两个命令当前明确返回退出码 2，不会假装成功（独立 verifier 与 evidence bundle 属 P0-C）。
+> `verify` 是唯一能把 Mission 推到 `completed` 的路径；`prove` 在其基础上导出可检查的证据包目录。
 >
 > `resume --confirm` 只重建事实链并记录恢复事件，**不启动 agent**——接线到 PiChat 组合根属后续工作。
 
@@ -54,7 +54,7 @@ manifest 实际落盘形态（`~/.step-pilot/missions/<repo 桶>/<missionId>.jso
 }
 ```
 
-> 接受标准当前只支持「命令 + 期望退出码」。`changed_files` 这类断言属 P0-C 的 verifier 阶段。
+> 接受标准当前支持「命令 + 期望退出码」，由独立 verifier（`step mission verify`）逐条执行并比对退出码。`changed_files` 这类更丰富的断言属后续 verifier 阶段。
 
 状态机（已实现）：
 
@@ -65,7 +65,7 @@ planned → running → paused → recovering → verifying → completed
 
 状态语义：
 
-- `completed`：验证通过（`verification.completed` 且 `passed=true`）。evidence bundle 属 P0-C，尚未生成。
+- `completed`：验证通过（`verification.completed` 且 `passed=true`）。证据包由 `verify` 写盘、`prove` 导出。
 - `failed`：执行或验证失败，但事实链完整，允许再次 resume（resume 本身属 P0-B）。
 - `blocked`：缺少权限、外部服务或人工决策。
 - `stopped`：用户要求停止，并已确认底层 worker / 子 agent 进入终态。
@@ -99,7 +99,7 @@ step mission resume <mission-id> --confirm  # 记录恢复（recovery.started + 
 | 选项 | 说明 |
 |------|------|
 | `--objective <文本>` | 任务目标，必填 |
-| `--acceptance <命令>[:<期望退出码>]` | 可重复；缺省期望退出码 0。只在**末尾**的 `:<数字>` 上切分，命令内的冒号不会被切坏 |
+| `--acceptance <命令>[:<期望退出码>]` | 可重复；缺省期望退出码 0。只在**末尾**的 `:<数字>` 上切分，命令内的冒号不会被切坏。`verify` 会逐条执行这些命令并比对退出码 |
 | `--max-turns <n>` / `--max-attempts <n>` | 预算登记（当前只记录，不强制） |
 | `--permission <manual\|auto\|yolo>` | 记录创建时的权限意图 |
 | `--session <会话 id>` | 关联会话，让 `resume` 能发现悬空工具调用 |
@@ -110,12 +110,15 @@ step mission resume <mission-id> --confirm  # 记录恢复（recovery.started + 
 - **终态与 planned 不接受检查点**：没有可恢复的东西，记录了只会误导。
 - **工作区不干净时默认拒绝**，必须显式 `--allow-dirty`。理由是「默认允许」会让 resume 端把不干净误读成干净；让调用方显式承担这个判断，并在事件里标 `dirty: true`。
 
-未实现（明确返回退出码 2，不假装成功）：
+`verify` / `prove`（P0-C，已实现）：
 
 ```bash
-step mission verify <mission-id>                          # P0-C
-step mission prove <mission-id> --out mission-proof/       # P0-C
+step mission verify <mission-id> [--reason <文本>]     # 跑 acceptance 命令，独立判定完成；证据写盘
+step mission prove <mission-id> [--out <目录>]         # verify 并导出可检查的证据包（mission-proof/<id>/）
 ```
+
+- `verify` 进入 `verifying`（running/recovering/verifying 直达；paused/failed/blocked 先桥接回 running），逐条执行 `acceptance` 命令、比对退出码，落 `verification.completed`。全部通过 → `completed`；断言失败 → `failed`；**环境故障（harness error）→ 退回 running，绝不置 completed/failed**。
+- `prove` 复用同一条验证核心，额外把 `manifest.json` / `timeline.json` / `verifier-results.json` / `evidence.json` / `README.md` 写到证据包目录。
 
 交互界面未来也应显示：
 
@@ -193,11 +196,11 @@ Mission 事件建立在独立的事实源之上（`<missionId>.events.jsonl`）�
 | `checkpoint.created` | `checkpointId` `label` `gitHead?` `changedFiles?` `dirty?` | 无 | 记录一个恢复点，并锚定当时的 HEAD |
 | `recovery.started` | `fromCheckpointId?` `reason` | → `recovering` | 开始一次恢复；`planned` / 终态上非法 |
 | `recovery.completed` | `replayedEvents` | → `running` | 恢复结束；回到 `running` 而不是退回恢复前的失败态 |
-| `verification.completed` | `verifierId` `passed` | → `completed` / `failed` | `passed=true` 是进入 `completed` 的**唯一**入口 |
+| `verification.completed` | `verifierId` `passed` `harnessError?` `evidenceRef?` | → `completed` / `failed` / （harness 故障则退回 `running`） | `passed=true` 是进入 `completed` 的**唯一**入口；`harnessError=true` 表示环境故障而非断言失败，绝不据此置 completed/failed |
 
 `seq` 从 1 开始单调递增，用于缺口检测。恢复必须是只读重放：不能在 replay 中重新调度 agent、发送通知或写入新的事件。第三方 API 副作用也不会因为 Mission resume 自动回滚。
 
-后续阶段计划补充的标识：`workUnitId`、`faultId`、`resumeFromCheckpointId`、`gitHeadBefore`、`gitHeadAfter`、`evidencePath`。
+后续阶段计划补充的标识：`workUnitId`、`faultId`、`resumeFromCheckpointId`、`gitHeadBefore`、`gitHeadAfter`。（`evidencePath` 已由 `verification.completed.evidenceRef` 落地：证据文件落在 `<missionId>.evidence/` 下，事件日志只存引用。）
 
 ## Evidence bundle
 
@@ -261,8 +264,8 @@ v0.1 不做：
 
 - **接入 agent 编排（P0-B 后半）**：`resume --confirm` 只重建事实链并记录恢复，不启动 agent；
   接线到 PiChat 组合根、让恢复真正续跑任务，仍是待办。
-- **独立 verifier 与 evidence bundle（P0-C）**：`acceptance` 目前只是登记，没有任何代码执行它；
-  `mission verify` / `prove` 返回退出码 2。
+- **更丰富的接受标准（P0-C 延伸）**：当前 verifier 只执行「命令 + 期望退出码」类接受标准；
+  `changed_files`、`unused_exports` 等结构化断言是后续 verifier 阶段，不是当前能力。
 - **fault-injection benchmark（P0-D）**：RCR 尚无数据。
 - **effect ledger**：当前只有「检查点 + 漂移」这一层对齐，还没有逐副作用的 started/completed 账本；
   因此「未决副作用 → needs_confirmation」目前由漂移间接表达，不是精确的副作用级判定。
@@ -271,4 +274,4 @@ v0.1 不做：
 - **后台真正 abort（P1）**：`dynamic_workflow` 后台 `task_stop` 目前只标记 killed。
 - **commit 与事件非原子**：跨存储没有事务，漂移只能事后检测，不能预防。
 
-> 本页中标注「已实现」的部分有测试与运行证据；标注 P0-C/D、P1 的部分是设计，不要当成当前能力对外表述。
+> 本页中标注「已实现」的部分有测试与运行证据；标注 P0-D、P1 的部分是设计，不要当成当前能力对外表述。

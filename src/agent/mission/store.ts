@@ -58,7 +58,7 @@ export type MissionEventInput =
     }
   | { type: 'recovery.started'; fromCheckpointId?: string; reason: string }
   | { type: 'recovery.completed'; replayedEvents: number }
-  | { type: 'verification.completed'; verifierId: string; passed: boolean };
+  | { type: 'verification.completed'; verifierId: string; passed: boolean; harnessError?: boolean; evidenceRef?: string };
 
 /**
  * `mission.created` 只由 create() 写，不出现在公开的 appendEvent 入参里——
@@ -109,6 +109,25 @@ export class MissionStore {
 
   eventsPath(repo: string, missionId: string): string {
     return join(this.dirFor(repo), `${missionId}.events.jsonl`);
+  }
+
+  /** 证据包目录：`<mission 桶>/<missionId>.evidence/`，与事件日志同桶，绝不写进会话 wire。 */
+  evidenceDir(repo: string, missionId: string): string {
+    return join(this.dirFor(repo), `${missionId}.evidence`);
+  }
+
+  /**
+   * 写一份验证证据文件，返回文件名（供 `verification.completed.evidenceRef` 引用）。
+   *
+   * 证据与事件日志分离：事件日志只放事实（含引用），完整 stdout/stderr 进证据文件，
+   * 避免一次失败的长输出把 append-only 日志撑爆、也让 `replay` 保持轻量。
+   */
+  writeEvidenceFile(repo: string, missionId: string, content: string): string {
+    const dir = this.evidenceDir(repo, missionId);
+    mkdirSync(dir, { recursive: true });
+    const name = `evidence-${createHash('sha1').update(String(Math.random())).digest('hex').slice(0, 12)}.json`;
+    writeFileSync(join(dir, name), content, 'utf8');
+    return name;
   }
 
   /**

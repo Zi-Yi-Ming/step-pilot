@@ -69,9 +69,9 @@ The complete raw history is unaffected by compaction: each session also keeps an
 
 ## Session versus Mission
 
-In the current release, `Session` saves and resumes a conversation; it is not a Mission. Mission is the engineering-task control plane that binds a task to acceptance criteria, checkpoints, state transitions, and completion evidence. Its fact chain and recovery analysis are implemented (`step mission create / start / pause / stop / checkpoint / resume / status / replay`); the independent verifier and evidence bundle are still design. See [Mission: recoverable engineering tasks](./mission.md).
+In the current release, `Session` saves and resumes a conversation; it is not a Mission. Mission is the engineering-task control plane that binds a task to acceptance criteria, checkpoints, state transitions, and completion evidence. Its fact chain, recovery analysis, and independent verifier are implemented (`step mission create / start / pause / stop / checkpoint / resume / status / replay / verify / prove`). See [Mission: recoverable engineering tasks](./mission.md).
 
-> Mission and Session keep separate fact sources: Session uses `wire.jsonl`, Mission uses `~/.step-pilot/missions/<repo bucket>/<missionId>.events.jsonl`. `step mission verify / prove` currently return exit code 2 and are not implemented; `resume` only rebuilds the fact chain and records the recovery — it does not start an agent.
+> Mission and Session keep separate fact sources: Session uses `wire.jsonl`, Mission uses `~/.step-pilot/missions/<repo bucket>/<missionId>.events.jsonl`. `step mission verify` runs the acceptance criteria and is the only path into `completed`; `prove` additionally exports an evidence bundle. `resume` only rebuilds the fact chain and records the recovery — it does not start an agent.
 
 ## Export
 

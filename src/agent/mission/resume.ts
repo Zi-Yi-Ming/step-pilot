@@ -156,7 +156,7 @@ export function buildRecoveryPlan(input: BuildPlanInput): RecoveryPlan {
   }
   if (manifest.acceptance.length > 0 && state.lastVerification === undefined) {
     plan.needsConfirmation.push(
-      '接受标准尚未执行：verifier 属 P0-C，当前没有任何代码会跑它，因此本次恢复不能宣称任务完成。',
+      '接受标准尚未执行：恢复后请用 `step mission verify <id>` 独立运行接受标准，通过（verification.completed(passed=true)）才算 completed。',
     );
   }
 
@@ -182,7 +182,7 @@ export function buildRecoveryPlan(input: BuildPlanInput): RecoveryPlan {
   }
   plan.steps.push('继续未完成的工作（当前版本不自动启动 agent——resume 只重建事实链并记录恢复）');
   if (manifest.acceptance.length > 0) {
-    plan.steps.push('完成后运行接受标准（verifier 属 P0-C，尚未实现）');
+    plan.steps.push('用 `step mission verify <id>` 独立运行接受标准，通过后才算 completed（verifier 已实现，harness 故障与断言失败会分开判定）');
   }
 
   return plan;

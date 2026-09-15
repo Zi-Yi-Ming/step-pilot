@@ -215,7 +215,7 @@ describe('buildRecoveryPlan：会话与未决项', () => {
 
   it('接受标准尚未执行 → 明确说明本次恢复不能宣称完成', () => {
     const plan = buildRecoveryPlan({ view: viewOf([ckpt]), health: { corruptLines: 0 }, git: CLEAN });
-    expect(plan.needsConfirmation.some((n) => n.includes('verifier 属 P0-C'))).toBe(true);
+    expect(plan.needsConfirmation.some((n) => n.includes('step mission verify'))).toBe(true);
   });
 
   it('日志损坏 / 非法迁移 / 序号缺口都进告警', () => {

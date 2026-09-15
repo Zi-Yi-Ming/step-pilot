@@ -137,11 +137,11 @@ describe('mission 无头命令', () => {
     expect(res.stderr).toContain('未知 mission 子命令');
   });
 
-  it('未实现的 verify / prove 明确返回退出码 2，不假装成功', async () => {
+  it('verify / prove 对不存在的 Mission 返回退出码 1 并说明找不到', async () => {
     for (const sub of ['verify', 'prove']) {
       const res = await runMissionCommand([sub, 'mission-x'], REPO, store);
-      expect(res.code).toBe(2);
-      expect(res.stderr).toContain('尚未实现');
+      expect(res.code).toBe(1);
+      expect(res.stderr).toContain('找不到 Mission');
     }
   });
 

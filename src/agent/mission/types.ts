@@ -131,6 +131,15 @@ export type MissionEvent =
       type: 'verification.completed';
       verifierId: string;
       passed: boolean;
+      /**
+       * 环境故障标记：true 时表示验证因执行环境坏了而无法得出结论
+       * （如测试框架误删文件、模块解析失败、shell 缺失），**不是**断言未通过。
+       * 此时状态机不置 completed/failed，而是退回 running，让调用方/人工决定下一步。
+       * 关键不变量：harness failure ≠ 模型/断言失败，两者在读数上必须可区分（对齐 benchmark 的 D1 教训）。
+       */
+      harnessError?: boolean;
+      /** 证据包文件名（落在 Mission 目录下的 `.evidence/` 子目录），供 `status` 与 `prove` 引用。 */
+      evidenceRef?: string;
     });
 
 /** 事件类型名联合，供 CLI / 测试按类型过滤。 */
@@ -146,7 +155,7 @@ export interface MissionAttemptState {
   /** 已发生的恢复次数（recovery.started 计数）。 */
   recoveryCount: number;
   /** 最近一次 verification 的结果；未验证过则为 undefined。 */
-  lastVerification?: { verifierId: string; passed: boolean; ts: string };
+  lastVerification?: { verifierId: string; passed: boolean; ts: string; harnessError?: boolean };
   /** 最近一次状态变更原因。 */
   lastReason?: string;
   /** 已重放的事件总数（含本次）。 */
