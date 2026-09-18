@@ -26,6 +26,22 @@ function metaOnDisk(id: string): Record<string, unknown> {
   return JSON.parse(readFileSync(join(tasksDir, id, 'meta.json'), 'utf8')) as Record<string, unknown>;
 }
 
+/**
+ * 轮询等待磁盘 meta 到达终态。
+ *
+ * 这里是真实子进程（`cmd /c echo`），完成耗时不稳定：固定 `setTimeout(500)` 在
+ * 并行满载时会假失败（全量套件下必现，单独跑却稳定 19/19）。改成轮询既消除
+ * flaky，又通常比固定等待更快收敛。
+ */
+async function waitForTerminalMeta(id: string, timeoutMs = 5000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const status = metaOnDisk(id).status;
+    if (status === 'completed' || status === 'failed' || status === 'killed') return;
+    await new Promise((r) => setTimeout(r, 25));
+  }
+}
+
 const BASE_META = { command: 'npm test', startedAt: '2026-08-01T00:00:00.000Z' };
 
 describe('BackgroundManager 任务落盘（tasksDir）', () => {
@@ -50,7 +66,7 @@ describe('BackgroundManager 任务落盘（tasksDir）', () => {
     const args = process.platform === 'win32' ? ['/c', 'echo hello'] : ['-c', 'echo hello'];
     const m = new BackgroundManager(10, { tasksDir });
     const id = m.start('echo hello', shell, args, process.cwd());
-    await new Promise((r) => setTimeout(r, 500));
+    await waitForTerminalMeta(id);
     const meta = metaOnDisk(id);
     expect(meta.status).toBe('completed');
     expect(typeof meta.pid).toBe('number');
