@@ -16,6 +16,8 @@ This guide follows the order you are likely to need things in. If you are new, s
 | [Quick start](./quickstart.md) | Up and running in 10 minutes: install, set the key, first conversation |
 | [Installation](./installation.md) | Requirements, building from source, the global command, upgrading and uninstalling |
 | [Configuration](./configuration.md) | API keys, every config.toml field, multi-protocol providers, multiple providers and models, thinking, hooks, environment variables, data directories |
+| [Architecture](./architecture.md) | Module boundaries, layers, data flow, and the boundaries not to break |
+| [Harness](./harness.md) | Context management, retry, recovery, verification, traces — the core of this project |
 | [Interactive use](./interactive.md) | TUI layout, slash commands, keybindings, the three permission tiers, plan mode, the model selector, plugin management |
 | [Tools](./tools.md) | Parameters and behavioral limits of every built-in tool, parallel execution, result feedback, permission gating |
 | [Sub-agents and automation](./agents.md) | spawn_agent, parallel execution, dynamic_workflow, goals, background tasks |
@@ -25,6 +27,9 @@ This guide follows the order you are likely to need things in. If you are new, s
 | [Skills, plugins, and MCP](./skills-and-mcp.md) | SKILL.md format, loading precedence, extra_skill_dirs, what plugins can provide, MCP and mcp.json |
 | [Hooks](./hooks.md) | Lifecycle hooks: the five events, execution and blocking conventions, injection |
 | [AGENTS.md](./agents-md.md) | How project conventions are loaded, overridden, and sourced |
+| [Benchmark](./benchmark.md) | Running local tasks, recorded metrics, and why historical results are not citable |
+| [Troubleshooting](./troubleshooting.md) | Common symptoms, causes and fixes |
+| [Step 3.7 Flash best practices](./best-practices.md) | Getting the most out of Step Pilot with small models |
 
 ## Cheat sheet
 
