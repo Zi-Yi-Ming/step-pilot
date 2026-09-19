@@ -10,7 +10,9 @@
  * 本模块**不启动 agent**：它回答「现在能不能继续、有哪些不确定」，把「怎么继续」
  * 留给调用方。这也是 `--confirm` 只写恢复事件、不偷偷跑工具的原因。
  */
+import type Anthropic from '@anthropic-ai/sdk';
 import { findSeqGaps, canTransition } from './state.js';
+import { deriveEffects, uncertainEffects, type MissionEffect } from './effects.js';
 import type { GitInspection } from './git.js';
 import type { MissionEvent, MissionStatus, MissionView } from './types.js';
 
@@ -21,6 +23,11 @@ export interface SessionInspection {
   messageCount: number;
   /** 末尾悬空的 tool_use id（进程死在工具中途的证据）。 */
   danglingToolUseIds: string[];
+  /**
+   * 副作用账本（从会话消息推导的「可能改变世界」的调用及其闭环状态）。
+   * probe 未派生（如旧 fake）时缺省；消费方一律按「可能缺失」处理。
+   */
+  effects?: MissionEffect[];
 }
 
 /** 会话探测接口（默认实现走 SessionStore；测试注入假实现）。 */
@@ -55,6 +62,8 @@ export interface RecoveryPlan {
   git?: GitInspection;
   drift?: DriftReport;
   session?: SessionInspection;
+  /** 副作用账本（会话关联且派生成功时存在）。 */
+  effects?: MissionEffect[];
   /** 需要人工确认的事项。为空才代表可以放心继续。 */
   needsConfirmation: string[];
   /** 人类可读的恢复计划步骤。 */
@@ -169,6 +178,27 @@ export function buildRecoveryPlan(input: BuildPlanInput): RecoveryPlan {
         '——进程很可能死在工具执行中途，恢复时会合成 is_error 结果（不假装成功）。',
     );
   }
+  // ---- 副作用账本：把「未决副作用」从 git 漂移的间接信号升格为逐笔判定 ----
+  const effects = session?.effects ?? [];
+  if (effects.length > 0) {
+    plan.effects = effects;
+    const uncertain = uncertainEffects(effects);
+    if (uncertain.length > 0) {
+      plan.needsConfirmation.push(
+        `副作用账本有 ${uncertain.length} 笔未闭环（最近：${uncertain[uncertain.length - 1]!.summary}）` +
+          '——进程可能死在副作用中途，相关文件可能处于半写状态，恢复后先核实这些改动的实际落盘状态。',
+      );
+      plan.steps.push(
+        `核实 ${uncertain.length} 笔未闭环副作用的实际落盘状态（如 ${uncertain[uncertain.length - 1]!.summary}）`,
+      );
+    }
+    const failed = effects.filter((e) => e.status === 'failed');
+    if (failed.length > 0) {
+      plan.warnings.push(
+        `副作用账本有 ${failed.length} 笔已失败（最近：${failed[failed.length - 1]!.summary}）——失败也是事实，恢复时不要假装它们成功过。`,
+      );
+    }
+  }
   if (manifest.sessionId !== undefined && session?.exists === false) {
     plan.needsConfirmation.push(
       `manifest 记录了会话 ${manifest.sessionId}，但在本仓库下找不到它——悬空工具调用的信号不可用。`,
@@ -252,6 +282,8 @@ export function createSessionProbe(store: {
         messageCount: res.session.messages.length,
         // resume() 已经把悬空 tool_use 的闭合结果算好了，直接采信，不重复判定
         danglingToolUseIds: res.closedDanglingToolUse ? res.closedToolUseIds : [],
+        // 副作用账本：从重建后的消息序列确定性推导（合成占位 → uncertain）
+        effects: deriveEffects(res.session.messages as readonly { message: Anthropic.MessageParam }[]),
       };
     },
   };

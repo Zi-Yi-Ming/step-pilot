@@ -2,7 +2,7 @@
 
 > **Status: the fact chain, recovery analysis, and the independent verifier are all implemented.**
 >
-> Implemented: `step mission create / list / show / status / replay / start / pause / stop / checkpoint / resume / verify / prove` — Mission manifest, append-only event log, pure state machine, checkpoints (with git HEAD alignment), recovery analysis (drift detection, dangling tool-call detection, confirmation list), and the independent verifier (runs `acceptance` commands, compares exit codes, writes evidence, and keeps harness failures distinct from assertion failures).
+> Implemented: `step mission create / list / show / status / replay / start / pause / stop / checkpoint / resume / verify / prove` — Mission manifest, append-only event log, pure state machine, checkpoints (with git HEAD alignment), recovery analysis (drift detection, dangling tool-call detection, effect ledger, confirmation list), and the independent verifier (runs `acceptance` commands, compares exit codes, writes evidence, and keeps harness failures distinct from assertion failures).
 >
 > `verify` is the only path that can push a Mission to `completed`; `prove` additionally exports an inspectable evidence-bundle directory on top of the same verification.
 >
@@ -141,7 +141,8 @@ The output covers:
 - **Resumability**: derived directly from the state machine's transition table (`canTransition(status, 'recovering')`), not a second parallel rule. `planned` (never started) and `completed` / `stopped` (terminal) are not resumable.
 - **Drift**: the last checkpoint's HEAD compared against the current HEAD, classified as `none` / `uncommitted` / `committed` / `unknown`. **`unknown` is a first-class result**: a checkpoint with no recorded HEAD, unavailable git, an empty repository, or a changed HEAD with no listable files (history rewritten) all report "cannot determine" rather than degrading to "no drift".
 - **Associated session**: when the manifest records `--session`, `SessionStore.resume()` detects a trailing dangling `tool_use` (evidence the process died mid-tool) and adds it to the confirmation list.
-- **Confirmation list**: dirty checkpoints, ownership of post-checkpoint changes, dangling tool calls, acceptance criteria never executed. Any uncertainty lands here instead of being waved through because it is "probably fine".
+- **Effect ledger**: derived deterministically from the session messages — every call that "could change the world" (`write_file` / `edit_file` / `bash` by name; MCP tools, `spawn_agent`, `dynamic_workflow`, and other unknown tools conservatively included; a known read-only whitelist excluded) plus its closure status. **Uncertain** effects (dangling, or whose result was replaced by the interruption placeholder) go to the confirmation list — the process may have died mid-effect and files may be half-written. **Failed** effects go to warnings (a failure is also a fact; recovery must not pretend it succeeded). The ledger is a pure-function view over the session fact source, deliberately not duplicated into the Mission event log (one source of truth, no second copy drifting apart).
+- **Confirmation list**: dirty checkpoints, ownership of post-checkpoint changes, dangling tool calls, unclosed effects, acceptance criteria never executed. Any uncertainty lands here instead of being waved through because it is "probably fine".
 
 Only `--confirm` writes events: `recovery.started` (-> `recovering`) plus `recovery.completed` (-> `running`).
 `--run` goes one step further on top of `--confirm` and hands the continuation to the composition root: the recovery facts are written first, then `buildContinuationPrompt` synthesizes an English continuation prompt from what the recovery analysis observed (objective, checkpoint, drift, confirmations, warnings), and the process falls through to agent bootstrap to continue non-interactively. `--run` without `--confirm` is refused — really starting an agent burns tokens and must not happen implicitly inside a read-only analysis. In every form, resume never executes acceptance criteria and never claims completion — that judgment belongs only to `step mission verify`.
@@ -239,7 +240,7 @@ RCR must not be replaced by the model’s self-reported success. Supporting metr
 - journal hit rate and time to first effective action after resume
 - verifier pass rate
 - `harness_error` and `verification_skipped`
-- dangling tool-call closures
+- dangling tool-call closures and unclosed-effect count (effect ledger)
 - evidence event completeness
 
 The benchmark must separate clean runs, kill-before-checkpoint, kill-after-checkpoint, kill-during-tool, resume, and verifier harness errors, paired with an uninterrupted oracle.
@@ -271,7 +272,7 @@ Still missing:
   interactive in-TUI continuation and enforcing the recorded permission intent (`policy.permission`) on continuation runs are still open.
 - **Richer acceptance criteria (P0-C extension)**: scope assertions (`--allow-files`) have landed; deeper structured assertions such as `unused_exports` are a later verifier stage, not current capability.
 - **Fault-injection benchmark (P0-D)**: RCR has no data yet.
-- **Effect ledger**: today there is only checkpoint + drift alignment, not a per-side-effect started/completed ledger. "Unresolved side effect -> needs_confirmation" is therefore expressed indirectly through drift, not as a precise effect-level judgment.
+- **Effect-ledger materialization (optional extension)**: the per-effect started/completed ledger has landed as a **derived view** of the session fact source (used by recovery analysis); if cross-session aggregation or ledgers without an associated session are ever needed, `effect.started/completed` events could then be written into the Mission event log.
 - **Journal identity fingerprints (P1)**: the `dynamic_workflow` journal key still needs script/model/provider/capability/git HEAD fingerprints to avoid incorrect cache hits.
 - **True background abort (P1)**: background `dynamic_workflow` `task_stop` currently only marks killed.
 - **Commits and events are not atomic**: there is no cross-store transaction, so drift can only be detected after the fact, not prevented.

@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type Anthropic from '@anthropic-ai/sdk';
 
 // 真跑 git 的用例在 Windows 上进程创建慢，抬高超时（与 team.test.ts 同款理由）
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
@@ -19,8 +20,16 @@ import { runMissionCommand, buildContinuationPrompt } from '../../../src/agent/m
 import { MissionStore } from '../../../src/agent/mission/store.js';
 import { replayMissionEvents } from '../../../src/agent/mission/state.js';
 import { buildRecoveryPlan, createSessionProbe, lastCheckpointOf } from '../../../src/agent/mission/resume.js';
+import { stored } from '../../../src/agent/message.js';
+import { SessionStore } from '../../../src/session/store.js';
+import { textBlock, toolUseBlock } from '../../helpers/fakeProvider.js';
 import type { GitInspection } from '../../../src/agent/mission/git.js';
 import type { MissionEvent, MissionManifest, MissionStatus, MissionView } from '../../../src/agent/mission/types.js';
+
+/** tool_result 块构造（副作用账本用例用，fakeProvider 未提供）。 */
+function toolResultBlock(id: string, content: string, isError = false): Anthropic.ToolResultBlockParam {
+  return { type: 'tool_result', tool_use_id: id, content, ...(isError ? { is_error: true } : {}) };
+}
 
 const run = promisify(execFile);
 const tmpDirs: string[] = [];
@@ -240,11 +249,30 @@ describe('buildRecoveryPlan：会话与未决项', () => {
 });
 
 describe('createSessionProbe', () => {
-  it('会话存在且有悬空调用 → 如实报告', () => {
+  it('会话存在且有悬空调用 → 如实报告，并派生副作用账本', () => {
     const probe = createSessionProbe({
-      resume: () => ({ session: { messages: [1, 2, 3] }, closedDanglingToolUse: true, closedToolUseIds: ['tu_9'] }),
+      resume: () => ({
+        session: {
+          messages: [
+            stored(
+              { role: 'assistant', content: [toolUseBlock('tu_9', 'write_file', { path: 'a.ts' })] },
+              { kind: 'assistant' },
+            ),
+          ],
+        },
+        closedDanglingToolUse: true,
+        closedToolUseIds: ['tu_9'],
+      }),
     });
-    expect(probe.inspect('/repo', 's1')).toEqual({ sessionId: 's1', exists: true, messageCount: 3, danglingToolUseIds: ['tu_9'] });
+    const inspection = probe.inspect('/repo', 's1');
+    expect(inspection.sessionId).toBe('s1');
+    expect(inspection.exists).toBe(true);
+    expect(inspection.messageCount).toBe(1);
+    expect(inspection.danglingToolUseIds).toEqual(['tu_9']);
+    // 真实 store 返回 StoredMessage，probe 从中派生账本；悬空调用即未闭环副作用
+    expect(inspection.effects).toHaveLength(1);
+    expect(inspection.effects![0]!.effectId).toBe('tu_9');
+    expect(inspection.effects![0]!.status).toBe('uncertain');
   });
 
   it('会话不存在 → exists:false，不抛错', () => {
@@ -493,5 +521,50 @@ describe('buildContinuationPrompt（纯函数）', () => {
     expect(p).toContain('# Items needing attention'); // 脏检查点进未决项
     expect(p).toContain('# Log health warnings');
     expect(p).toContain('2 行无法解析');
+  });
+});
+
+describe('mission resume 副作用账本（真会话）', () => {
+  it('悬空的 write_file 进需要确认；账本计数出现在关联会话行', async () => {
+    const repo = await makeRepo();
+    const ss = new SessionStore();
+    const s = ss.create(repo, 'test-model');
+    ss.appendFull(repo, s.id, [
+      stored({ role: 'user', content: '修复扣款' }, { kind: 'user' }),
+      stored(
+        { role: 'assistant', content: [textBlock('开写'), toolUseBlock('c1', 'write_file', { path: 'src/payment.ts' })] },
+        { kind: 'assistant' },
+      ),
+      // c1 无结果：进程死在副作用中途
+    ]);
+    const id = await makeRunningMission(repo, ['--session', s.id]);
+    await runMissionCommand(['checkpoint', id, '--label', 'base'], repo, store);
+    const res = await runMissionCommand(['resume', id], repo, store);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain('1 笔副作用（1 未闭环）');
+    expect(res.stdout).toContain('未闭环');
+    expect(res.stdout).toContain('src/payment.ts');
+    expect(res.stdout).toContain('半写状态');
+  });
+
+  it('已完成的副作用不告警；已失败的进告警（失败也是事实）', async () => {
+    const repo = await makeRepo();
+    const ss = new SessionStore();
+    const s = ss.create(repo, 'test-model');
+    ss.appendFull(repo, s.id, [
+      stored({ role: 'user', content: '任务' }, { kind: 'user' }),
+      stored({ role: 'assistant', content: [toolUseBlock('c1', 'write_file', { path: 'src/ok.ts' })] }, { kind: 'assistant' }),
+      stored({ role: 'user', content: [toolResultBlock('c1', 'wrote 10 bytes')] }, { kind: 'tool' }),
+      stored({ role: 'assistant', content: [toolUseBlock('c2', 'bash', { command: 'pnpm test' })] }, { kind: 'assistant' }),
+      stored({ role: 'user', content: [toolResultBlock('c2', 'tests failed', true)] }, { kind: 'tool' }),
+    ]);
+    const id = await makeRunningMission(repo, ['--session', s.id]);
+    await runMissionCommand(['checkpoint', id, '--label', 'base'], repo, store);
+    const res = await runMissionCommand(['resume', id], repo, store);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain('2 笔副作用（0 未闭环）');
+    expect(res.stdout).toContain('已失败');
+    expect(res.stdout).toContain('pnpm test');
+    expect(res.stdout).not.toContain('未闭环（最近'); // 无未闭环条目
   });
 });

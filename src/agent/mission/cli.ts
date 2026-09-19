@@ -816,10 +816,14 @@ function formatPlan(plan: RecoveryPlan, confirm: boolean): string {
   }
   if (plan.session !== undefined) {
     const s = plan.session;
+    const effectNote =
+      s.effects !== undefined
+        ? `，${s.effects.length} 笔副作用（${s.effects.filter((e) => e.status === 'uncertain').length} 未闭环）`
+        : '';
     lines.push(
       '',
       s.exists
-        ? `关联会话:      ${s.sessionId}（${s.messageCount} 条消息${s.danglingToolUseIds.length > 0 ? `，${s.danglingToolUseIds.length} 个悬空工具调用` : ''}）`
+        ? `关联会话:      ${s.sessionId}（${s.messageCount} 条消息${s.danglingToolUseIds.length > 0 ? `，${s.danglingToolUseIds.length} 个悬空工具调用` : ''}${effectNote}）`
         : `关联会话:      ${s.sessionId}（在本仓库下找不到）`,
     );
   }

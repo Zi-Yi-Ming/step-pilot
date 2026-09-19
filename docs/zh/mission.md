@@ -2,7 +2,7 @@
 
 > **状态：事实链、恢复分析与独立 verifier 均已实现。**
 >
-> 已实现：`step mission create / list / show / status / replay / start / pause / stop / checkpoint / resume / verify / prove`——Mission manifest、append-only 事件日志、纯函数状态机、检查点（含 git HEAD 对齐）、恢复分析（漂移判定 + 悬空工具调用检测 + 需确认清单），以及独立 verifier（执行 `acceptance` 命令、比对退出码、写证据，且把 harness 故障与断言失败分开）。
+> 已实现：`step mission create / list / show / status / replay / start / pause / stop / checkpoint / resume / verify / prove`——Mission manifest、append-only 事件日志、纯函数状态机、检查点（含 git HEAD 对齐）、恢复分析（漂移判定 + 悬空工具调用检测 + 副作用账本 + 需确认清单），以及独立 verifier（执行 `acceptance` 命令、比对退出码、写证据，且把 harness 故障与断言失败分开）。
 >
 > `verify` 是唯一能把 Mission 推到 `completed` 的路径；`prove` 在其基础上导出可检查的证据包目录。
 >
@@ -146,7 +146,12 @@ step mission prove <mission-id> [--out <目录>]         # verify 并导出可�
   都会如实报「无法判定」，绝不降级成「无漂移」。
 - **关联会话**：manifest 记了 `--session` 时，用 `SessionStore.resume()` 检出末尾悬空 `tool_use`
   （进程死在工具中途的证据），并进「需要确认」。
-- **需要确认清单**：脏检查点、检查点后的变更归属、悬空工具调用、接受标准尚未执行……
+- **副作用账本**：从会话消息确定性推导「可能改变世界」的调用（write_file / edit_file / bash
+  按名分类；MCP、spawn_agent、dynamic_workflow 等未知工具保守纳入；只读白名单不进账本）
+  及其闭环状态。**未闭环**（悬空，或结果被中断占位替换）→ 进「需要确认」——进程可能死在
+  副作用中途，文件可能处于半写状态；**已失败**→ 进告警（失败也是事实，恢复时不要假装它成功过）。
+  账本是会话事实源的纯函数推导，不在 Mission 事件日志里另记一份（避免第二份会漂移的记录）。
+- **需要确认清单**：脏检查点、检查点后的变更归属、悬空工具调用、未闭环副作用、接受标准尚未执行……
   任何一项不确定都进这里，不因为「大概率没事」静默放行。
 
 `--confirm` 才写事件：`recovery.started`（→ `recovering`）+ `recovery.completed`（→ `running`）。
@@ -255,7 +260,7 @@ RCR 不能由模型自报成功替代。相关分层指标包括：
 - journal 命中率与恢复后首个有效动作延迟
 - verifier 通过率
 - `harness_error` 与 `verification_skipped`
-- 悬空工具调用闭合数
+- 悬空工具调用闭合数与未闭环副作用数（副作用账本）
 - evidence 事件完整率
 
 Benchmark 必须区分 clean run、kill-before-checkpoint、kill-after-checkpoint、kill-during-tool、resume 和 verifier harness error，并与无中断 oracle 成对比较。
@@ -289,8 +294,9 @@ v0.1 不做：
 - **更丰富的接受标准（P0-C 延伸）**：范围断言（`--allow-files`）已落地；`unused_exports` 等
   更深入的结构化断言是后续 verifier 阶段，不是当前能力。
 - **fault-injection benchmark（P0-D）**：RCR 尚无数据。
-- **effect ledger**：当前只有「检查点 + 漂移」这一层对齐，还没有逐副作用的 started/completed 账本；
-  因此「未决副作用 → needs_confirmation」目前由漂移间接表达，不是精确的副作用级判定。
+- **effect ledger 事件化（可选延伸）**：逐副作用 started/completed 账本已作为会话事实源的
+  **推导视图**落地（resume 分析用）；若未来需要跨会话聚合或在不关联会话时保留账本，
+  再考虑把 `effect.started/completed` 写进 Mission 事件日志。
 - **journal 身份指纹（P1）**：`dynamic_workflow` 的 journal key 仍需补充
   script/model/provider/capability/git HEAD 指纹，避免错误缓存命中。
 - **后台真正 abort（P1）**：`dynamic_workflow` 后台 `task_stop` 目前只标记 killed。
