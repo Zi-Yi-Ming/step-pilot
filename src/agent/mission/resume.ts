@@ -77,6 +77,26 @@ export function lastCheckpointOf(events: readonly MissionEvent[]): CheckpointInf
   return undefined;
 }
 
+/**
+ * 从事件序列里取第一个 checkpoint（范围断言的基线来源）。
+ *
+ * 为什么范围基线是**第一个**而不是最近一个检查点：范围约束约束的是「本任务改了什么」，
+ * 最近检查点只覆盖「自上次留痕以来」的变更，中间已提交的改动会漏检。
+ * 第一个检查点之后的所有变更（提交 ∪ 未提交）都在任务边界内。
+ */
+export function firstCheckpointOf(events: readonly MissionEvent[]): CheckpointInfo | undefined {
+  for (const e of events) {
+    if (e.type === 'checkpoint.created') {
+      const info: CheckpointInfo = { checkpointId: e.checkpointId, label: e.label, ts: e.ts };
+      if (e.gitHead !== undefined) info.gitHead = e.gitHead;
+      if (e.changedFiles !== undefined) info.changedFiles = e.changedFiles;
+      if (e.dirty !== undefined) info.dirty = e.dirty;
+      return info;
+    }
+  }
+  return undefined;
+}
+
 export interface BuildPlanInput {
   view: MissionView;
   health: { corruptLines: number };

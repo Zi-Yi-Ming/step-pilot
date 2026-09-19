@@ -15,7 +15,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 // 真跑 git 的用例在 Windows 上进程创建慢，抬高超时（与 team.test.ts 同款理由）
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
-import { runMissionCommand } from '../../../src/agent/mission/cli.js';
+import { runMissionCommand, buildContinuationPrompt } from '../../../src/agent/mission/cli.js';
 import { MissionStore } from '../../../src/agent/mission/store.js';
 import { replayMissionEvents } from '../../../src/agent/mission/state.js';
 import { buildRecoveryPlan, createSessionProbe, lastCheckpointOf } from '../../../src/agent/mission/resume.js';
@@ -407,5 +407,91 @@ describe('mission resume（真 git 仓）', () => {
     expect(res.code).toBe(0);
     expect(res.stdout).toContain('s-does-not-exist');
     expect(res.stdout).toContain('找不到它');
+  });
+});
+
+describe('mission resume --run（恢复接回执行）', () => {
+  it('--run 不带 --confirm 时拒绝：真实启动 agent 不允许在只读分析里隐式发生', async () => {
+    const repo = await makeRepo();
+    const id = await makeRunningMission(repo);
+    await runMissionCommand(['checkpoint', id, '--label', '第一段'], repo, store);
+    const before = store.load(repo, id)!.events.length;
+    const res = await runMissionCommand(['resume', id, '--run'], repo, store);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain('--run');
+    expect(res.stderr).toContain('--confirm');
+    // 拒绝路径不写任何事件
+    expect(store.load(repo, id)!.events.length).toBe(before);
+  });
+
+  it('--confirm --run 写完恢复事件后返回桥接载荷：prompt 含目标/检查点/verify 指引，sessionId 透传', async () => {
+    const repo = await makeRepo();
+    const id = await makeRunningMission(repo, ['--session', 'sess-1']);
+    await runMissionCommand(['checkpoint', id, '--label', '改完 payment.ts'], repo, store);
+    const res = await runMissionCommand(['resume', id, '--confirm', '--run'], repo, store);
+    expect(res.code).toBe(0);
+    expect(res.continueRun).toBeDefined();
+    expect(res.continueRun!.sessionId).toBe('sess-1');
+    const p = res.continueRun!.prompt;
+    expect(p).toContain('修复重复扣款'); // objective 原样进入 prompt
+    expect(p).toContain('改完 payment.ts'); // 检查点 label
+    expect(p).toContain('step mission verify'); // 完成判定指向独立 verifier，不自报
+    expect(p).toContain('Do NOT declare completion yourself');
+    // 恢复事件照常写入（--run 不改变 --confirm 的事实链语义）
+    const view = store.load(repo, id)!;
+    expect(view.state.status).toBe('running');
+    expect(view.state.recoveryCount).toBe(1);
+  });
+
+  it('manifest 未关联会话时 continueRun 不带 sessionId（组合根走新建会话）', async () => {
+    const repo = await makeRepo();
+    const id = await makeRunningMission(repo);
+    await runMissionCommand(['checkpoint', id, '--label', 'x'], repo, store);
+    const res = await runMissionCommand(['resume', id, '--confirm', '--run'], repo, store);
+    expect(res.code).toBe(0);
+    expect(res.continueRun).toBeDefined();
+    expect(res.continueRun!.sessionId).toBeUndefined();
+  });
+
+  it('不可恢复（planned）时 --confirm --run 退出码 1 且无桥接载荷', async () => {
+    const repo = await makeRepo();
+    const created = await runMissionCommand(['create', '--objective', 'o'], repo, store);
+    const id = /mission-[0-9a-z-]+/.exec(created.stdout ?? '')![0];
+    const res = await runMissionCommand(['resume', id, '--confirm', '--run'], repo, store);
+    expect(res.code).toBe(1);
+    expect(res.continueRun).toBeUndefined();
+  });
+});
+
+describe('buildContinuationPrompt（纯函数）', () => {
+  it('无漂移无告警时不虚构漂移/告警段；仍在的未决项如实保留', () => {
+    // 检查点 HEAD 与当前一致且工作区干净 → drift 为 none；manifest 带接受标准且未验证
+    // → 「接受标准尚未执行」仍在未决项里（这是诚实的，不该被 prompt 合成吞掉）。
+    const ckpt = ev(1, { type: 'checkpoint.created', checkpointId: 'cp-1', label: 'x', gitHead: 'aaa1111' });
+    const plan = buildRecoveryPlan({ view: viewOf([ckpt]), health: { corruptLines: 0 }, git: CLEAN });
+    expect(plan.drift?.kind).toBe('none');
+    const p = buildContinuationPrompt(plan);
+    expect(p).toContain('resuming an unfinished engineering task');
+    expect(p).not.toContain('# Repository drift');
+    expect(p).not.toContain('# Log health warnings');
+    expect(p).toContain('# Items needing attention');
+    expect(p).toContain('step mission verify');
+  });
+
+  it('漂移、未决项、告警各自成段且条目原样进入', () => {
+    const plan = buildRecoveryPlan({
+      view: viewOf([
+        ev(1, { type: 'mission.created', repo: '/r', objective: 'o', acceptanceCount: 0 }),
+        ev(2, { type: 'checkpoint.created', checkpointId: 'cp-001', label: 'x', gitHead: 'a'.repeat(40), dirty: true }),
+      ]),
+      health: { corruptLines: 2 },
+      git: { available: true, head: 'b'.repeat(40), dirty: false, committedChanges: ['src/a.ts'], uncommittedChanges: [] },
+    });
+    const p = buildContinuationPrompt(plan);
+    expect(p).toContain('# Repository drift (committed)');
+    expect(p).toContain('src/a.ts');
+    expect(p).toContain('# Items needing attention'); // 脏检查点进未决项
+    expect(p).toContain('# Log health warnings');
+    expect(p).toContain('2 行无法解析');
   });
 });

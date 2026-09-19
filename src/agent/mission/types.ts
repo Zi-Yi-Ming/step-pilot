@@ -52,6 +52,19 @@ export interface MissionPolicy {
   permission?: string;
 }
 
+/**
+ * 任务级范围约束（可选，验收的一部分）。
+ *
+ * 声明后 `verify` 会把它当独立检查项：自范围基线（第一个检查点的 HEAD）以来的
+ * 全部变更文件（含提交与未提交）必须至少匹配一个 glob，越界即验收不通过。
+ * 这是「只改这两个文件」从口头约定变成机器判定——小模型多文件重构里
+ * 「顺手改了第三个文件」的典型失败形态由此有了兜底。
+ */
+export interface MissionScope {
+  /** 允许变更的文件 glob 清单（`*` 不跨目录段、`**` 跨、`?` 单字符；语义见 verify.fileMatchesGlob）。 */
+  allowFiles: string[];
+}
+
 /** Mission manifest：任务的稳定身份与接受标准。 */
 export interface MissionManifest {
   manifestVersion: number;
@@ -61,6 +74,8 @@ export interface MissionManifest {
   objective: string;
   acceptance: MissionAcceptance[];
   policy: MissionPolicy;
+  /** 任务级范围约束；未声明时 verify 不做范围检查。 */
+  scope?: MissionScope;
   createdAt: string;
   /**
    * 关联的会话 id（可选）。

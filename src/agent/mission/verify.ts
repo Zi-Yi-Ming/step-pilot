@@ -19,7 +19,8 @@
 import { execFileSync } from 'node:child_process';
 import { resolveShell, type ResolvedShell } from '../../tools/shellResolve.js';
 import { isHarnessFailure } from '../../utils/harnessFailure.js';
-import type { MissionAcceptance } from './types.js';
+import type { GitInspection } from './git.js';
+import type { MissionAcceptance, MissionScope } from './types.js';
 
 /** 内置 verifier 的稳定标识；将来支持多 verifier 时，verifierId 用于区分来源。 */
 export const BUILTIN_VERIFIER_ID = 'step-pilot/verify';
@@ -50,6 +51,8 @@ export interface VerificationResult {
   /** 是否有任一检查因环境故障而不可判定——此时 allPassed 恒为 false，且结论不可采信。 */
   harnessError: boolean;
   checks: CheckResult[];
+  /** 任务级范围检查（manifest.scope 声明时存在）；未声明为 undefined。 */
+  scope?: ScopeCheckResult;
 }
 
 /** 命令执行器：输入命令字符串，返回退出码与输出。可注入以做确定性测试。 */
@@ -127,6 +130,152 @@ export function runVerifier(
     allPassed: allPassed && !harnessError,
     harnessError,
     checks,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 范围断言（scope check）：把「只改这些文件」变成机器判定。
+//
+// 与命令断言同一套诚实性纪律：
+// - 越界变更 = 断言未通过（模型做错了），置 failed；
+// - 无法枚举变更（无检查点基线 / git 不可用 / sha 被 rebase 掉）= 不可判定，
+//   走 harnessError 语义退回 running——绝不把「查不了」读成「没越界」。
+// ---------------------------------------------------------------------------
+
+/** 单条范围检查的结论。 */
+export interface ScopeCheckResult {
+  kind: 'passed' | 'violated' | 'inconclusive';
+  /** 范围基线（第一个检查点记录的 HEAD）。无法建立时缺省。 */
+  baselineHead?: string;
+  /** 越界文件（不匹配任何 allowFiles 的变更文件）。violated 时非空。 */
+  violations: string[];
+  /** 基线以来的变更文件总数（提交 ∪ 未提交）。inconclusive 时可能为 0。 */
+  changedCount: number;
+  /** inconclusive 时的原因（引导下一步：先 checkpoint / 修 git 环境）。 */
+  note?: string;
+}
+
+/**
+ * 判定一个文件路径是否匹配一个 glob 模式（纯函数）。
+ *
+ * 支持的语法（刻意最小，覆盖 `--allow-files` 的表达需要）：
+ * - `**`：跨目录段（`src/**` 匹配 src 下任意深度；`a/**` + `/b` 形式允许中间零或多个目录段）
+ * - `*`：单段内任意字符（不跨 `/`）
+ * - `?`：单个字符（不含 `/`）
+ * - 其余字符字面匹配；分隔符一律按 `/` 处理（Windows 路径先归一）。
+ *
+ * 为什么不用 node:fs globSync 枚举后求交集：变更清单里可能有**已删除**的文件，
+ * 以盘面枚举为准会把删除误判成不匹配；以 porcelain 记录的变更清单为事实源、
+ * 逐文件判定才是「改了什么」的正确语义。
+ */
+export function fileMatchesGlob(file: string, pattern: string): boolean {
+  const f = file.replace(/\\/g, '/');
+  const p = pattern.replace(/\\/g, '/').replace(/\/+$/, '');
+  if (p === '' || p === '/') return false;
+  let re = '';
+  let i = 0;
+  while (i < p.length) {
+    const c = p[i]!;
+    if (c === '*') {
+      if (p[i + 1] === '*') {
+        const prevIsSlash = i === 0 || p[i - 1] === '/';
+        const nextIsSlash = p[i + 2] === '/';
+        if (prevIsSlash && nextIsSlash) {
+          // `**/`：零或多个完整目录段（`a/**/b` 匹配 `a/b` 与 `a/x/y/b`）
+          re += '(?:[^/]+/)*';
+          i += 3;
+          continue;
+        }
+        // 尾随（或独立）`**`：任意剩余内容
+        re += '.*';
+        i += 2;
+        continue;
+      }
+      re += '[^/]*';
+      i += 1;
+      continue;
+    }
+    if (c === '?') {
+      re += '[^/]';
+      i += 1;
+      continue;
+    }
+    re += c.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    i += 1;
+  }
+  return new RegExp(`^${re}$`).test(f);
+}
+
+/** 范围判定的入参（全部来自探测/事实链，由调用方收集，本函数保持纯函数）。 */
+export interface ScopeJudgeInput {
+  scope: MissionScope;
+  /** 范围基线：第一个检查点记录的 HEAD；undefined = 没有可比对的基线。 */
+  baselineHead?: string;
+  /** git 探测结果；未探测时缺省。 */
+  git?: GitInspection;
+}
+
+/**
+ * 判定范围约束（纯函数，不碰 IO）。
+ *
+ * 不可判定的三种来源：无基线、git 不可用、变更清单枚举失败——全部走
+ * `inconclusive`，由调用方按 harnessError 语义处理（不得据此判 failed，也不得判 passed）。
+ */
+export function judgeScope(input: ScopeJudgeInput): ScopeCheckResult {
+  const { scope, baselineHead, git } = input;
+  if (baselineHead === undefined) {
+    return {
+      kind: 'inconclusive',
+      violations: [],
+      changedCount: 0,
+      note: '范围断言没有基线：尚无检查点（或首个检查点未记录 HEAD）。先 `step mission checkpoint <id> --label <文本>` 建立基线，再 verify。',
+    };
+  }
+  if (git === undefined || !git.available) {
+    // 走到这里 baselineHead 必已定义（undefined 分支在上方先行返回）
+    return {
+      kind: 'inconclusive',
+      baselineHead,
+      violations: [],
+      changedCount: 0,
+      note: `无法判定变更范围：${git?.note ?? 'git 探测未执行'}。`,
+    };
+  }
+  if (git.committedChanges === undefined) {
+    return {
+      kind: 'inconclusive',
+      baselineHead,
+      violations: [],
+      changedCount: 0,
+      note: `无法比对基线 ${baselineHead.slice(0, 8)}（可能被 rebase / gc）：${git.note ?? '提交层变更不可枚举'}。`,
+    };
+  }
+  if (git.uncommittedChanges === undefined) {
+    return {
+      kind: 'inconclusive',
+      baselineHead,
+      violations: [],
+      changedCount: 0,
+      note: `无法枚举未提交变更：${git.note ?? '工作区状态不可用'}。`,
+    };
+  }
+  // 变更事实源：提交层 ∪ 未提交（porcelain，含未跟踪与删除）。去重保持稳定顺序。
+  const changed = [...new Set([...git.committedChanges, ...git.uncommittedChanges])];
+  const violations = changed.filter(
+    (f) => !scope.allowFiles.some((p) => fileMatchesGlob(f, p)),
+  );
+  return violations.length === 0
+    ? { kind: 'passed', baselineHead, violations: [], changedCount: changed.length }
+    : { kind: 'violated', baselineHead, violations, changedCount: changed.length };
+}
+
+/** 把范围检查合并进 verifier 总结果：越界算断言失败，不可判定算 harness 故障。 */
+export function mergeScopeIntoResult(base: VerificationResult, scope: ScopeCheckResult): VerificationResult {
+  return {
+    ...base,
+    scope,
+    allPassed: base.allPassed && scope.kind === 'passed',
+    harnessError: base.harnessError || scope.kind === 'inconclusive',
   };
 }
 

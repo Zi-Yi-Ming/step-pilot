@@ -20,6 +20,7 @@ import {
   type MissionEvent,
   type MissionManifest,
   type MissionPolicy,
+  type MissionScope,
   type MissionStatus,
   type MissionView,
 } from './types.js';
@@ -31,6 +32,8 @@ export interface CreateMissionInput {
   objective: string;
   acceptance: MissionAcceptance[];
   policy?: MissionPolicy;
+  /** 任务级范围约束（可选）：verify 时按第一个检查点的 HEAD 检查变更范围。 */
+  scope?: MissionScope;
   /** 关联的会话 id（可选）：让 resume 能找回悬空 tool_use。 */
   sessionId?: string;
   /** 测试可注入固定 missionId。 */
@@ -152,6 +155,7 @@ export class MissionStore {
       objective: input.objective,
       acceptance: input.acceptance,
       policy: input.policy ?? {},
+      ...(input.scope !== undefined ? { scope: input.scope } : {}),
       createdAt: ts,
       ...(input.sessionId !== undefined && input.sessionId !== '' ? { sessionId: input.sessionId } : {}),
     };

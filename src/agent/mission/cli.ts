@@ -16,15 +16,21 @@ import { SessionStore } from '../../session/store.js';
 import { isTerminal, MissionTransitionError } from './state.js';
 import { findSeqGaps } from './state.js';
 import { probeGit } from './git.js';
-import { buildRecoveryPlan, createSessionProbe, lastCheckpointOf, type RecoveryPlan } from './resume.js';
+import { buildRecoveryPlan, createSessionProbe, firstCheckpointOf, lastCheckpointOf, type RecoveryPlan } from './resume.js';
 import { MissionStore } from './store.js';
-import { defaultExecutor, runVerifier, type VerificationResult, type VerifyExecutor } from './verify.js';
+import { defaultExecutor, judgeScope, mergeScopeIntoResult, runVerifier, type VerificationResult, type VerifyExecutor } from './verify.js';
 import type { MissionAcceptance, MissionEvent, MissionPolicy, MissionStatus, MissionView } from './types.js';
 
 export interface MissionCommandResult {
   stdout?: string;
   stderr?: string;
   code: number;
+  /**
+   * resume --run 桥接载荷：恢复事实链已记录后，交给组合根以非交互模式继续跑 agent。
+   * 仅在 `resume --confirm --run` 且恢复分析判定可恢复时出现；其余命令恒为 undefined。
+   * `sessionId` 是 manifest 关联的会话——组合根应优先恢复它，让 agent 看到中断前的上下文。
+   */
+  continueRun?: { prompt: string; sessionId?: string };
 }
 
 /** 运行选项：测试可注入 verify 的执行器，避免真跑 shell。 */
@@ -44,12 +50,14 @@ const USAGE = [
   '  pause <mission-id> [--reason <文本>]     暂停（running → paused）',
   '  stop <mission-id> [--reason <文本>]      停止（终态，不可复活）',
   '  checkpoint <mission-id> --label <文本>   记录一个恢复检查点（含 git HEAD）',
-  '  resume <mission-id> [--confirm]   恢复分析（只读）；--confirm 记录恢复并回到 running',
+  '  resume <mission-id> [--confirm] [--run]  恢复分析（只读）；--confirm 记录恢复；--run 记录后继续以非交互模式跑 agent',
   '  verify <mission-id> [--reason <文本>]     跑 acceptance 命令，独立判定完成（证据落盘）',
   '  prove <mission-id> [--out <目录>]         verify 并导出可检查的证据包（mission-proof/）',
   '',
   'create 选项：',
   '  --acceptance <命令>[:<期望退出码>]  可重复；缺省退出码 0',
+  '  --allow-files <glob>              可重复；范围约束：verify 时自第一个检查点 HEAD 起，',
+  '                                    全部变更文件须至少匹配一条（如 "src/**"），越界即不通过',
   '  --max-turns <n>                   记录轮次预算（P0-A 仅登记，不强制）',
   '  --max-attempts <n>                记录尝试预算（P0-A 仅登记，不强制）',
   '  --permission <manual|auto|yolo>   记录创建时的权限意图',
@@ -144,6 +152,10 @@ function cmdShow(store: MissionStore, cwd: string, id: string | undefined): Miss
       lines.push(`  - ${a.command}  (expect exit ${a.expectExit})${a.description !== undefined ? `  # ${a.description}` : ''}`);
     }
   }
+  if (manifest.scope !== undefined) {
+    lines.push('scope（范围约束，自第一个检查点 HEAD 起生效）:');
+    for (const p of manifest.scope.allowFiles) lines.push(`  - ${p}`);
+  }
   const policy = formatPolicy(manifest.policy);
   if (policy !== undefined) lines.push(`policy:      ${policy}`);
   return { stdout: `${lines.join('\n')}\n`, code: 0 };
@@ -214,12 +226,19 @@ function cmdCreate(store: MissionStore, cwd: string, args: string[]): MissionCom
     objective: parsed.objective.trim(),
     acceptance: parsed.acceptance,
     policy: parsed.policy,
+    ...(parsed.allowFiles.length > 0 ? { scope: { allowFiles: parsed.allowFiles } } : {}),
     ...(parsed.sessionId !== undefined ? { sessionId: parsed.sessionId } : {}),
   });
-  const note =
-    parsed.acceptance.length === 0
-      ? '注意：未提供接受标准——没有机器可判定依据时，不应把该 Mission 判为完成。\n'
-      : '';
+  const notes: string[] = [];
+  if (parsed.acceptance.length === 0) {
+    notes.push('注意：未提供接受标准——没有机器可判定依据时，不应把该 Mission 判为完成。');
+  }
+  if (parsed.allowFiles.length > 0) {
+    notes.push(
+      `范围约束已生效（${parsed.allowFiles.length} 条 glob）：verify 时自第一个检查点的 HEAD 起检查全部变更文件，越界即验收不通过。`,
+    );
+  }
+  const note = notes.length > 0 ? `${notes.join('\n')}\n` : '';
   return {
     stdout: `已创建 Mission：${manifest.missionId}\nrepo: ${manifest.repo}\n${note}用 \`step mission status ${manifest.missionId}\` 查看状态。\n`,
     code: 0,
@@ -351,14 +370,66 @@ async function cmdCheckpoint(store: MissionStore, cwd: string, args: string[]): 
 }
 
 /**
+ * 由恢复分析合成续跑 prompt（纯函数，供 resume --run 桥接与测试使用）。
+ *
+ * 诚实性约束：只陈述恢复分析观察到的事实（目标、检查点、漂移、未决项、告警），
+ * 不代模型宣称「已完成 X」；完成与否只由 `step mission verify` 独立判定——
+ * 这条纪律与 verify 的「completed 只能由通过的验证触发」同源。
+ * 指令部分用英文（对齐 system prompt 的模型侧语言），分析条目原样引用（数据，不是指令）。
+ */
+export function buildContinuationPrompt(plan: RecoveryPlan): string {
+  const lines: string[] = [];
+  lines.push('You are resuming an unfinished engineering task (Mission). A recovery analysis has been performed; continue the work from where it stopped.');
+  lines.push('');
+  lines.push('# Objective');
+  lines.push(plan.objective);
+  if (plan.lastCheckpoint !== undefined) {
+    lines.push('');
+    lines.push('# Last checkpoint');
+    lines.push(`${plan.lastCheckpoint.label} (${plan.lastCheckpoint.checkpointId}, recorded at ${plan.lastCheckpoint.ts})`);
+  }
+  if (plan.drift !== undefined && plan.drift.kind !== 'none') {
+    lines.push('');
+    lines.push(`# Repository drift (${plan.drift.kind})`);
+    if (plan.drift.files.length > 0) lines.push(`Files: ${plan.drift.files.join(', ')}`);
+    if (plan.drift.note !== undefined) lines.push(plan.drift.note);
+  }
+  if (plan.needsConfirmation.length > 0) {
+    lines.push('');
+    lines.push('# Items needing attention (from the recovery analysis)');
+    for (const item of plan.needsConfirmation) lines.push(`- ${item}`);
+  }
+  if (plan.warnings.length > 0) {
+    lines.push('');
+    lines.push('# Log health warnings');
+    for (const w of plan.warnings) lines.push(`- ${w}`);
+  }
+  lines.push('');
+  lines.push('# How to continue');
+  lines.push('- Re-verify the items above against the actual repository before making changes; the analysis is a snapshot, not ground truth.');
+  lines.push('- Continue the unfinished work; keep changes minimal.');
+  lines.push('- Do NOT declare completion yourself: acceptance criteria are independently verified via `step mission verify`. Report honestly what is done and what remains.');
+  return lines.join('\n');
+}
+
+/**
  * 恢复分析。默认**只读**：不写事件、不调度、不发通知。
  * `--confirm` 才写 `recovery.started` + `recovery.completed`（状态回到 running）。
+ * `--run` 在 --confirm 之上再交给组合根以非交互模式续跑 agent（显式 opt-in：真实烧 token）。
  */
 async function cmdResume(store: MissionStore, cwd: string, args: string[]): Promise<MissionCommandResult> {
   const id = args[0];
   const confirm = args.includes('--confirm');
+  const run = args.includes('--run');
   if (id === undefined || id.startsWith('--')) {
-    return { stderr: 'usage: step mission resume <mission-id> [--confirm]\n', code: 1 };
+    return { stderr: 'usage: step mission resume <mission-id> [--confirm] [--run]\n', code: 1 };
+  }
+  if (run && !confirm) {
+    return {
+      stderr:
+        '--run 必须与 --confirm 一起使用：--run 会真实启动 agent 继续任务（消耗 token），不允许在只读分析里隐式发生。\n',
+      code: 1,
+    };
   }
 
   const view = store.load(cwd, id);
@@ -397,8 +468,22 @@ async function cmdResume(store: MissionStore, cwd: string, args: string[]): Prom
     replayedEvents: view.events.length,
   });
   const after = store.load(view.manifest.repo, id);
+  const doneNote = `已记录恢复：recovery.started + recovery.completed（seq ${done.seq}）\n新状态：${after?.state.status ?? '?'}`;
+  if (run) {
+    // --run：把续跑交给组合根（cli.ts 落穿到 agent 引导）。这里只负责把事实链
+    // 记完、把 prompt 合成好；绝不在此处直接启动 agent——那会绕过组合根的
+    // provider/MCP/会话装配，也绕过 print 模式的全部既有纪律。
+    return {
+      stdout: `${body}\n${doneNote}\n已合成续跑 prompt，即将以非交互模式继续任务。完成判定仍以 \`step mission verify ${id}\` 为准——agent 跑完不代表 completed。\n`,
+      code: 0,
+      continueRun: {
+        prompt: buildContinuationPrompt(plan),
+        ...(view.manifest.sessionId !== undefined ? { sessionId: view.manifest.sessionId } : {}),
+      },
+    };
+  }
   return {
-    stdout: `${body}\n已记录恢复：recovery.started + recovery.completed（seq ${done.seq}）\n新状态：${after?.state.status ?? '?'}\n注意：resume 不启动 agent，也不执行接受标准——它只重建事实链并记录恢复。\n`,
+    stdout: `${body}\n${doneNote}\n注意：resume 不启动 agent，也不执行接受标准——它只重建事实链并记录恢复。\n`,
     code: 0,
   };
 }
@@ -451,6 +536,30 @@ function bridgeToVerifying(store: MissionStore, repo: string, missionId: string,
   store.appendEvent(repo, missionId, { type: 'mission.status_changed', from: 'running', to: 'verifying' });
 }
 
+/**
+ * 命令断言 + 可选范围断言的执行核心。
+ *
+ * 范围基线取**第一个检查点**的 HEAD（范围约束约束的是「本任务改了什么」，
+ * 最近检查点会漏掉中间已提交的改动）。git 探测在此处发起；judgeScope 保持纯函数。
+ */
+async function runVerificationChecks(view: MissionView, executor: VerifyExecutor): Promise<VerificationResult> {
+  let result = runVerifier(view.manifest.acceptance, { executor });
+  const scope = view.manifest.scope;
+  if (scope !== undefined) {
+    const baseline = firstCheckpointOf(view.events)?.gitHead;
+    const git = await probeGit(view.manifest.repo, baseline);
+    result = mergeScopeIntoResult(
+      result,
+      judgeScope({
+        scope,
+        ...(baseline !== undefined ? { baselineHead: baseline } : {}),
+        git,
+      }),
+    );
+  }
+  return result;
+}
+
 /** 构造可检查的证据对象（完整 stdout/stderr 进 evidence 文件；这里给结构化摘要）。 */
 function buildEvidence(view: MissionView, result: VerificationResult, reason: string | undefined): unknown {
   return {
@@ -471,6 +580,7 @@ function buildEvidence(view: MissionView, result: VerificationResult, reason: st
       stdout: c.stdout,
       stderr: c.stderr,
     })),
+    ...(result.scope !== undefined ? { scope: result.scope } : {}),
   };
 }
 
@@ -490,6 +600,20 @@ function formatVerify(result: VerificationResult, id: string, evidenceRef: strin
     lines.push(`  ${i + 1}. ${mark} exit=${c.exitCode ?? '?'} (expect ${c.expectExit})  ${c.command}`);
     if (!c.passed && c.harnessError !== null) lines.push(`        环境故障：${c.harnessError}`);
   });
+  if (result.scope !== undefined) {
+    const s = result.scope;
+    if (s.kind === 'passed') {
+      lines.push(`  scope: [PASS] ${s.changedCount} 个变更文件全部在允许范围内（基线 ${s.baselineHead?.slice(0, 8) ?? '?'}）`);
+    } else if (s.kind === 'violated') {
+      lines.push(
+        `  scope: [FAIL] ${s.violations.length}/${s.changedCount} 个变更文件越界（基线 ${s.baselineHead?.slice(0, 8) ?? '?'}）：`,
+      );
+      for (const v of s.violations.slice(0, 20)) lines.push(`        - ${v}`);
+      if (s.violations.length > 20) lines.push(`        …另有 ${s.violations.length - 20} 个越界文件（完整清单见证据文件）`);
+    } else {
+      lines.push(`  scope: [不可判定] ${s.note ?? '原因未记录'}`);
+    }
+  }
   if (result.harnessError) {
     lines.push(
       '',
@@ -536,7 +660,7 @@ async function runVerification(
     throw e;
   }
 
-  const result = runVerifier(view.manifest.acceptance, { executor });
+  const result = await runVerificationChecks(view, executor);
   const evidence = buildEvidence(view, result, reason);
   const evidenceRef = store.writeEvidenceFile(repo, id, JSON.stringify(evidence, null, 2));
 
@@ -737,6 +861,8 @@ interface ParsedCreate {
   sessionId?: string;
   acceptance: MissionAcceptance[];
   policy: MissionPolicy;
+  /** `--allow-files` 累积的 glob 清单；非空时成为 manifest.scope。 */
+  allowFiles: string[];
   error?: string;
 }
 
@@ -746,7 +872,7 @@ interface ParsedCreate {
  * 走 commander 子命令会与现有的 allowExcessArguments 机制打架。
  */
 function parseCreateArgs(args: string[]): ParsedCreate {
-  const out: ParsedCreate = { acceptance: [], policy: {} };
+  const out: ParsedCreate = { acceptance: [], policy: {}, allowFiles: [] };
   for (let i = 0; i < args.length; i++) {
     const flag = args[i];
     const value = args[i + 1];
@@ -769,6 +895,12 @@ function parseCreateArgs(args: string[]): ParsedCreate {
       case '--acceptance': {
         if (value === undefined) return { ...out, error: '--acceptance 缺少取值' };
         out.acceptance.push(parseAcceptance(value));
+        i++;
+        break;
+      }
+      case '--allow-files': {
+        if (value === undefined) return { ...out, error: '--allow-files 缺少取值' };
+        out.allowFiles.push(value);
         i++;
         break;
       }
