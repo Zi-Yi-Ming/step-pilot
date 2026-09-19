@@ -6,7 +6,7 @@
 >
 > `verify` is the only path that can push a Mission to `completed`; `prove` additionally exports an inspectable evidence-bundle directory on top of the same verification.
 >
-> `resume --confirm` only rebuilds the fact chain and records the recovery — it does **not** start an agent. Wiring it into the PiChat composition root is follow-up work.
+> `resume --confirm` rebuilds the fact chain and records the recovery; `resume --confirm --run` additionally hands a synthesized continuation prompt to the composition root and actually continues the task in non-interactive mode (explicit opt-in: it burns tokens). With or without `--run`, completion is decided only by `step mission verify` — the agent finishing does not mean `completed`.
 
 ## Why Mission
 
@@ -54,7 +54,7 @@ The manifest as actually written to disk (`~/.step-pilot/missions/<repo bucket>/
 }
 ```
 
-> Acceptance currently supports only "command + expected exit code". Assertions like `changed_files` belong to the P0-C verifier stage.
+> Acceptance currently supports two kinds of machine judgments: **"command + expected exit code"** (run one by one by the independent verifier, comparing exit codes) and **"scope constraints"** (`--allow-files`, see below). Deeper structured assertions such as `unused_exports` belong to a later verifier stage.
 
 State machine (implemented):
 
@@ -90,8 +90,9 @@ Recovery:
 
 ```bash
 step mission checkpoint <mission-id> --label "payment.ts fixed, unit tests green" [--allow-dirty]
-step mission resume <mission-id>            # read-only recovery analysis
-step mission resume <mission-id> --confirm  # records recovery (recovery.started + recovery.completed -> running)
+step mission resume <mission-id>                        # read-only recovery analysis
+step mission resume <mission-id> --confirm              # records recovery (recovery.started + recovery.completed -> running)
+step mission resume <mission-id> --confirm --run        # then hands off to the composition root to continue non-interactively (burns tokens)
 ```
 
 `create` options:
@@ -100,9 +101,10 @@ step mission resume <mission-id> --confirm  # records recovery (recovery.started
 |--------|---------|
 | `--objective <text>` | Task objective, required |
 | `--acceptance <command>[:<expected exit>]` | Repeatable; expected exit defaults to 0. Split only on a **trailing** `:<digits>`, so colons inside the command survive |
+| `--allow-files <glob>` | Repeatable; scope constraint: at `verify` time every changed file since the **first checkpoint's HEAD** (committed ∪ uncommitted, including deletions and untracked) must match at least one glob (`**` crosses directory segments, `*` does not, `?` is one character); out-of-scope changes fail acceptance |
 | `--max-turns <n>` / `--max-attempts <n>` | Budget recorded only (not enforced yet) |
 | `--permission <manual\|auto\|yolo>` | Records the intended permission mode |
-| `--session <session id>` | Associates a session so `resume` can find dangling tool calls |
+| `--session <session id>` | Associates a session so `resume` can find dangling tool calls; also pins the Mission constraints into the session's system prompt at startup (see "Constraint pinning") |
 | `--repo <path>` | Owning repository, defaults to the current directory |
 
 Two deliberate refusals in `checkpoint`:
@@ -118,7 +120,8 @@ step mission prove <mission-id> [--out <dir>]         # verify and export an ins
 ```
 
 - `verify` enters `verifying` (running/recovering/verifying directly; paused/failed/blocked bridge back through `running`), runs each `acceptance` command, compares exit codes, and records `verification.completed`. All pass → `completed`; an assertion failure → `failed`; **a harness/environment failure → rolls back to `running` and never sets `completed`/`failed`**.
-- `prove` reuses the same verification core and additionally writes `manifest.json` / `timeline.json` / `verifier-results.json` / `evidence.json` / `README.md` into the evidence-bundle directory.
+- **Scope check (when `manifest.scope` is declared)**: the baseline is the **first checkpoint's** HEAD (the scope constrains "what this task changed"; the latest checkpoint would miss commits made in between). Git committed changes ∪ uncommitted changes are matched one by one against `allowFiles`. Out of scope → acceptance fails (`failed`); no baseline / git unavailable / sha rebased away → **inconclusive**, treated as harness semantics and rolled back to `running` — "cannot check" is never read as "no violation".
+- `prove` reuses the same verification core and additionally writes `manifest.json` / `timeline.json` / `verifier-results.json` / `evidence.json` / `README.md` into the evidence-bundle directory; the scope check result is included in the evidence.
 
 The future TUI should also show:
 
@@ -140,7 +143,17 @@ The output covers:
 - **Associated session**: when the manifest records `--session`, `SessionStore.resume()` detects a trailing dangling `tool_use` (evidence the process died mid-tool) and adds it to the confirmation list.
 - **Confirmation list**: dirty checkpoints, ownership of post-checkpoint changes, dangling tool calls, acceptance criteria never executed. Any uncertainty lands here instead of being waved through because it is "probably fine".
 
-Only `--confirm` writes events: `recovery.started` (-> `recovering`) plus `recovery.completed` (-> `running`). Even with `--confirm` it does not start an agent and does not execute acceptance criteria.
+Only `--confirm` writes events: `recovery.started` (-> `recovering`) plus `recovery.completed` (-> `running`).
+`--run` goes one step further on top of `--confirm` and hands the continuation to the composition root: the recovery facts are written first, then `buildContinuationPrompt` synthesizes an English continuation prompt from what the recovery analysis observed (objective, checkpoint, drift, confirmations, warnings), and the process falls through to agent bootstrap to continue non-interactively. `--run` without `--confirm` is refused — really starting an agent burns tokens and must not happen implicitly inside a read-only analysis. In every form, resume never executes acceptance criteria and never claims completion — that judgment belongs only to `step mission verify`.
+
+### Constraint pinning (system injection)
+
+At session start / resume, if this directory has a **non-terminal** Mission associated via `--session <this session id>`, the composition root appends an "Associated Mission (pinned constraints)" section — objective, acceptance commands, and scope globs — to the system prompt (the `mission` part of `composeSystem`, between AGENTS.md and memory). Design notes:
+
+- **In system rather than re-injected after compaction**: compaction rewrites only messages, never the system prompt — constraints placed there survive compaction structurally. "How are constraints kept pinned" gets a structural answer instead of relying on compaction-path timing.
+- **Honesty**: the status is a startup snapshot (the system is static and does not track Mission progress); the text states explicitly that completion is decided only by `step mission verify`. Terminal (`completed`/`stopped`) Missions are not injected.
+- Combined with `resume --confirm --run`: the bridge resumes the session recorded in the manifest, so the constraint section and the continuation prompt act together — constraints pinned during execution, scope machine-checked at the end, closing the loop.
+- Known limitations: a Mission created mid-session is pinned only at the next start/resume; subagents do not inherit the constraint section automatically (delegation relies on the primary agent writing full context per the system prompt, and verify still catches violations in the end).
 
 ## Storage layout and honesty constraints
 
@@ -250,12 +263,13 @@ Landed:
 - **P0-B**: the `start/pause/stop` lifecycle commands, `checkpoint` (git HEAD alignment, dirty-worktree refusal), and `resume` (drift detection, dangling tool-call detection, confirmation list, `--confirm` to record the recovery).
 - Write-side validation: illegal transitions throw before landing, so the fact source cannot contain illegal events.
 - Event sequence gap detection, corrupt-line counting, explicit warnings for illegal transitions.
-- Regression: `tests/agent/mission/state.test.ts` (19 cases), `store.test.ts`, `resume.test.ts` (35 cases).
+- Regression: five suites under `tests/agent/mission/`, 137 cases in total (state 24 / store 30 / resume 41 / verify 37 / constraints 5).
 
 Still missing:
 
-- **Agent orchestration wiring (the rest of P0-B)**: `resume --confirm` only rebuilds the fact chain and records the recovery; it does not start an agent. Wiring it into the PiChat composition root so recovery actually continues the task is still open.
-- **Richer acceptance criteria (P0-C extension)**: the verifier currently runs only "command + expected exit code" acceptance; structured assertions such as `changed_files` / `unused_exports` are a later verifier stage, not current capability.
+- **Agent orchestration wiring (the rest of P0-B)**: `resume --confirm --run` has connected recovery back to execution (continuation prompt + composition-root fall-through + session resume);
+  interactive in-TUI continuation and enforcing the recorded permission intent (`policy.permission`) on continuation runs are still open.
+- **Richer acceptance criteria (P0-C extension)**: scope assertions (`--allow-files`) have landed; deeper structured assertions such as `unused_exports` are a later verifier stage, not current capability.
 - **Fault-injection benchmark (P0-D)**: RCR has no data yet.
 - **Effect ledger**: today there is only checkpoint + drift alignment, not a per-side-effect started/completed ledger. "Unresolved side effect -> needs_confirmation" is therefore expressed indirectly through drift, not as a precise effect-level judgment.
 - **Journal identity fingerprints (P1)**: the `dynamic_workflow` journal key still needs script/model/provider/capability/git HEAD fingerprints to avoid incorrect cache hits.

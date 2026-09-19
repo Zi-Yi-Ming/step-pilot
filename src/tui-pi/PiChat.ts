@@ -113,6 +113,11 @@ export interface PiChatDeps {
   provider: ChatProvider;
   systemPrefix: string;
   agentsMd: string;
+  /**
+   * Mission 约束段（会话关联的活跃 Mission 的目标/验收/范围，组合根启动时构建）。
+   * 放 system 层：压缩不触碰 system，约束跨压缩存活。空串/缺省表示无关联 Mission。
+   */
+  missionBlock?: string;
   skillsRef: { current: SkillRegistry };
   subagentRegistry: Map<string, AgentDefinition>;
   reloadSkills: (force?: boolean) => unknown;
@@ -3144,6 +3149,7 @@ ${task.output === '' ? '（暂无输出）' : task.output}`,
       skills: skillListing(this.deps.skillsRef.current, this.deps.config.skillListingBudget),
       subagents: subagentListing([...this.deps.subagentRegistry.values()]),
       agentsMd: this.deps.agentsMd,
+      mission: this.deps.missionBlock ?? '',
       memory: this.deps.config.memory?.enabled === true ? memorySection(scanMemory(this.deps.ctx.cwd)) : '',
       sessionContext: this.sessionContext,
     });

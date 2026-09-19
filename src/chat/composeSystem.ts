@@ -10,7 +10,7 @@
  * 拆出来之后段的构成变成可断言的。
  *
  * 段序不是随意的，按「变动频率从低到高」排：静态前缀 → skill 清单 → 子 agent 角色 →
- * AGENTS.md → memory → SessionStart。低频内容在前是为了保住 prompt 缓存前缀——尾部
+ * AGENTS.md → Mission 约束 → memory → SessionStart。低频内容在前是为了保住 prompt 缓存前缀——尾部
  * 变动只废掉尾部的缓存，头部变动会废掉整条。
  */
 
@@ -23,6 +23,8 @@ export interface SystemParts {
   subagents: string;
   /** AGENTS.md 正文，空串表示没有。 */
   agentsMd: string;
+  /** Mission 约束段（会话关联的活跃 Mission），空串表示无。压缩不触碰 system，约束因此跨压缩存活。 */
+  mission: string;
   /** memory 观察池段正文，未开启时传空串。 */
   memory: string;
   /** SessionStart hook 的 stdout，无输出时传空串。 */
@@ -33,6 +35,7 @@ export interface SystemParts {
 export function composeSystem(parts: SystemParts): string {
   let out = parts.prefix + parts.skills + parts.subagents;
   if (parts.agentsMd !== '') out += `\n\n${parts.agentsMd}`;
+  if (parts.mission !== '') out += `\n\n${parts.mission}`;
   if (parts.memory !== '') out += `\n\n${parts.memory}`;
   if (parts.sessionContext !== '') out += `\n\n${parts.sessionContext}`;
   return out;

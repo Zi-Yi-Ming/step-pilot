@@ -6,6 +6,7 @@ const base: SystemParts = {
   skills: '\n\nSKILLS',
   subagents: '\n\nSUBAGENTS',
   agentsMd: '',
+  mission: '',
   memory: '',
   sessionContext: '',
 };
@@ -15,20 +16,29 @@ describe('composeSystem 段序与可选段', () => {
     expect(composeSystem(base)).toBe('PREFIX\n\nSKILLS\n\nSUBAGENTS');
   });
 
-  it('段序固定：prefix → skills → subagents → AGENTS.md → memory → SessionStart', () => {
+  it('段序固定：prefix → skills → subagents → AGENTS.md → mission → memory → SessionStart', () => {
     const out = composeSystem({
       ...base,
       agentsMd: 'AGENTS',
+      mission: 'MISSION',
       memory: 'MEMORY',
       sessionContext: 'HOOKCTX',
     });
     // 用下标关系断言顺序，避免把整段格式写死
     const iAgents = out.indexOf('AGENTS');
+    const iMission = out.indexOf('MISSION');
     const iMemory = out.indexOf('MEMORY');
     const iHook = out.indexOf('HOOKCTX');
     expect(iAgents).toBeGreaterThan(out.indexOf('SUBAGENTS'));
-    expect(iMemory).toBeGreaterThan(iAgents);
+    expect(iMission).toBeGreaterThan(iAgents);
+    expect(iMemory).toBeGreaterThan(iMission);
     expect(iHook).toBeGreaterThan(iMemory);
+  });
+
+  it('mission 段只在非空时拼接（无关联 Mission 不留空行残渣）', () => {
+    expect(composeSystem({ ...base, mission: 'MISSION' })).toContain('MISSION');
+    expect(composeSystem(base)).not.toContain('MISSION');
+    expect(composeSystem(base)).not.toContain('\n\n\n');
   });
 
   it('memory section must appear in system when enabled (previously dropped as a whole, leaving the primary agent without memory)', () => {
@@ -44,12 +54,14 @@ describe('composeSystem 段序与可选段', () => {
     expect(composeSystem({ ...base, sessionContext: '' })).toBe('PREFIX\n\nSKILLS\n\nSUBAGENTS');
   });
 
-  it('三个可选段任意组合都不产生连续三个换行', () => {
+  it('四个可选段任意组合都不产生连续三个换行', () => {
     for (const agentsMd of ['', 'A']) {
-      for (const memory of ['', 'M']) {
-        for (const sessionContext of ['', 'S']) {
-          const out = composeSystem({ ...base, agentsMd, memory, sessionContext });
-          expect(out).not.toContain('\n\n\n');
+      for (const mission of ['', 'M']) {
+        for (const memory of ['', 'MM']) {
+          for (const sessionContext of ['', 'S']) {
+            const out = composeSystem({ ...base, agentsMd, mission, memory, sessionContext });
+            expect(out).not.toContain('\n\n\n');
+          }
         }
       }
     }

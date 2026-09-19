@@ -6,7 +6,7 @@
 >
 > `verify` 是唯一能把 Mission 推到 `completed` 的路径；`prove` 在其基础上导出可检查的证据包目录。
 >
-> `resume --confirm` 只重建事实链并记录恢复事件，**不启动 agent**——接线到 PiChat 组合根属后续工作。
+> `resume --confirm` 重建事实链并记录恢复事件；`resume --confirm --run` 在此之上把合成的续跑 prompt 交给组合根，以非交互模式真实继续任务（显式 opt-in：烧 token）。无论是否 `--run`，完成判定都只归 `step mission verify`——agent 跑完不代表 completed。
 
 ## 为什么需要 Mission
 
@@ -54,7 +54,7 @@ manifest 实际落盘形态（`~/.step-pilot/missions/<repo 桶>/<missionId>.jso
 }
 ```
 
-> 接受标准当前支持「命令 + 期望退出码」，由独立 verifier（`step mission verify`）逐条执行并比对退出码。`changed_files` 这类更丰富的断言属后续 verifier 阶段。
+> 接受标准当前支持两类机器判定：**「命令 + 期望退出码」**（独立 verifier 逐条执行并比对退出码）与**「范围约束」（`--allow-files`，见下文）**。`unused_exports` 这类更深入的结构化断言属后续 verifier 阶段。
 
 状态机（已实现）：
 
@@ -90,8 +90,9 @@ step mission replay <mission-id>          # 只读重放：不执行副作用、
 
 ```bash
 step mission checkpoint <mission-id> --label "改完 payment.ts，单测通过" [--allow-dirty]
-step mission resume <mission-id>            # 只读恢复分析
-step mission resume <mission-id> --confirm  # 记录恢复（recovery.started + recovery.completed → running）
+step mission resume <mission-id>                        # 只读恢复分析
+step mission resume <mission-id> --confirm              # 记录恢复（recovery.started + recovery.completed → running）
+step mission resume <mission-id> --confirm --run        # 记录后交给组合根以非交互模式继续任务（真实烧 token）
 ```
 
 `create` 的选项：
@@ -100,9 +101,10 @@ step mission resume <mission-id> --confirm  # 记录恢复（recovery.started + 
 |------|------|
 | `--objective <文本>` | 任务目标，必填 |
 | `--acceptance <命令>[:<期望退出码>]` | 可重复；缺省期望退出码 0。只在**末尾**的 `:<数字>` 上切分，命令内的冒号不会被切坏。`verify` 会逐条执行这些命令并比对退出码 |
+| `--allow-files <glob>` | 可重复；范围约束：`verify` 时自**第一个检查点的 HEAD**起检查全部变更文件（提交 ∪ 未提交，含删除与未跟踪），每个文件须至少匹配一条 glob（`**` 跨目录段、`*` 不跨、`?` 单字符），越界即验收不通过 |
 | `--max-turns <n>` / `--max-attempts <n>` | 预算登记（当前只记录，不强制） |
 | `--permission <manual\|auto\|yolo>` | 记录创建时的权限意图 |
-| `--session <会话 id>` | 关联会话，让 `resume` 能发现悬空工具调用 |
+| `--session <会话 id>` | 关联会话，让 `resume` 能发现悬空工具调用；同时让会话启动时把 Mission 约束钉进 system（见「约束钉扎」） |
 | `--repo <路径>` | 任务所属仓库，缺省当前目录 |
 
 `checkpoint` 的两个刻意拒绝：
@@ -118,7 +120,8 @@ step mission prove <mission-id> [--out <目录>]         # verify 并导出可�
 ```
 
 - `verify` 进入 `verifying`（running/recovering/verifying 直达；paused/failed/blocked 先桥接回 running），逐条执行 `acceptance` 命令、比对退出码，落 `verification.completed`。全部通过 → `completed`；断言失败 → `failed`；**环境故障（harness error）→ 退回 running，绝不置 completed/failed**。
-- `prove` 复用同一条验证核心，额外把 `manifest.json` / `timeline.json` / `verifier-results.json` / `evidence.json` / `README.md` 写到证据包目录。
+- **范围检查（manifest.scope 声明时）**：以**第一个检查点**的 HEAD 为基线（范围约束约束的是「本任务改了什么」，最近检查点会漏掉中间已提交的改动），git 提交层变更 ∪ 未提交变更逐个比对 `allowFiles`。越界 → 验收不通过（`failed`）；无基线 / git 不可用 / sha 被 rebase → **不可判定**，按 harness 语义退回 running——绝不把「查不了」读成「没越界」。
+- `prove` 复用同一条验证核心，额外把 `manifest.json` / `timeline.json` / `verifier-results.json` / `evidence.json` / `README.md` 写到证据包目录；范围检查结果包含在 evidence 中。
 
 交互界面未来也应显示：
 
@@ -147,7 +150,26 @@ step mission prove <mission-id> [--out <目录>]         # verify 并导出可�
   任何一项不确定都进这里，不因为「大概率没事」静默放行。
 
 `--confirm` 才写事件：`recovery.started`（→ `recovering`）+ `recovery.completed`（→ `running`）。
-即使加了 `--confirm`，它也不会自动启动 agent，也不会执行接受标准。
+`--run` 在 `--confirm` 之上把续跑交给组合根：恢复事实链先落盘，然后由 `buildContinuationPrompt`
+把恢复分析观察到的事实（目标、检查点、漂移、未决项、告警）合成英文续跑 prompt，
+进程落穿到 agent 引导以非交互模式继续任务。`--run` 不带 `--confirm` 会被拒绝——
+真实启动 agent 会烧 token，不允许在只读分析里隐式发生。无论哪种形式，resume 都不执行接受标准，
+也不宣称完成——完成判定只归 `step mission verify`。
+
+### 约束钉扎（system 注入）
+
+会话启动 / 恢复时，若本目录存在 `--session <本会话 id>` 关联的**非终态** Mission，
+组合根会把它的目标、验收命令与范围 glob 作为一段「Associated Mission (pinned constraints)」
+拼进 system（`composeSystem` 的 mission 段，位于 AGENTS.md 与 memory 之间）。设计要点：
+
+- **放 system 而不是压缩后重注入**：压缩只重写 messages，从不触碰 system——约束放进 system
+  就天然跨压缩存活，「约束如何被持续钉住」是结构解，不依赖压缩路径的时序。
+- **诚实性**：状态是启动时快照（system 静态，不随 Mission 推进更新）；正文明确
+  「完成判定只归 `step mission verify`」。终态（completed/stopped）Mission 不注入。
+- 与 `resume --confirm --run` 组合：桥接续跑恢复 manifest 关联的会话，约束段与续跑 prompt
+  同时生效——执行期钉住约束、收尾期机器判定范围，形成闭环。
+- 已知限制：会话中途创建的 Mission 要到下次启动/恢复才被钉进 system；子 agent 不自动继承
+  约束段（委派时依赖主 agent 按系统提示把背景写全，越界最终仍被 verify 拦截）。
 
 ## 存储布局与诚实性约束
 
@@ -258,14 +280,14 @@ v0.1 不做：
   `resume`（漂移判定 + 悬空工具调用检测 + 需确认清单 + `--confirm` 记录恢复）。
 - 写入侧校验：非法迁移在落盘前抛错，事实源不会出现非法事件。
 - 事件序号缺口检测、损坏行计数、非法迁移显式告警。
-- 回归：`tests/agent/mission/state.test.ts`（19 例）、`store.test.ts`、`resume.test.ts`（35 例）。
+- 回归：`tests/agent/mission/` 五个套件共 137 例（state 24 / store 30 / resume 41 / verify 37 / constraints 5）。
 
 仍未完成：
 
-- **接入 agent 编排（P0-B 后半）**：`resume --confirm` 只重建事实链并记录恢复，不启动 agent；
-  接线到 PiChat 组合根、让恢复真正续跑任务，仍是待办。
-- **更丰富的接受标准（P0-C 延伸）**：当前 verifier 只执行「命令 + 期望退出码」类接受标准；
-  `changed_files`、`unused_exports` 等结构化断言是后续 verifier 阶段，不是当前能力。
+- **接入 agent 编排（P0-B 后半）**：`resume --confirm --run` 已把恢复接回执行（续跑 prompt + 组合根落穿 + 会话恢复）；
+  但 TUI 内的交互式续跑、按 Mission 策略（policy.permission）约束续跑权限，仍是待办。
+- **更丰富的接受标准（P0-C 延伸）**：范围断言（`--allow-files`）已落地；`unused_exports` 等
+  更深入的结构化断言是后续 verifier 阶段，不是当前能力。
 - **fault-injection benchmark（P0-D）**：RCR 尚无数据。
 - **effect ledger**：当前只有「检查点 + 漂移」这一层对齐，还没有逐副作用的 started/completed 账本；
   因此「未决副作用 → needs_confirmation」目前由漂移间接表达，不是精确的副作用级判定。
