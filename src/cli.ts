@@ -415,7 +415,13 @@ if (program.args[0] === 'subagents') {
 // missionRunBridge 本体声明在 config 诊断分流处（最早的消费点），这里只做赋值。
 if (program.args[0] === 'mission') {
   configureLogger({ mode: 'headless' });
-  const res = await runMissionCommand(program.args.slice(1), cwd);
+  // 与顶层选项同名的 mission 旗标会被 commander 吃进 opts 而不留在 program.args——
+  // 目前只有 --session 一处冲突（顶层 `step -p --session <id>`）。这里把它显式归还给
+  // mission 子命令，否则 `mission create --session X` 会静默丢掉会话关联，
+  // 悬空工具调用检测与副作用账本随之全部失效。
+  const missionArgs = [...program.args.slice(1)];
+  if (typeof opts.session === 'string') missionArgs.push('--session', opts.session);
+  const res = await runMissionCommand(missionArgs, cwd);
   if (res.stdout !== undefined) process.stdout.write(res.stdout);
   if (res.stderr !== undefined) process.stderr.write(res.stderr);
   if (res.code !== 0) process.exit(res.code);
