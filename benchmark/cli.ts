@@ -9,6 +9,7 @@ import { buildReport, renderMarkdown, writeReport } from './reporter.js';
 import { buildDashboard, badgeUrl, loadRunFiles, renderDashboardMd } from './dashboard.js';
 import { renderRcr, runFaultBenchmark } from './faultInjection.js';
 import { computeAblation, renderAblation } from './ablationReport.js';
+import { assertFreshBuild } from './buildFreshness.js';
 import { parseValue, parseYamlProfile } from './profileConfig.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -170,6 +171,10 @@ async function runBenchmark(args: string[]) {
   const profile = profileIndex >= 0 ? args[profileIndex + 1] : 'full';
   const runs = runsIndex >= 0 ? parseInt(args[runsIndex + 1] ?? '3', 10) : 3;
   const output = outputIndex >= 0 ? args[outputIndex + 1] : undefined;
+
+  // 构建新鲜度守卫：过期构建会让 benchmark 跑出"看起来像模型失败"的垃圾数据。
+  // 这不是假设——加了 --config 忘了 rebuild，50 个 run 失败了 49 个，全程无报错。
+  assertFreshBuild(join(__dirname, '..'));
 
   const tasks = loadTasks(taskId);
   const profileData = loadProfile(profile);
