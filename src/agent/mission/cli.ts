@@ -33,9 +33,15 @@ export interface MissionCommandResult {
   continueRun?: { prompt: string; sessionId?: string };
 }
 
-/** 运行选项：测试可注入 verify 的执行器，避免真跑 shell。 */
+/** 运行选项：测试可注入 verify 的执行器与会话存储，避免真跑 shell / 污染真实 ~/.step-pilot。 */
 export interface MissionRunOptions {
   verifyExecutor?: VerifyExecutor;
+  /**
+   * 注入会话存储（供 resume 探测悬空工具调用）。
+   * 缺省用真实 SessionStore；fault-injection benchmark 必须注入临时目录，
+   * 否则会在用户真实数据目录里写会话。
+   */
+  sessionStore?: SessionStore;
 }
 
 const USAGE = [
@@ -110,7 +116,7 @@ export async function runMissionCommand(
     case 'checkpoint':
       return await cmdCheckpoint(store, cwd, args.slice(1));
     case 'resume':
-      return await cmdResume(store, cwd, args.slice(1));
+      return await cmdResume(store, cwd, args.slice(1), options.sessionStore);
     case 'verify':
       return await cmdVerify(store, cwd, args.slice(1), options.verifyExecutor);
     case 'prove':
@@ -417,7 +423,12 @@ export function buildContinuationPrompt(plan: RecoveryPlan): string {
  * `--confirm` 才写 `recovery.started` + `recovery.completed`（状态回到 running）。
  * `--run` 在 --confirm 之上再交给组合根以非交互模式续跑 agent（显式 opt-in：真实烧 token）。
  */
-async function cmdResume(store: MissionStore, cwd: string, args: string[]): Promise<MissionCommandResult> {
+async function cmdResume(
+  store: MissionStore,
+  cwd: string,
+  args: string[],
+  sessionStore?: SessionStore,
+): Promise<MissionCommandResult> {
   const id = args[0];
   const confirm = args.includes('--confirm');
   const run = args.includes('--run');
@@ -437,7 +448,7 @@ async function cmdResume(store: MissionStore, cwd: string, args: string[]): Prom
 
   const checkpoint = lastCheckpointOf(view.events);
   const git = await probeGit(view.manifest.repo, checkpoint?.gitHead);
-  const sessionProbe = createSessionProbe(new SessionStore());
+  const sessionProbe = createSessionProbe(sessionStore ?? new SessionStore());
   const session =
     view.manifest.sessionId !== undefined ? sessionProbe.inspect(view.manifest.repo, view.manifest.sessionId) : undefined;
 

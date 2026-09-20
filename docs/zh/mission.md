@@ -1,4 +1,4 @@
-# Mission：可恢复工程任务（P0-A + P0-B + P0-C 已落地）
+# Mission：可恢复工程任务（P0-A + P0-B + P0-C + P0-D 已落地）
 
 > **状态：事实链、恢复分析与独立 verifier 均已实现。**
 >
@@ -265,6 +265,33 @@ RCR 不能由模型自报成功替代。相关分层指标包括：
 
 Benchmark 必须区分 clean run、kill-before-checkpoint、kill-after-checkpoint、kill-during-tool、resume 和 verifier harness error，并与无中断 oracle 成对比较。
 
+### 已实现（P0-D）
+
+```bash
+pnpm benchmark rcr        # 跑全部场景并输出 RCR
+```
+
+实现要点（`benchmark/faultInjection.ts`）：
+
+- **中断 = 事实链在某个点结束**。真实崩溃后能留下的就是事件日志的某个前缀，所以「杀掉进程」等价于「把 `<missionId>.events.jsonl` 截断到第 N 条」。因此不需要真杀进程——装置快、确定、可重复，而它检验的正是恢复逻辑真正依赖的东西。
+- **每个场景跑真实 Mission 生命周期**（`MissionStore` + 状态机 + `create/start/checkpoint/resume/verify`），只注入两样：verifier 的 shell 执行器、以及会话存储（`MissionRunOptions.sessionStore`，避免污染真实 `~/.step-pilot`）。
+- **clean 是无中断 oracle**，它不走恢复路径；其余场景注入故障后必须经 `resume --confirm` 才能继续。
+- **harness 故障单独计数**：环境坏了既不是「恢复成功」也不是「恢复失败」，只进 `harnessErrorRuns`，绝不计入 recovered。
+
+首次读数（2026-09-20，五个场景各一次）：
+
+| 场景 | 结果 | 终态 | 验证 |
+|------|------|------|------|
+| clean（oracle） | 恢复 | completed | passed |
+| kill-before-checkpoint | 恢复 | completed | passed |
+| kill-after-checkpoint | 恢复 | completed | passed |
+| kill-during-tool | 恢复（闭合 1 个悬空调用） | completed | passed |
+| verifier-harness-error | 不可判定 | running | harness-error |
+
+**RCR = 80%（4/5）**，其中 1 例因环境故障不可判定、单独计数。
+
+> 注意样本量：这是 5 个场景各 1 次的功能性读数，用来证明装置可用、且不变量成立；**不是统计结论**，不要据此声称稳定性百分比。
+
 ## Non-goals
 
 v0.1 不做：
@@ -282,10 +309,13 @@ v0.1 不做：
 
 - **P0-A**：Mission manifest、事件日志、纯函数状态机、`create/list/show/status/replay` 命令。
 - **P0-B**：`start/pause/stop` 生命周期命令、`checkpoint`（git HEAD 对齐 + 脏工作区拒绝）、
-  `resume`（漂移判定 + 悬空工具调用检测 + 需确认清单 + `--confirm` 记录恢复）。
+  `resume`（漂移判定 + 悬空工具调用检测 + 副作用账本 + 需确认清单 + `--confirm` 记录恢复）。
+- **P0-C**：独立 verifier（执行 `acceptance`、比对退出码、写证据包，harness 故障与断言失败分开）
+  与 `prove` 证据包导出；`--allow-files` 范围验收；`resume --confirm --run` 把恢复接回执行。
+- **P0-D**：fault-injection benchmark + RCR（见下节），`pnpm benchmark rcr`。
 - 写入侧校验：非法迁移在落盘前抛错，事实源不会出现非法事件。
 - 事件序号缺口检测、损坏行计数、非法迁移显式告警。
-- 回归：`tests/agent/mission/` 五个套件共 137 例（state 24 / store 30 / resume 41 / verify 37 / constraints 5）。
+- 回归：`tests/agent/mission/` 六个套件共 148 例；fault-injection 另有 `tests/analysis/faultInjection.test.ts` 11 例。
 
 仍未完成：
 
@@ -293,7 +323,8 @@ v0.1 不做：
   但 TUI 内的交互式续跑、按 Mission 策略（policy.permission）约束续跑权限，仍是待办。
 - **更丰富的接受标准（P0-C 延伸）**：范围断言（`--allow-files`）已落地；`unused_exports` 等
   更深入的结构化断言是后续 verifier 阶段，不是当前能力。
-- **fault-injection benchmark（P0-D）**：RCR 尚无数据。
+- **fault-injection benchmark 样本量（P0-D 延伸）**：装置已可用并有首次读数（RCR 80%，5 场景各 1 次）；
+  但要成为统计结论，需要多轮重复、并接入夜间采集。
 - **effect ledger 事件化（可选延伸）**：逐副作用 started/completed 账本已作为会话事实源的
   **推导视图**落地（resume 分析用）；若未来需要跨会话聚合或在不关联会话时保留账本，
   再考虑把 `effect.started/completed` 写进 Mission 事件日志。
@@ -302,4 +333,4 @@ v0.1 不做：
 - **后台真正 abort（P1）**：`dynamic_workflow` 后台 `task_stop` 目前只标记 killed。
 - **commit 与事件非原子**：跨存储没有事务，漂移只能事后检测，不能预防。
 
-> 本页中标注「已实现」的部分有测试与运行证据；标注 P0-D、P1 的部分是设计，不要当成当前能力对外表述。
+> 本页中标注「已实现」的部分有测试与运行证据；标注 P1 的部分是设计，不要当成当前能力对外表述。

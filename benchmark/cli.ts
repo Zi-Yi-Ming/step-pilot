@@ -7,6 +7,7 @@ import type { Task, Profile } from './types.js';
 import { runTask } from './runner.js';
 import { buildReport, renderMarkdown, writeReport } from './reporter.js';
 import { buildDashboard, badgeUrl, loadRunFiles, renderDashboardMd } from './dashboard.js';
+import { renderRcr, runFaultBenchmark } from './faultInjection.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -19,6 +20,7 @@ Usage:
   pnpm benchmark run [options]
   pnpm benchmark report [options]
   pnpm benchmark dashboard [--dir <results-dir>] [--out <json>] [--badge]
+  pnpm benchmark rcr        Fault-injection benchmark + Recovery-Complete Rate (P0-D)
 
 Options:
   --task <id>         Run a specific task
@@ -51,6 +53,9 @@ async function main() {
     case 'dashboard':
       await generateDashboard(args);
       break;
+    case 'rcr':
+      await runRcr();
+      break;
     case '--help':
     case 'help':
       usage();
@@ -59,6 +64,25 @@ async function main() {
       console.error(`Unknown command: ${command}`);
       usage();
       process.exit(1);
+  }
+}
+
+/**
+ * P0-D：跑 fault-injection benchmark，输出 RCR。
+ *
+ * 每个场景在隔离的临时目录里跑真实 Mission 生命周期（create → start → checkpoint →
+ * 注入故障 → resume → verify），只注入 verifier 执行器与会话存储，因此不烧 token、
+ * 不碰真实 ~/.step-pilot，秒级完成。
+ */
+async function runRcr(): Promise<void> {
+  const { results, report } = await runFaultBenchmark();
+  console.log(renderRcr(report));
+  console.log('\n## 逐场景明细\n');
+  for (const r of results) {
+    console.log(
+      `- ${r.scenario}: status=${r.finalStatus} verification=${r.verification} ` +
+        `hadCheckpoint=${r.hadCheckpoint} danglingClosed=${r.danglingClosed} recovered=${r.recovered}`,
+    );
   }
 }
 

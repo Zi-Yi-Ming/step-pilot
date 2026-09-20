@@ -1,4 +1,4 @@
-# Mission: recoverable engineering tasks (P0-A + P0-B + P0-C landed)
+# Mission: recoverable engineering tasks (P0-A + P0-B + P0-C + P0-D landed)
 
 > **Status: the fact chain, recovery analysis, and the independent verifier are all implemented.**
 >
@@ -245,6 +245,33 @@ RCR must not be replaced by the model’s self-reported success. Supporting metr
 
 The benchmark must separate clean runs, kill-before-checkpoint, kill-after-checkpoint, kill-during-tool, resume, and verifier harness errors, paired with an uninterrupted oracle.
 
+### Implemented (P0-D)
+
+```bash
+pnpm benchmark rcr        # run every scenario and print the RCR
+```
+
+Design notes (`benchmark/faultInjection.ts`):
+
+- **An interruption is the fact chain ending at a point.** After a real crash, all that survives is some prefix of the event log, so "kill the process" is equivalent to "truncate `<missionId>.events.jsonl` to line N". No real process killing is needed — the rig is fast, deterministic and repeatable, and it exercises exactly what recovery actually depends on.
+- **Every scenario runs the real Mission lifecycle** (`MissionStore` + state machine + `create/start/checkpoint/resume/verify`), injecting only two things: the verifier's shell executor, and the session store (`MissionRunOptions.sessionStore`, so the real `~/.step-pilot` is never touched).
+- **clean is the uninterrupted oracle** and does not take the recovery path; every other scenario must go through `resume --confirm` after the fault to continue.
+- **Harness failures are counted separately**: a broken environment is neither a successful recovery nor a failed one, so it lands only in `harnessErrorRuns` and never in `recovered`.
+
+First reading (2026-09-20, one run per scenario):
+
+| Scenario | Outcome | Final state | Verification |
+|----------|---------|-------------|--------------|
+| clean (oracle) | recovered | completed | passed |
+| kill-before-checkpoint | recovered | completed | passed |
+| kill-after-checkpoint | recovered | completed | passed |
+| kill-during-tool | recovered (1 dangling call closed) | completed | passed |
+| verifier-harness-error | inconclusive | running | harness-error |
+
+**RCR = 80% (4/5)**, with one run inconclusive due to an environment failure and counted separately.
+
+> Note the sample size: this is one functional reading per scenario, meant to show the rig works and the invariants hold. It is **not a statistical claim** — do not quote it as a stability percentage.
+
 ## Non-goals
 
 v0.1 does not include:
@@ -264,17 +291,17 @@ Landed:
 - **P0-B**: the `start/pause/stop` lifecycle commands, `checkpoint` (git HEAD alignment, dirty-worktree refusal), and `resume` (drift detection, dangling tool-call detection, confirmation list, `--confirm` to record the recovery).
 - Write-side validation: illegal transitions throw before landing, so the fact source cannot contain illegal events.
 - Event sequence gap detection, corrupt-line counting, explicit warnings for illegal transitions.
-- Regression: five suites under `tests/agent/mission/`, 137 cases in total (state 24 / store 30 / resume 41 / verify 37 / constraints 5).
+- Regression: six suites under `tests/agent/mission/`, 148 cases in total; fault injection adds 11 cases in `tests/analysis/faultInjection.test.ts`.
 
 Still missing:
 
 - **Agent orchestration wiring (the rest of P0-B)**: `resume --confirm --run` has connected recovery back to execution (continuation prompt + composition-root fall-through + session resume);
   interactive in-TUI continuation and enforcing the recorded permission intent (`policy.permission`) on continuation runs are still open.
 - **Richer acceptance criteria (P0-C extension)**: scope assertions (`--allow-files`) have landed; deeper structured assertions such as `unused_exports` are a later verifier stage, not current capability.
-- **Fault-injection benchmark (P0-D)**: RCR has no data yet.
+- **Fault-injection benchmark sample size (P0-D extension)**: the rig works and has a first reading (RCR 80%, one run per scenario); turning it into a statistical result needs repeated runs and nightly collection.
 - **Effect-ledger materialization (optional extension)**: the per-effect started/completed ledger has landed as a **derived view** of the session fact source (used by recovery analysis); if cross-session aggregation or ledgers without an associated session are ever needed, `effect.started/completed` events could then be written into the Mission event log.
 - **Journal identity fingerprints (P1)**: the `dynamic_workflow` journal key still needs script/model/provider/capability/git HEAD fingerprints to avoid incorrect cache hits.
 - **True background abort (P1)**: background `dynamic_workflow` `task_stop` currently only marks killed.
 - **Commits and events are not atomic**: there is no cross-store transaction, so drift can only be detected after the fact, not prevented.
 
-> Sections marked "implemented" have tests and runtime evidence. Sections marked P0-D or P1 are design — do not present them as current capabilities.
+> Sections marked "implemented" have tests and runtime evidence. Sections marked P1 are design — do not present them as current capabilities.
