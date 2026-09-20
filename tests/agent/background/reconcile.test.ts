@@ -32,8 +32,11 @@ function metaOnDisk(id: string): Record<string, unknown> {
  * 这里是真实子进程（`cmd /c echo`），完成耗时不稳定：固定 `setTimeout(500)` 在
  * 并行满载时会假失败（全量套件下必现，单独跑却稳定 19/19）。改成轮询既消除
  * flaky，又通常比固定等待更快收敛。
+ *
+ * 超时取 15s：低于 vitest 的 20s testTimeout，否则轮询先到期会把「还没等到」
+ * 伪装成「测试超时」，掩盖真实原因（2026-09-20 全量跑里 5s 就是这样撞上的）。
  */
-async function waitForTerminalMeta(id: string, timeoutMs = 5000): Promise<void> {
+async function waitForTerminalMeta(id: string, timeoutMs = 15_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const status = metaOnDisk(id).status;

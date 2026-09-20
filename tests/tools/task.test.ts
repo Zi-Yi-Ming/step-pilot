@@ -10,8 +10,10 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
  * 后台任务是真实子进程，启动耗时不稳定（Windows 上 `cmd.exe /c echo` 在负载下
  * 可能远超固定 sleep）。用固定 sleep 断言「已完成」会假失败——实测同一文件连续
  * 三次跑出 2/1/1 个失败。改成轮询：既消除 flaky，又比原来的固定等待更快收敛。
+ *
+ * 超时取 15s：低于 vitest 的 20s testTimeout，别让轮询比测试超时先到期。
  */
-async function waitFor(cond: () => boolean, timeoutMs = 5000): Promise<void> {
+async function waitFor(cond: () => boolean, timeoutMs = 15_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (cond()) return;
