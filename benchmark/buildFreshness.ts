@@ -19,7 +19,7 @@
  * commit 比对只能发现"没提交的改动"，发现不了"改了 src 但没重新 build"这个
  * 最常见的状态。mtime 直接比对构建产物与源码的新旧， dirty 工作树也能抓住。
  */
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync, type Dirent } from 'node:fs';
 import { join } from 'node:path';
 
 export class StaleBuildError extends Error {
@@ -43,7 +43,7 @@ export class StaleBuildError extends Error {
 /** 递归找出目录下最新的文件 mtime（毫秒）。 */
 function newestMtime(dir: string): { ms: number; path: string } {
   let best = { ms: 0, path: dir };
-  let entries: string[];
+  let entries: Dirent[];
   try {
     entries = readdirSync(dir, { withFileTypes: true });
   } catch {

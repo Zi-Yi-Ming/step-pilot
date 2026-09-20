@@ -1,10 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
 import { redactByKeyName, redactSecrets } from '../src/utils/redact.js';
 import type { BenchmarkReport, BenchmarkSummary, RunResult } from './types.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
  * 写盘前脱敏。
@@ -52,7 +50,6 @@ export function summarize(results: RunResult[]): Record<string, BenchmarkSummary
       taxonomy[key] = (taxonomy[key] || 0) + 1;
     }
 
-    const failureRuns = runs.filter((r) => !r.success);
     const verifierFailureRuns = runs.filter((r) => r.checks_failed > 0);
     const timeoutRuns = runs.filter((r) => r.failure_reason?.includes('timeout'));
 

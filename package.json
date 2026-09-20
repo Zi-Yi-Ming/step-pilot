@@ -33,7 +33,7 @@
     "build": "tsc -p tsconfig.json && node scripts/gen-build-info.mjs",
     "build:bundle": "npm run build && node scripts/build-bundle.mjs",
     "build:sea": "npm run build:bundle && node scripts/build-sea.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.benchmark.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "node dist/main.js",

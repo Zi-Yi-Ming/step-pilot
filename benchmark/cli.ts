@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { RunResult, Task, Profile } from './types.js';
@@ -114,7 +114,7 @@ async function runAblation(args: string[]): Promise<void> {
           .map((f) => ({ f, p: join(dir, f) }))
       : [];
     // 只认单 profile 的结果文件（profiles 数组长度为 1 且 id 匹配）
-    for (const { f, p } of candidates.reverse()) {
+    for (const { p } of candidates.reverse()) {
       try {
         const j = JSON.parse(readFileSync(p, 'utf8')) as { profiles?: string[] };
         if (j.profiles?.length === 1 && j.profiles[0] === profileId) return p;
@@ -184,6 +184,15 @@ async function runBenchmark(args: string[]) {
   console.log(`Running benchmark: ${tasks.length} tasks, ${runs} runs each, profile=${profile}`);
 
   const results = [];
+  // 增量落盘：每个 run 完成就追加一行 JSONL。
+  //
+  // 原来只在全部跑完后写一次 JSON，跑一小时的任务中途被杀（超时、断电、手滑）
+  // 就全部丢失——而重跑一遍的代价是一小时和上百次 API 调用。侧车文件的每一行
+  // 都是一个完整 run，进程被杀也能从它重建报告。
+  const outputPath = output ?? join(__dirname, 'results', `${new Date().toISOString().replace(/:/g, '-')}.json`);
+  const runsLogPath = `${outputPath}.runs.jsonl`;
+  if (existsSync(runsLogPath)) rmSync(runsLogPath);
+
   for (const task of tasks) {
     for (let run = 1; run <= runs; run++) {
       console.log(`  [${task.id}] run ${run}/${runs}...`);
@@ -193,8 +202,12 @@ async function runBenchmark(args: string[]) {
         console.log(`    ${result.success ? '✓' : '✗'} ${result.duration_ms}ms, ${result.turns} turns, ${result.tool_calls} tools`);
       } catch (err) {
         console.error(`    ✗ Error: ${err}`);
-        results.push(buildErrorResult(task, profile, run, err));
+        const result = buildErrorResult(task, profile, run, err);
+        results.push(result);
       }
+      // 每个 run 落地一行：被杀也能从侧车文件重建，不丢已跑完的部分
+      if (runsLogPath !== undefined) {
+        appendFileSync(runsLogPath, `${JSON.stringify(results.at(-1))}\n`, 'utf8');
       }
     }
   }
@@ -207,7 +220,6 @@ async function runBenchmark(args: string[]) {
     profiles: [profile],
   });
 
-  const outputPath = output ?? join(__dirname, 'results', `${new Date().toISOString().replace(/:/g, '-')}.json`);
   writeReport(report, outputPath);
   console.log(`\nReport written to: ${outputPath}`);
   console.log(renderMarkdown(report));
@@ -310,11 +322,9 @@ function parseYamlTask(content: string, id: string): Task {
   const lines = content.split('\n');
   const task: any = { id, setup: '', verify: [], timeout: 120 };
 
-  let currentKey = '';
   let inSetup = false;
   let inVerify = false;
   let currentCheck: any = null;
-  let currentExpect: any = null;
 
   for (const line of lines) {
     if (line.startsWith('setup: |') || line.startsWith('setup: >')) {
@@ -358,7 +368,6 @@ function parseYamlTask(content: string, id: string): Task {
     if (match) {
       const [, key, value] = match;
       task[key] = parseValue(value);
-      currentKey = key;
     }
   }
 

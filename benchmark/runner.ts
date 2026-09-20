@@ -1,8 +1,8 @@
 import { execSync, spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Task, Profile } from './types.js';
+import type { RunResult, Task, Profile } from './types.js';
 import { isHarnessFailure, type CheckOutcome } from './harnessFailure.js';
 import { removeProfileConfig, writeProfileConfig } from './profileConfig.js';
 
@@ -21,31 +21,6 @@ export function buildStepPilotArgs(opts: {
   if (opts.configPath !== undefined) args.push('--config', opts.configPath);
   args.push(opts.prompt);
   return args;
-}
-
-export interface RunResult {
-  task_id: string;
-  category: string;
-  profile: string;
-  model: string;
-  provider: string;
-  step_pilot_commit: string;
-  run_index: number;
-  success: boolean;
-  duration_ms: number;
-  turns: number;
-  tool_calls: number;
-  tool_errors: number;
-  retries: number;
-  compactions: number;
-  input_tokens: number;
-  output_tokens: number;
-  total_tokens: number;
-  stop_reason: string | null;
-  failure_reason: string | null;
-  checks_passed: number;
-  checks_failed: number;
-  events: RawEvent[];
 }
 
 export interface RawEvent {
@@ -208,18 +183,14 @@ export async function runTask(task: Task, profile: Profile, runIndex: number): P
   // profile 的 config 覆盖必须真正到达 agent：写一份临时 config.toml 并用 --config 传入。
   // 少了这一步，ablation 与 full 的行为完全一致，「关掉 harness 没差别」会是错误结论。
   const configPath = writeProfileConfig(profile);
-  let stdout = '';
-  let stderr = '';
-  let exitCode = 0;
-  try {
-    const args = buildStepPilotArgs({ repoDir, prompt, configPath });
-    const res = await runStepPilot(cmd, args, join(__dirname, '..'), (task.timeout ?? 120) * 1000);
-    stdout = res.stdout;
-    stderr = res.stderr;
-    exitCode = res.exitCode;
-  } finally {
-    removeProfileConfig(configPath);
-  }
+  const { stdout } = await (async () => {
+    try {
+      const args = buildStepPilotArgs({ repoDir, prompt, configPath });
+      return await runStepPilot(cmd, args, join(__dirname, '..'), (task.timeout ?? 120) * 1000);
+    } finally {
+      removeProfileConfig(configPath);
+    }
+  })();
 
   // Allow any lingering child-process handles to release on Windows before
   // verification/cleanup. This does not delay non-Windows platforms.
@@ -300,7 +271,7 @@ export async function runTask(task: Task, profile: Profile, runIndex: number): P
     step_pilot_commit: getGitCommit(),
     run_index: runIndex,
     success: agentSucceeded && checksFailed === 0 && !turnsExceeded && harnessError === null,
-    duration_ms: durationMs,
+    duration_ms: durationMs ?? 0,
     turns,
     tool_calls: toolCalls,
     tool_errors: toolErrors,
@@ -361,7 +332,7 @@ function captureMetrics(
       break;
     case 'usage': {
       const u = ev as { totalTokens?: number; billedDelta?: number };
-      if (typeof u.totalTokens === 'number') setters.totalTokens((v) => u.totalTokens!);
+      if (typeof u.totalTokens === 'number') setters.totalTokens(() => u.totalTokens!);
       if (typeof u.billedDelta === 'number') setters.outputTokens((v) => v + u.billedDelta!);
       break;
     }
@@ -373,7 +344,7 @@ function captureMetrics(
         cacheReadTokens?: number;
         cacheCreationTokens?: number;
       };
-      if (typeof mu.totalTokens === 'number') setters.totalTokens((v) => mu.totalTokens!);
+      if (typeof mu.totalTokens === 'number') setters.totalTokens(() => mu.totalTokens!);
       if (typeof mu.inputTokens === 'number') setters.inputTokens((v) => v + mu.inputTokens!);
       if (typeof mu.outputTokens === 'number') setters.outputTokens((v) => v + mu.outputTokens!);
       break;
@@ -431,7 +402,6 @@ async function executeSetup(task: Task, repoDir: string): Promise<void> {
   try {
     if (process.platform === 'win32') {
       const { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync } = await import('node:fs');
-      const { execSync } = await import('node:child_process');
       mkdirSync(repoDir, { recursive: true });
       const tmpDir = mkdtempSync(join(dirname(repoDir), 'bench-setup-'));
       const scriptPath = join(tmpDir, 'setup.sh');
@@ -482,7 +452,6 @@ async function executeSetup(task: Task, repoDir: string): Promise<void> {
         }
       }
     } else {
-      const { execSync } = await import('node:child_process');
       execSync(setupContent, {
         cwd: repoDir,
         encoding: 'utf8',
@@ -515,7 +484,6 @@ async function executeCheck(check: { type: string; command?: string; path?: stri
   const name = check.type;
   switch (check.type) {
     case 'test': {
-      const { execSync } = await import('node:child_process');
       let output = '';
       try {
         output = execSync(check.command ?? '', {
@@ -573,7 +541,6 @@ async function executeCheck(check: { type: string; command?: string; path?: stri
       return { name, passed: existsSync(filePath), harnessError: null };
     }
     case 'command': {
-      const { execSync } = await import('node:child_process');
       let output = '';
       try {
         output = execSync(check.command ?? '', {

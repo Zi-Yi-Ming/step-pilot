@@ -245,7 +245,7 @@ export function decomposeWallClock(events: readonly RawEvent[]): WallClockDecomp
         anomalies.push(`tool_end 无配对 tool_start：id=${e.id ?? '?'}（turn ${e.turn}），窗口丢弃`);
         continue;
       }
-      openTools.delete(e.id);
+      if (e.id !== undefined) openTools.delete(e.id);
       const category: 'tool' | 'test' = open.command !== undefined && VITEST_RUN_RE.test(open.command) ? 'test' : 'tool';
       if (e.mono < open.mono) {
         anomalies.push(`tool 窗口异常（${open.name} id=${open.id}）：tool_end mono < tool_start mono，窗口丢弃`);
@@ -297,7 +297,6 @@ export function decomposeWallClock(events: readonly RawEvent[]): WallClockDecomp
     reason: 'retry_backoff' as const,
   }));
 
-  const sumBy = (ivs: Array<{ start: number; end: number }>): number => ivs.reduce((a, iv) => a + (iv.end - iv.start), 0);
   // 类别总量按**该类窗口的并集**计（wall-clock 归因语义：并行工具的重叠执行只占墙钟一次），
   // 不用原始窗口和——重叠时它会双计（实测并行 fixture：原始和 700ms，墙钟真实占用 500ms）。
   const toolIntervalsOnly = toolIntervals.filter((iv) => iv.category === 'tool');

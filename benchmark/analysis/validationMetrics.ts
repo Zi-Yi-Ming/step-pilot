@@ -1,4 +1,5 @@
-import type { RawEvent, RunResult } from '../runner.js';
+import type { RawEvent } from '../runner.js';
+import type { RunResult } from '../types.js';
 
 /**
  * Validation-loop 后验指标（只读分析，不参与 runner / reporter 的任何路径）。
@@ -87,7 +88,7 @@ export function isFilteredVitestRun(command: string): boolean {
  *    它是后验分析中全部伪 "1F" 读数的来源。
  */
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
-export function parseTestCounts(raw: string): { failed: number; passed: number } | null {
+export function parseTestCounts(raw: string): { failed: number; passed: number; total: number } | null {
   const s = raw.replace(ANSI_RE, '');
   // "no tests"（import 崩溃 / 测试文件被删光）：0 个测试执行，F 不可比，直接排除
   if (/no tests/i.test(s)) return null;
@@ -207,7 +208,7 @@ export function computeValidationMetrics(events: readonly RawEvent[]): Validatio
 
 /** 从一份 benchmark 结果 JSON（{ results: RunResult[] }）计算逐 run 指标。 */
 export function metricsFromReport(report: { results: RunResult[] }): Array<{ runLabel: string } & ValidationMetrics> {
-  return report.results.map((r, i) => ({
+  return report.results.map((r) => ({
     runLabel: `${r.task_id}#${r.run_index}(profile=${r.profile})`,
     ...computeValidationMetrics(r.events),
   }));
