@@ -96,6 +96,23 @@ jobs:
       - name: Dashboard tests
         run: pnpm vitest run tests/analysis/dashboard.test.ts
 
+      # RCR 常驻读数：Mission 恢复链路的冒烟，且**不需要 API key**
+      # （故障注入是确定性的，verifier 执行器被注入，不真跑 shell）。
+      # 所以它放进这个无 secret 也必跑的 job——零额度成本换来"恢复机制 nightly 可见"。
+      # 若哪天它开始 fail，说明 checkpoint / resume / verify 这条链被改坏了，
+      # 而这正是整个 Mission 论点的地基。
+      - name: Recovery-Complete Rate (RCR) smoke
+        run: |
+          {
+            echo '### Recovery-Complete Rate (RCR)'
+            echo ''
+            echo '```'
+            pnpm benchmark rcr 2>&1 | sed -e 's/\x1b\[[0-9;]*m//g'
+            echo '```'
+            echo ''
+            echo '_fault-injection benchmark，不花 token、不需要 API key。_'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   collect:
     name: Collect (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
