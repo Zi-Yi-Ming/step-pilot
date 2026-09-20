@@ -78,6 +78,7 @@ program
   .allowUnknownOption(true)  // doctor config 的 --test-capabilities 是位置参数，不是 commander 选项
   .option('-p, --print [prompt]', '非交互模式：执行单条指令，流式打印结果后退出。prompt 可省略，从 stdin 读取')
   .option('-C, --cwd <dir>', '指定工作目录，默认当前目录')
+  .option('--config <path>', '显式指定 config.toml 路径（默认 ~/.step-pilot/config.toml）。供对照实验与测试隔离使用')
   .option('-y, --yolo', '权限模式 yolo：全部工具放行，从不确认')
   .option('--auto', '权限模式 auto：写文件放行，bash 需确认')
   .option('-c, --continue', '恢复本工作目录下最近的一个会话')
@@ -95,6 +96,7 @@ program
 const opts = program.opts<{
   print?: string;
   cwd?: string;
+  config?: string;
   yolo?: boolean;
   auto?: boolean;
   continue?: boolean;
@@ -201,7 +203,7 @@ let config: StepPilotConfig;
 /** 启动自检的原始素材：loadConfig 内部解析 TOML 时回调带出（零重复读文件/解析）。 */
 let configDiagnostics: ConfigLoadDiagnostics | undefined;
 try {
-  config = loadConfig(cwd, { provider: opts.provider, model: opts.model }, (d) => {
+  config = loadConfig(cwd, { provider: opts.provider, model: opts.model, configPath: opts.config }, (d) => {
     configDiagnostics = d;
   });
 } catch (e) {

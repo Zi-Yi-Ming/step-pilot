@@ -1,14 +1,13 @@
 id: full
 name: "step-pilot full"
-description: "完整 reliability 优化"
+description: "完整 reliability 优化（仅含当前真实可配的项）"
 config:
   compaction:
     trigger_ratio: 0.75
     reserved_tokens: 10000
     user_message_max_tokens: 20000
-  tools:
-    preprocess: true
-  retry:
-    auto_disable: true
-  prompt:
-    trimmed: true
+
+# 说明：原文件还含 tools.preprocess / retry.auto_disable / prompt.trimmed 三个键，
+# 但 src/config/config.ts 从未读取它们，故已移除。
+# 这两个 profile 的差异目前只落在 compaction 三项上——对外表述时不可声称
+# 「关掉了全部 harness 优化」。

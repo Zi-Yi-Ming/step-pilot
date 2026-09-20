@@ -1,9 +1,38 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { redactByKeyName, redactSecrets } from '../src/utils/redact.js';
 import type { BenchmarkReport, BenchmarkSummary, RunResult } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * 写盘前脱敏。
+ *
+ * 为什么必须有这一步：benchmark 结果 JSON 会**原样落盘、被提交、被上传成 CI artifact**，
+ * 而它包含 agent 跑完全程的完整事件流——其中就有模型的自由文本输出。实测踩过：
+ * 一次跑偏的 run 把 `~/.step-pilot/config.toml` 整份打印了出来，明文 api_key 随之进入
+ * 结果文件。项目里本来就有 `redactSecrets` / `redactByKeyName`（日志与 debug-zip 在用），
+ * 但 benchmark 这条链路一次都没调用过——有刀没使。
+ *
+ * 两道都要过：
+ * - `redactByKeyName` 按字段名确定性擦除（api_key / token / secret…）；
+ * - 深层走一遍字符串、对每个值套 `redactSecrets`，兜住「密钥出现在自由文本里」这种形态
+ *   （上面那次事故正是如此：值藏在模型输出的一段 ```toml 代码块中，字段名并不在关键位）。
+ */
+function redactReport(report: BenchmarkReport): BenchmarkReport {
+  const walk = (v: unknown): unknown => {
+    if (typeof v === 'string') return redactSecrets(v);
+    if (Array.isArray(v)) return v.map(walk);
+    if (v !== null && typeof v === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const [k, val] of Object.entries(v)) out[k] = walk(val);
+      return out;
+    }
+    return v;
+  };
+  return redactByKeyName(walk(report) as Record<string, unknown>) as BenchmarkReport;
+}
 
 export function summarize(results: RunResult[]): Record<string, BenchmarkSummary> {
   const grouped = new Map<string, RunResult[]>();
@@ -69,7 +98,7 @@ export function buildReport(
 export function writeReport(report: BenchmarkReport, outputPath: string): void {
   const dir = dirname(outputPath);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(outputPath, JSON.stringify(report, null, 2) + '\n', 'utf8');
+  writeFileSync(outputPath, JSON.stringify(redactReport(report), null, 2) + '\n', 'utf8');
 }
 
 export function renderMarkdown(report: BenchmarkReport): string {

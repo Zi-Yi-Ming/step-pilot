@@ -8,6 +8,7 @@ import { runTask } from './runner.js';
 import { buildReport, renderMarkdown, writeReport } from './reporter.js';
 import { buildDashboard, badgeUrl, loadRunFiles, renderDashboardMd } from './dashboard.js';
 import { renderRcr, runFaultBenchmark } from './faultInjection.js';
+import { parseValue, parseYamlProfile } from './profileConfig.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -132,7 +133,7 @@ async function runBenchmark(args: string[]) {
     for (let run = 1; run <= runs; run++) {
       console.log(`  [${task.id}] run ${run}/${runs}...`);
       try {
-        const result = await runTask(task, profile, run);
+        const result = await runTask(task, profileData, run);
         results.push(result);
         console.log(`    ${result.success ? '✓' : '✗'} ${result.duration_ms}ms, ${result.turns} turns, ${result.tool_calls} tools`);
       } catch (err) {
@@ -331,46 +332,6 @@ function parseYamlTask(content: string, id: string): Task {
   if (currentCheck) task.verify.push(currentCheck);
 
   return task as Task;
-}
-
-function parseYamlProfile(content: string, id: string): Profile {
-  const lines = content.split('\n');
-  const profile: any = { id, config: {} };
-  let currentSection = '';
-
-  for (const line of lines) {
-    if (line.startsWith('config:')) {
-      currentSection = 'config';
-      continue;
-    }
-    if (currentSection === 'config' && line.match(/^\s+\w+:/)) {
-      const match = line.match(/^\s+(\w+):\s*(.+)/);
-      if (match) {
-        profile.config[match[1]] = parseValue(match[2]);
-      }
-    }
-    if (!line.startsWith(' ') && line.match(/^\w+:/)) {
-      const match = line.match(/^(\w+):\s*(.+)/);
-      if (match) {
-        profile[match[1]] = parseValue(match[2]);
-      }
-    }
-  }
-
-  return profile as Profile;
-}
-
-function parseValue(value: string): any {
-  value = value.trim();
-  if (value === 'true') return true;
-  if (value === 'false') return false;
-  if (value === 'null') return null;
-  if (/^\d+$/.test(value)) return parseInt(value, 10);
-  if (/^\d+\.\d+$/.test(value)) return parseFloat(value);
-  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-    return value.slice(1, -1);
-  }
-  return value;
 }
 
 function getGitCommit(): string {

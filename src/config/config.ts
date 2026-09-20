@@ -648,8 +648,8 @@ export class TomlParseError extends Error {
   }
 }
 
-function loadTomlConfig(): { toml: TomlConfigShape; ignoredBadFile?: IgnoredBadConfigFile } {
-  const tomlPath = join(homedir(), '.step-pilot', 'config.toml');
+function loadTomlConfig(configPath?: string): { toml: TomlConfigShape; ignoredBadFile?: IgnoredBadConfigFile } {
+  const tomlPath = configPath ?? join(homedir(), '.step-pilot', 'config.toml');
   if (!existsSync(tomlPath)) return { toml: {} };
   try {
     return { toml: parseToml(readFileSync(tomlPath, 'utf8')) as TomlConfigShape };
@@ -1272,6 +1272,13 @@ export function resolveModelEntry(config: StepPilotConfig, name: string): StepPi
 export interface ConfigOverrides {
   provider?: string;
   model?: string;
+  /**
+   * 显式指定 config.toml 路径；缺省为 `~/.step-pilot/config.toml`。
+   *
+   * 存在的理由是对照实验：benchmark 的 ablation profile 需要让同一份二进制在不同
+   * harness 配置下运行，而不能改用户真实的配置目录。
+   */
+  configPath?: string;
 }
 
 /**
@@ -1291,7 +1298,7 @@ export function loadConfig(
   onDiagnostics?: ConfigDiagnosticsSink,
 ): StepPilotConfig {
   loadDotEnv(cwd);
-  const { toml, ignoredBadFile } = loadTomlConfig();
+  const { toml, ignoredBadFile } = loadTomlConfig(overrides.configPath);
   if (onDiagnostics !== undefined) {
     const diagnostics: ConfigLoadDiagnostics = { rawToml: toml as Record<string, unknown> };
     if (ignoredBadFile !== undefined) diagnostics.ignoredBadFile = ignoredBadFile;

@@ -2,8 +2,26 @@ import { execSync, spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Task } from './types.js';
+import type { Task, Profile } from './types.js';
 import { isHarnessFailure, type CheckOutcome } from './harnessFailure.js';
+import { removeProfileConfig, writeProfileConfig } from './profileConfig.js';
+
+/**
+ * 纯函数：拼出 step-pilot 非交互运行的参数。
+ *
+ * 单独拆出来是为了可测——「profile 是否真的影响了命令行」这件事此前没有任何测试守着，
+ * 于是它坏了也没人发现，ablation 跑出与 full 一模一样的结果还被当成结论。
+ */
+export function buildStepPilotArgs(opts: {
+  repoDir: string;
+  prompt: string;
+  configPath?: string;
+}): string[] {
+  const args = ['-p', '--output-format', 'stream-json', '--yolo', '-C', opts.repoDir];
+  if (opts.configPath !== undefined) args.push('--config', opts.configPath);
+  args.push(opts.prompt);
+  return args;
+}
 
 export interface RunResult {
   task_id: string;
@@ -122,7 +140,7 @@ async function removeRepoDir(repoDir: string): Promise<void> {
   throw new Error(`Failed to remove repo dir after retries: ${repoDir}: ${lastError?.message}`);
 }
 
-export async function runTask(task: Task, profile: string, runIndex: number): Promise<RunResult> {
+export async function runTask(task: Task, profile: Profile, runIndex: number): Promise<RunResult> {
   const repoDir = join(__dirname, '..', task.repository);
   const startTime = Date.now();
 
@@ -136,15 +154,21 @@ export async function runTask(task: Task, profile: string, runIndex: number): Pr
   // Build step-pilot command
   const cmd = getStepPilotCommand();
   const prompt = (task as any).prompt ?? task.description ?? '';
-  const args = [
-    '-p',
-    '--output-format', 'stream-json',
-    '--yolo',
-    '-C', repoDir,
-    prompt,
-  ];
-
-  const { stdout, stderr, exitCode } = await runStepPilot(cmd, args, join(__dirname, '..'), (task.timeout ?? 120) * 1000);
+  // profile 的 config 覆盖必须真正到达 agent：写一份临时 config.toml 并用 --config 传入。
+  // 少了这一步，ablation 与 full 的行为完全一致，「关掉 harness 没差别」会是错误结论。
+  const configPath = writeProfileConfig(profile);
+  let stdout = '';
+  let stderr = '';
+  let exitCode = 0;
+  try {
+    const args = buildStepPilotArgs({ repoDir, prompt, configPath });
+    const res = await runStepPilot(cmd, args, join(__dirname, '..'), (task.timeout ?? 120) * 1000);
+    stdout = res.stdout;
+    stderr = res.stderr;
+    exitCode = res.exitCode;
+  } finally {
+    removeProfileConfig(configPath);
+  }
 
   // Allow any lingering child-process handles to release on Windows before
   // verification/cleanup. This does not delay non-Windows platforms.
@@ -219,7 +243,7 @@ export async function runTask(task: Task, profile: string, runIndex: number): Pr
   const result = {
     task_id: task.id,
     category: task.category,
-    profile,
+    profile: profile.id,
     model: 'step-3.7-flash',
     provider: 'stepfun',
     step_pilot_commit: getGitCommit(),

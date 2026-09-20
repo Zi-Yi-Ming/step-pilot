@@ -1,14 +1,16 @@
 id: ablation
 name: "step-pilot ablation"
-description: "关闭 reliability 优化"
+description: "关闭 reliability 优化（仅含当前真实可配的项）"
 config:
   compaction:
+    # 推迟压缩：从 75% 推到 95%，近似「不提前压缩」
     trigger_ratio: 0.95
     reserved_tokens: 1000
+    # 用户消息保真预算从 20K 压到 5K
     user_message_max_tokens: 5000
-  tools:
-    preprocess: false
-  retry:
-    auto_disable: false
-  prompt:
-    trimmed: false
+
+# 说明：原文件还含 tools.preprocess / retry.auto_disable / prompt.trimmed 三个键，
+# 但 src/config/config.ts 从未读取它们——写进 config.toml 也是静默无效。
+# 已移除，而不是留着假装关掉了。若要真的关掉这些特性，需先在 config.ts 增加对应字段，
+# 再把键加进 benchmark/profileConfig.ts 的 KNOWN_PROFILE_KEYS；在那之前，
+# 本 profile 的覆盖范围就只有 compaction 三项。
