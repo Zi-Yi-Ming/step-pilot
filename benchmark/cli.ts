@@ -3,11 +3,12 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Task, Profile } from './types.js';
+import type { RunResult, Task, Profile } from './types.js';
 import { runTask } from './runner.js';
 import { buildReport, renderMarkdown, writeReport } from './reporter.js';
 import { buildDashboard, badgeUrl, loadRunFiles, renderDashboardMd } from './dashboard.js';
 import { renderRcr, runFaultBenchmark } from './faultInjection.js';
+import { computeAblation, renderAblation } from './ablationReport.js';
 import { parseValue, parseYamlProfile } from './profileConfig.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -57,6 +58,9 @@ async function main() {
     case 'rcr':
       await runRcr();
       break;
+    case 'ablation':
+      await runAblation(args);
+      break;
     case '--help':
     case 'help':
       usage();
@@ -87,8 +91,52 @@ async function runRcr(): Promise<void> {
   }
 }
 
-async function listTasks() {
-  const tasksDir = join(__dirname, 'tasks');
+/**
+ * P0-D 配套：读两个 profile 的跑批结果，输出 Δ 指标（harness 的边际贡献）。
+ *
+ * 用法：`pnpm benchmark ablation [--full <path>] [--ablation <path>]`
+ * 缺省取 results/ 下最新的两个单 profile 结果文件。
+ */
+async function runAblation(args: string[]): Promise<void> {
+  const flag = (name: string): string | undefined => {
+    const i = args.indexOf(name);
+    return i >= 0 ? args[i + 1] : undefined;
+  };
+
+  const pick = (explicit: string | undefined, profileId: string): string => {
+    if (explicit !== undefined) return explicit;
+    const dir = join(__dirname, 'results');
+    const candidates = existsSync(dir)
+      ? readdirSync(dir)
+          .filter((f) => f.startsWith(`ablation-`) && f.endsWith('.json'))
+          .map((f) => ({ f, p: join(dir, f) }))
+      : [];
+    // 只认单 profile 的结果文件（profiles 数组长度为 1 且 id 匹配）
+    for (const { f, p } of candidates.reverse()) {
+      try {
+        const j = JSON.parse(readFileSync(p, 'utf8')) as { profiles?: string[] };
+        if (j.profiles?.length === 1 && j.profiles[0] === profileId) return p;
+      } catch {
+        // 跳过读不出来的文件
+      }
+    }
+    console.error(`找不到 profile=${profileId} 的结果文件，请用 --${profileId} <path> 显式指定`);
+    process.exit(1);
+  };
+
+  const fullPath = pick(flag('--full'), 'full');
+  const ablationPath = pick(flag('--ablation'), 'ablation');
+
+  const read = (p: string): RunResult[] => {
+    const j = JSON.parse(readFileSync(p, 'utf8')) as { results: RunResult[] };
+    return j.results;
+  };
+
+  console.log(renderAblation(computeAblation(read(fullPath), read(ablationPath))));
+  console.log(`\n(数据来源：full=${fullPath}  ablation=${ablationPath})`);
+}
+
+async function listTasks() {  const tasksDir = join(__dirname, 'tasks');
   if (!existsSync(tasksDir)) {
     console.error('Tasks directory not found');
     process.exit(1);
