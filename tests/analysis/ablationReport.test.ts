@@ -72,6 +72,22 @@ describe('computeArm：分母纪律', () => {
     expect(arm.avgTurns).toBe(0);
   });
 
+  it('harness_error 字段缺失时按「模型失败」处理，不静默剔出分母', () => {
+    // 反向污染同样危险：某条代码路径忘了写 harness_error，run 就会被悄悄
+    // 排除出分母，让成功率虚高。显式判空让缺失落回失败侧，逼 runner 总写上。
+    const arm = computeArm([
+      run({ success: false }) as RunResult,
+      { ...run({ success: true }), harness_error: undefined } as unknown as RunResult,
+    ]);
+    expect(arm.harnessErrorRuns).toBe(0);
+    expect(arm.scoredRuns).toBe(2);
+  });
+
+  it('harness_error 是空字符串时也不算环境故障', () => {
+    const arm = computeArm([{ ...run({}), harness_error: '' } as unknown as RunResult]);
+    expect(arm.harnessErrorRuns).toBe(0);
+  });
+
   it('均值只统计计入分母的 run', () => {
     const arm = computeArm([run({ turns: 10 }), run({ turns: 20, harness_error: 'broken' })]);
     expect(arm.avgTurns).toBe(10); // 不是 15

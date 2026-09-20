@@ -10,6 +10,7 @@ import { buildDashboard, badgeUrl, loadRunFiles, renderDashboardMd } from './das
 import { renderRcr, runFaultBenchmark } from './faultInjection.js';
 import { computeAblation, renderAblation } from './ablationReport.js';
 import { assertFreshBuild } from './buildFreshness.js';
+import { buildErrorResult } from './runner.js';
 import { parseValue, parseYamlProfile } from './profileConfig.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -137,7 +138,8 @@ async function runAblation(args: string[]): Promise<void> {
   console.log(`\n(数据来源：full=${fullPath}  ablation=${ablationPath})`);
 }
 
-async function listTasks() {  const tasksDir = join(__dirname, 'tasks');
+async function listTasks() {
+  const tasksDir = join(__dirname, 'tasks');
   if (!existsSync(tasksDir)) {
     console.error('Tasks directory not found');
     process.exit(1);
@@ -191,30 +193,8 @@ async function runBenchmark(args: string[]) {
         console.log(`    ${result.success ? '✓' : '✗'} ${result.duration_ms}ms, ${result.turns} turns, ${result.tool_calls} tools`);
       } catch (err) {
         console.error(`    ✗ Error: ${err}`);
-        results.push({
-          task_id: task.id,
-          category: task.category,
-          profile,
-          model: 'step-3.7-flash',
-          provider: 'stepfun',
-          step_pilot_commit: getGitCommit(),
-          run_index: run,
-          success: false,
-          duration_ms: 0,
-          turns: 0,
-          tool_calls: 0,
-          tool_errors: 0,
-          retries: 0,
-          compactions: 0,
-          input_tokens: 0,
-          output_tokens: 0,
-          total_tokens: 0,
-          stop_reason: null,
-          failure_reason: err instanceof Error ? err.message : String(err),
-          checks_passed: 0,
-          checks_failed: 0,
-          events: [],
-        });
+        results.push(buildErrorResult(task, profile, run, err));
+      }
       }
     }
   }

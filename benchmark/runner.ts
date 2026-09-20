@@ -135,9 +135,60 @@ async function removeRepoDir(repoDir: string): Promise<void> {
     }
   }
 
-  // If all retries fail, surface the error so the caller knows the workspace
-  // may be polluted for the next run.
-  throw new Error(`Failed to remove repo dir after retries: ${repoDir}: ${lastError?.message}`);
+  // If all retries fail, do NOT throw. Two reasons:
+  // 1. setup.sh already cleans the repo *contents* without removing the directory
+  //    (its comment says "avoid Windows file locks"), so the removal here is
+  //    belt-and-braces. Failing on it kills runs that would otherwise be fine.
+  // 2. Throwing routes the run into the CLI catch block, which used to record it
+  //    as a plain failure. That is how 10 runs of the easiest task showed up as
+  //    0/10 while the real cause was a locked directory on Windows.
+  // Warn loudly instead: the operator needs to know the workspace may be dirty.
+  process.stderr.write(
+    `[benchmark] warning: could not remove ${repoDir} after ${maxAttempts} attempts ` +
+      `(${lastError?.message ?? 'unknown'}). Continuing; setup.sh cleans the contents.\n`,
+  );
+}
+
+/**
+ * run 抛错时的兜底结果。
+ *
+ * 走到这里意味着 agent 在启动前后就失败了（仓库清理 EBUSY、setup 失败…），
+ * 模型根本没有机会干活。**必须标成 `harness_error`**，否则它会被当成
+ * 「模型失败」计进成功率分母——那正是本项目明令分开的两件事。
+ *
+ * 实测踩过：Windows 上 `rmdir` EBUSY 让最简单的任务 10 个 run 全走这条路径，
+ * 报告显示 0/10，而真正原因是环境锁目录。分母被悄悄污染，比没有数据更坏。
+ *
+ * 抽成导出函数是为了可测：这个分类一旦回归，只会以「某任务成功率莫名低」的形式出现。
+ */
+export function buildErrorResult(task: Task, profile: string, runIndex: number, err: unknown): RunResult {
+  const message = err instanceof Error ? err.message : String(err);
+  return {
+    task_id: task.id,
+    category: task.category,
+    profile,
+    model: 'step-3.7-flash',
+    provider: 'stepfun',
+    step_pilot_commit: getGitCommit(),
+    run_index: runIndex,
+    success: false,
+    duration_ms: 0,
+    turns: 0,
+    tool_calls: 0,
+    tool_errors: 0,
+    retries: 0,
+    compactions: 0,
+    input_tokens: 0,
+    output_tokens: 0,
+    total_tokens: 0,
+    stop_reason: null,
+    failure_reason: message,
+    checks_passed: 0,
+    checks_failed: 0,
+    harness_error: message,
+    verification_skipped: true,
+    events: [],
+  };
 }
 
 export async function runTask(task: Task, profile: Profile, runIndex: number): Promise<RunResult> {

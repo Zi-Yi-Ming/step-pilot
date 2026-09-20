@@ -76,8 +76,14 @@ function mean(xs: readonly number[]): number {
 
 /** 纯函数：一组 run → 一条臂的统计。 */
 export function computeArm(results: readonly RunResult[]): ArmStats {
-  const harnessErrorRuns = results.filter((r) => r.harness_error !== null).length;
-  const scored = results.filter((r) => r.harness_error === null);
+  // 只认「显式写成的 harness_error 字符串」。
+  // 不用 `r.harness_error !== null`：字段缺失时 undefined !== null 为真，
+  // 会让忘记写这个字段的代码路径把 run 静默剔出分母——那是与「静默计入」
+  // 方向相反、同样危险的反向污染。宁可显式判空，让缺失落回「模型失败」侧，
+  // 再由 runner 保证字段总被写上。
+  const isHarnessError = (r: RunResult): boolean => typeof r.harness_error === 'string' && r.harness_error !== '';
+  const harnessErrorRuns = results.filter(isHarnessError).length;
+  const scored = results.filter((r) => !isHarnessError(r));
   const successes = scored.filter((r) => r.success).length;
   const [lo, hi] = wilson(successes, scored.length);
   return {
